@@ -1,0 +1,40 @@
+:root{
+  --pt-green:#2E7D32;
+  --pt-gray-900:#222;
+  --pt-gray-700:#4b4b4b;
+}
+html, body, #root { height: 100%; }
+.leaflet-container {
+    height: 100vh;
+    width: 100vw;
+
+    /* Remove o “azul” de foco nos vetores do Leaflet */
+    .leaflet-container .leaflet-interactive:focus {
+        outline: none;
+    }
+    .leaflet-container .leaflet-interactive {
+        outline: none;
+    }
+}
+.header {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; gap: 8px; align-items: center;
+  padding: 10px 14px; background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid #eee; z-index: 1000;
+}
+.header input{
+  flex:1; padding:10px 12px; border:1px solid #ddd; border-radius:10px;
+}
+.header .btn{
+  padding:10px 12px; border:1px solid #ddd; border-radius:10px; background:white; cursor:pointer;
+}
+.badge { display:inline-block; padding:4px 8px; border-radius:999px; background:#eef7f0; color:var(--pt-green); font-size:12px; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: #fff; border-top-left-radius: 16px; border-top-right-radius: 16px;
+  box-shadow: 0 -6px 24px rgba(0,0,0,.08);
+  max-width: 720px; margin: 0 auto; padding: 14px; transform: translateY(0);
+}
+.sheet h3{ margin: 8px 0; }
+.map-pad { padding-top: 58px; } /* header height */

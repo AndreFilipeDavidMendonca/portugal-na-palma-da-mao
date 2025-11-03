@@ -1,0 +1,12 @@
+.leaflet-container .leaflet-interactive:focus {
+    outline: none !important;
+}
+.leaflet-container .leaflet-interactive {
+    outline: none !important;
+}
+
+/* Remove o highlight azul também em browsers WebKit */
+.leaflet-container path:focus,
+.leaflet-container svg:focus {
+    outline: none !important;
+}
