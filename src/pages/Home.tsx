@@ -34,19 +34,33 @@ export default function Home() {
             scrollWheelZoom
             attributionControl
             preferCanvas
-            style={{ height: '100vh', width: '100vw' }}
+            style={{ height: "100vh", width: "100vw" }}
+            whenCreated={(map) => {
+                if (!map.getPane("worldBase")) {
+                    const p = map.createPane("worldBase");
+                    p.classList.add("world-base");
+                    p.style.zIndex = "200"; // debaixo das linhas/GeoJSON
+                    p.style.pointerEvents = "none";
+                }
+                if (!map.getPane("worldLabels")) {
+                    const p = map.createPane("worldLabels");
+                    p.classList.add("world-labels");
+                    p.style.zIndex = "210";
+                    p.style.pointerEvents = "none";
+                }
+            }}
         >
-            {/* World base (grey with labels) */}
+            {/* Mundo MUITO leve, sem labels */}
             <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
+                pane="worldBase"
+                url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+                attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             />
-
-            {/* (Optional) Detailed OSM everywhere.
-          If you prefer less clutter outside PT, comment this TileLayer out. */}
+            {/* Só labels (inclui países) por cima, também suavizadas */}
             <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap contributors'
+                pane="worldLabels"
+                url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
             />
 
             {/* Portugal outline */}
