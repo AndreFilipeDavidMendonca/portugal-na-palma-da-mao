@@ -1,177 +1,178 @@
-import { MapContainer, TileLayer, GeoJSON, Pane } from "react-leaflet";
-import { useEffect, useRef, useState } from "react";
+// src/pages/Home.tsx
+import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
+import { useEffect, useRef, useState, useMemo } from "react";
+import L from "leaflet";
 import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-import DistrictModal from "@/features/map/DistrictModal";
-import {
-    featureToOverpassPoly,
-    overpassQueryToGeoJSON,
-    buildCulturalPointsQuery,
-    fetchDistrictBasemap,           // <-- NOVO
-} from "@/lib/overpass";
-import {
-    WORLD_BASE, WORLD_LABELS,
-    DEFAULT_POI_TYPES, type PoiCategory
-} from "@/utils/constants";
+import { buildCulturalPointsQuery, overpassQueryToGeoJSON } from "@/lib/overpass";
+import { WORLD_BASE, WORLD_LABELS, DEFAULT_POI_TYPES, type PoiCategory } from "@/utils/constants";
 import { getDistrictKeyFromFeature } from "@/utils/geo";
+import { filterPointsInsideDistrict } from "@/lib/spatial";
+import DistrictModal from "@/features/map/DistrictModal";
 
 type AnyGeo = any;
 
-type BasemapBundle = {
-    rivers: AnyGeo | null;
-    lakes: AnyGeo | null;
-    rail: AnyGeo | null;
-    roads: AnyGeo | null;
-    peaks: AnyGeo | null;
-    places: AnyGeo | null;
-};
-
 export default function Home() {
+    // base
     const [pt, setPt] = useState<AnyGeo>(null);
     const [distritos, setDistritos] = useState<AnyGeo>(null);
+
+    // filtros (partilhados com o modal)
+    const [selectedTypes, setSelectedTypes] = useState<Set<PoiCategory>>(new Set(DEFAULT_POI_TYPES));
+
+    // POIs do país (uma chamada)
+    const [allPoiPoints, setAllPoiPoints] = useState<AnyGeo | null>(null);
 
     // modal
     const [open, setOpen] = useState(false);
     const [activeFeature, setActiveFeature] = useState<any | null>(null);
 
-    // filtros de POIs
-    const [selectedTypes, setSelectedTypes] = useState<Set<PoiCategory>>(new Set(DEFAULT_POI_TYPES));
-
-    // POIs culturais
-    const [poiPoints, setPoiPoints] = useState<AnyGeo | null>(null);
-
-    // Basemap do distrito (rios, lagos, rail, roads, peaks, places)
-    const [basemap, setBasemap] = useState<BasemapBundle>({
-        rivers: null, lakes: null, rail: null, roads: null, peaks: null, places: null
-    });
-
-    // cache
-    const poiCache = useRef(new Map<string, AnyGeo>());
-    const baseCache = useRef(new Map<string, BasemapBundle>());
-    const lastKeyRef = useRef<string | null>(null);
+    // cache de pontos por distrito
+    const districtPointsCache = useRef(new Map<string, AnyGeo>());
 
     useEffect(() => {
         loadGeo("/geo/portugal.geojson").then(setPt);
         loadGeo("/geo/distritos.geojson").then(setDistritos).catch(() => {});
     }, []);
 
-    const onToggleType = (k: PoiCategory) => {
-        setSelectedTypes(prev => {
+    // assim que PT carregar, faz query única de pontos culturais
+    useEffect(() => {
+        if (!pt) return;
+        const poly = geoToOverpassPoly(pt);
+        if (!poly) return;
+
+        const q = buildCulturalPointsQuery(poly);
+        overpassQueryToGeoJSON(q, 2)
+            .then((gj) => setAllPoiPoints(gj))
+            .catch((e) => {
+                console.error("Overpass (país) falhou:", e);
+                setAllPoiPoints(null);
+            });
+    }, [pt]);
+
+    // centra em Portugal (mais próximo e um pouco acima)
+    function FitToPortugal({ geo }: { geo: any }) {
+        const map = useMap();
+        const hasFit = useRef(false);
+
+        useEffect(() => {
+            if (hasFit.current) return;
+
+            // 🔧 Enquadramento mais próximo:
+            // - um pouco mais para a esquerda (mais Atlântico)
+            // - menos a Este (menos Espanha)
+            // - ligeiro ganho a Norte
+            // - mantém Madeira/Açores fora da frame inicial (mas podes navegar até lá)
+            const bounds = L.latLngBounds(
+                [32.5, -26.0], // mais para sul (mostra mais mar e Madeira no limite)
+                [41.0, -5.0]   // corta um pouco o Norte, mantendo fronteira Este
+            );
+            map.fitBounds(bounds, {
+                animate: false,
+                // um hair de “zoom in” comparado ao anterior
+                paddingTopLeft: [24, 56],
+                paddingBottomRight: [24, 20],
+            });
+
+            // limites de pan um pouco folgados
+            map.setMaxBounds(bounds.pad(0.18));
+            hasFit.current = true;
+        }, [map]);
+
+        return null;
+    }
+
+    function onToggleType(k: PoiCategory) {
+        setSelectedTypes((prev) => {
             const next = new Set(prev);
             next.has(k) ? next.delete(k) : next.add(k);
             return next;
         });
-    };
-    const onClearTypes = () => setSelectedTypes(new Set());
+    }
+    function onClearTypes() {
+        setSelectedTypes(new Set());
+    }
 
-    async function openDistrict(feature: any) {
+    function openDistrict(feature: any) {
         setActiveFeature(feature);
         setOpen(true);
-
-        const key = getDistrictKeyFromFeature(feature);
-        lastKeyRef.current = key || null;
-
-        const poly = featureToOverpassPoly(feature);
-        if (!poly) return;
-
-        // — POIs (culturais) com cache
-        if (key && poiCache.current.has(key)) {
-            setPoiPoints(poiCache.current.get(key) || null);
-        } else {
-            const pointsQuery = buildCulturalPointsQuery(poly);
-            try {
-                const points = await overpassQueryToGeoJSON(pointsQuery, 2);
-                if (key) poiCache.current.set(key, points);
-                setPoiPoints(points);
-            } catch (e) {
-                console.error("Overpass (POIs):", e);
-                setPoiPoints(null);
-            }
-        }
-
-        // — Basemap (rios/lagos/rail/roads/peaks/places) com cache
-        if (key && baseCache.current.has(key)) {
-            setBasemap(baseCache.current.get(key)!);
-        } else {
-            try {
-                const data = await fetchDistrictBasemap(poly);
-                if (key) baseCache.current.set(key, data);
-                setBasemap(data);
-            } catch (e) {
-                console.error("Overpass (basemap):", e);
-                setBasemap({ rivers: null, lakes: null, rail: null, roads: null, peaks: null, places: null });
-            }
-        }
     }
 
-    function closeAndClear() {
-        setOpen(false);
-        setActiveFeature(null);
-        setPoiPoints(null);
-        setBasemap({ rivers: null, lakes: null, rail: null, roads: null, peaks: null, places: null });
-        lastKeyRef.current = null;
-    }
+    // filtra pontos do país para o distrito ativo (com cache)
+    const districtPoiPoints = useMemo(() => {
+        if (!activeFeature || !allPoiPoints) return null;
+        const key = getDistrictKeyFromFeature(activeFeature);
+        if (!key) return null;
+
+        const hit = districtPointsCache.current.get(key);
+        if (hit) return hit;
+
+        const filtered = filterPointsInsideDistrict(allPoiPoints, activeFeature);
+        districtPointsCache.current.set(key, filtered || { type: "FeatureCollection", features: [] });
+        return filtered;
+    }, [activeFeature, allPoiPoints]);
 
     return (
         <>
             <MapContainer
-                center={[39.5, -8]}
-                zoom={6}
+                center={[39.7, -8.1]} // fallback
+                zoom={1}
                 scrollWheelZoom
                 attributionControl
                 preferCanvas
                 style={{ height: "100vh", width: "100vw" }}
             >
                 <Pane name="worldBase" style={{ zIndex: 200, pointerEvents: "none" }}>
-                    <TileLayer url={WORLD_BASE}
-                               attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
+                    <TileLayer url={WORLD_BASE} attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
                 </Pane>
                 <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
                     <TileLayer url={WORLD_LABELS} attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>' />
                 </Pane>
 
-                {pt && (
-                    <GeoJSON
-                        data={pt as any}
-                        style={() => ({ color: "#2E7D32", weight: 2, fillOpacity: 0 })}
-                        interactive={false}
-                    />
-                )}
+                {pt && <FitToPortugal geo={pt} />}
 
                 {distritos && (
                     <DistrictsHoverLayer
                         data={distritos as any}
-                        onClickDistrict={(name, feature) => {
-                            console.log('click distrito:', name); // debug
-                            feature && openDistrict(feature);
-                        }}
+                        onClickDistrict={(_name, feature) => feature && openDistrict(feature)}
                     />
                 )}
             </MapContainer>
 
             <DistrictModal
                 open={open}
-                onClose={closeAndClear}
+                onClose={() => setOpen(false)}
                 districtFeature={activeFeature}
-
-                // filtros (painel direito)
                 selectedTypes={selectedTypes}
                 onToggleType={onToggleType}
                 onClearTypes={onClearTypes}
-
-                // dados (POIs culturais)
-                poiPoints={poiPoints}
-
-                // basemap do distrito (NOVO)
-                rivers={basemap.rivers}
-                lakes={basemap.lakes}
-                rail={basemap.rail}
-                roads={basemap.roads}
-                peaks={basemap.peaks}
-                places={basemap.places}
-
+                poiPoints={districtPoiPoints}
                 population={null}
             />
         </>
     );
+}
+
+/** Converte GeoJSON (Polygon/MultiPolygon/Feature/FC) em poly:"lat lon ..." para Overpass */
+function geoToOverpassPoly(geo: any): string | null {
+    const rings: number[][][] = [];
+    const pushFeature = (f: any) => {
+        const g = f.geometry || f;
+        if (!g) return;
+        if (g.type === "Polygon") {
+            if (Array.isArray(g.coordinates?.[0])) rings.push(g.coordinates[0]);
+        } else if (g.type === "MultiPolygon") {
+            for (const poly of g.coordinates || []) {
+                if (Array.isArray(poly?.[0])) rings.push(poly[0]);
+            }
+        }
+    };
+    if (geo.type === "FeatureCollection") for (const f of geo.features || []) pushFeature(f);
+    else if (geo.type === "Feature") pushFeature(geo);
+    else pushFeature(geo);
+
+    if (!rings.length) return null;
+    const parts: string[] = [];
+    for (const ring of rings) for (const [lng, lat] of ring) parts.push(`${lat} ${lng}`);
+    return `poly:"${parts.join(" ")}"`;
 }

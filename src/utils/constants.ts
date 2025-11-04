@@ -11,6 +11,9 @@ export const DISTRICT_BASE =
 export const DISTRICT_LABELS =
     "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png";
 
+export const DISTRICT_DETAIL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+
 // === Overpass ===
 export const OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
@@ -78,6 +81,8 @@ export const POI_LABELS: Record<PoiCategory, string> = {
     protected_area: "Áreas protegidas",
 };
 
+
+
 // === Estilos e z-index para camadas do mini-mapa ===
 export const COLOR_RIVER = "#1E88E5";
 export const COLOR_LAKE  = "#42A5F5";
@@ -91,3 +96,19 @@ export const Z_RAIL   = 424;
 export const Z_ROADS  = 426;
 export const Z_PEAKS  = 428;
 export const Z_PLACES = 440;
+
+// ... (mantém o que já tens)
+
+export const POI_COLORS: Record<PoiCategory, string> = {
+    castle:         "#8E24AA", // roxo
+    monument:       "#3949AB", // azul
+    memorial:       "#546E7A", // cinza azulado
+    ruins:          "#6D4C41", // castanho
+    church:         "#1E88E5", // azul médio
+    museum:         "#00897B", // teal
+    artwork:        "#F4511E", // laranja
+    viewpoint:      "#FB8C00", // âmbar
+    attraction:     "#D81B60", // magenta
+    park:           "#2E7D32", // verde
+    protected_area: "#66BB6A", // verde claro
+};

@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom"
 import App from "./App"
 import "leaflet/dist/leaflet.css"
 import "./styles/leaflet-fixes.css"
+import 'leaflet/dist/leaflet.css';
+import './styles/leaflet-fixes.css';
 import "./styles/base.css"
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
