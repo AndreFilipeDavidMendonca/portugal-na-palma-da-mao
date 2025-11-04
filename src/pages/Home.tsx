@@ -1,13 +1,13 @@
 // src/pages/Home.tsx
-import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
-import { useEffect, useRef, useState, useMemo } from "react";
+import {MapContainer, TileLayer, GeoJSON, Pane, useMap} from "react-leaflet";
+import {useEffect, useRef, useState, useMemo} from "react";
 import L from "leaflet";
-import { loadGeo } from "@/lib/geo";
+import {loadGeo} from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-import { buildCulturalPointsQuery, overpassQueryToGeoJSON } from "@/lib/overpass";
-import { WORLD_BASE, WORLD_LABELS, DEFAULT_POI_TYPES, type PoiCategory } from "@/utils/constants";
-import { getDistrictKeyFromFeature } from "@/utils/geo";
-import { filterPointsInsideDistrict } from "@/lib/spatial";
+import {buildCulturalPointsQuery, overpassQueryToGeoJSON} from "@/lib/overpass";
+import {WORLD_BASE, WORLD_LABELS, DEFAULT_POI_TYPES, type PoiCategory} from "@/utils/constants";
+import {getDistrictKeyFromFeature} from "@/utils/geo";
+import {filterPointsInsideDistrict} from "@/lib/spatial";
 import DistrictModal from "@/features/map/DistrictModal";
 
 type AnyGeo = any;
@@ -18,7 +18,7 @@ export default function Home() {
     const [distritos, setDistritos] = useState<AnyGeo>(null);
 
     // filtros (partilhados com o modal)
-    const [selectedTypes, setSelectedTypes] = useState<Set<PoiCategory>>(new Set(DEFAULT_POI_TYPES));
+    const [selectedTypes, setSelectedTypes] = useState<Set<PoiCategory>>(new Set());
 
     // POIs do país (uma chamada)
     const [allPoiPoints, setAllPoiPoints] = useState<AnyGeo | null>(null);
@@ -29,10 +29,28 @@ export default function Home() {
 
     // cache de pontos por distrito
     const districtPointsCache = useRef(new Map<string, AnyGeo>());
+    const [loadingPOIs, setLoadingPOIs] = useState(false);
+
+    useEffect(() => {
+        if (!pt) return;
+        const poly = geoToOverpassPoly(pt);
+        if (!poly) return;
+
+        const q = buildCulturalPointsQuery(poly);
+        setLoadingPOIs(true);
+        overpassQueryToGeoJSON(q, 2)
+            .then(setAllPoiPoints)
+            .catch((e) => {
+                console.error("Overpass (país) falhou:", e);
+                setAllPoiPoints(null);
+            })
+            .finally(() => setLoadingPOIs(false));
+    }, [pt]);
 
     useEffect(() => {
         loadGeo("/geo/portugal.geojson").then(setPt);
-        loadGeo("/geo/distritos.geojson").then(setDistritos).catch(() => {});
+        loadGeo("/geo/distritos.geojson").then(setDistritos).catch(() => {
+        });
     }, []);
 
     // assim que PT carregar, faz query única de pontos culturais
@@ -51,7 +69,7 @@ export default function Home() {
     }, [pt]);
 
     // centra em Portugal (mais próximo e um pouco acima)
-    function FitToPortugal({ geo }: { geo: any }) {
+    function FitToPortugal({geo}: { geo: any }) {
         const map = useMap();
         const hasFit = useRef(false);
 
@@ -89,6 +107,7 @@ export default function Home() {
             return next;
         });
     }
+
     function onClearTypes() {
         setSelectedTypes(new Set());
     }
@@ -108,7 +127,7 @@ export default function Home() {
         if (hit) return hit;
 
         const filtered = filterPointsInsideDistrict(allPoiPoints, activeFeature);
-        districtPointsCache.current.set(key, filtered || { type: "FeatureCollection", features: [] });
+        districtPointsCache.current.set(key, filtered || {type: "FeatureCollection", features: []});
         return filtered;
     }, [activeFeature, allPoiPoints]);
 
@@ -120,16 +139,18 @@ export default function Home() {
                 scrollWheelZoom
                 attributionControl
                 preferCanvas
-                style={{ height: "100vh", width: "100vw" }}
+                style={{height: "100vh", width: "100vw"}}
             >
-                <Pane name="worldBase" style={{ zIndex: 200, pointerEvents: "none" }}>
-                    <TileLayer url={WORLD_BASE} attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
+                <Pane name="worldBase" style={{zIndex: 200, pointerEvents: "none"}}>
+                    <TileLayer url={WORLD_BASE}
+                               attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'/>
                 </Pane>
-                <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                    <TileLayer url={WORLD_LABELS} attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>' />
+                <Pane name="worldLabels" style={{zIndex: 210, pointerEvents: "none"}}>
+                    <TileLayer url={WORLD_LABELS}
+                               attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'/>
                 </Pane>
 
-                {pt && <FitToPortugal geo={pt} />}
+                {pt && <FitToPortugal geo={pt}/>}
 
                 {distritos && (
                     <DistrictsHoverLayer
@@ -149,6 +170,27 @@ export default function Home() {
                 poiPoints={districtPoiPoints}
                 population={null}
             />
+
+            {loadingPOIs && (
+                <div style={{
+                    position: "fixed",
+                    right: 16, bottom: 16,
+                    background: "rgba(255,255,255,0.92)",
+                    borderRadius: 999, padding: 12,
+                    boxShadow: "0 4px 12px rgba(0,0,0,.12)", zIndex: 10000
+                }}>
+                    <div className="spinner"/>
+                    <style>{`
+                          .spinner {
+                            border: 3px solid #eee;
+                            border-top: 3px solid #2E7D32;
+                            width: 28px; height: 28px; border-radius: 50%;
+                            animation: spin .9s linear infinite;
+                          }
+                          @keyframes spin { to { transform: rotate(360deg); } }
+                        `}</style>
+                </div>
+            )}
         </>
     );
 }
