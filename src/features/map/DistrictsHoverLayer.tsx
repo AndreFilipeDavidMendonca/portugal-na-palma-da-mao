@@ -1,72 +1,51 @@
-import { GeoJSON } from 'react-leaflet'
-import type { Feature, FeatureCollection } from 'geojson'
-import { useMemo } from 'react'
+import { GeoJSON } from "react-leaflet"
+import { useMemo } from "react"
 
 type Props = {
-    data: FeatureCollection
-    color?: string
-    baseWeight?: number
-    hoverWeight?: number
-    onClickDistrict?: (name: string) => void
+  data: any
+  onClickDistrict?: (name: string, feature: any) => void
+  baseWeight?: number
+  hoverWeight?: number
 }
 
 export default function DistrictsHoverLayer({
-                                                data,
-                                                color = '#2E7D32',       // verde ecológico
-                                                baseWeight = 1.2,         // espessura normal dos limites
-                                                hoverWeight = 3,          // espessura em hover
-                                                onClickDistrict
-                                            }: Props) {
-    const baseStyle = useMemo(() => ({
-        color,
-        weight: baseWeight,
-        opacity: 1,
-        fillOpacity: 0,
-        smoothFactor: 2,
-    }), [color, baseWeight])
+  data,
+  onClickDistrict,
+  baseWeight = 1.2,
+  hoverWeight = 3
+}: Props) {
 
-    const hoverStyle = useMemo(() => ({
-        color,
-        weight: hoverWeight,
-        opacity: 1,
-        fillOpacity: 0.05,
-    }), [color, hoverWeight])
+  const style = useMemo(
+    () => ({
+      color: "#2E7D32",
+      weight: baseWeight,
+      fillOpacity: 0,
+      smoothFactor: 1.5
+    }),
+    [baseWeight]
+  )
 
-    return (
-        <GeoJSON
-            data={data as any}
-            style={() => baseStyle}
-            onEachFeature={(feature: Feature, layer: any) => {
-                const props = (feature.properties as any) || {}
-                const name =
-                    props.name ||
-                    props.NAME ||
-                    props.NAME_1 ||
-                    props.NL_NAME_1 ||
-                    props.NAME_EN ||
-                    ''
+  return (
+    <GeoJSON
+      data={data}
+      style={() => style}
+      onEachFeature={(feature, layer) => {
+        const name =
+          (feature.properties?.NAME_1 ||
+           feature.properties?.name ||
+           feature.properties?.gn_name) ?? "Distrito"
 
-                if (name)
-                    layer.bindTooltip(String(name), {
-                        sticky: true,
-                        direction: 'top',
-                        className: 'district-tooltip',
-                    })
-
-                layer.on('mouseover', () => {
-                    layer.setStyle(hoverStyle)
-                    layer.bringToFront?.()
-                    const el = layer.getElement?.() as HTMLElement | null
-                    if (el) el.style.cursor = 'pointer'
-                })
-                layer.on('mouseout', () => {
-                    layer.setStyle(baseStyle)
-                    const el = layer.getElement?.() as HTMLElement | null
-                    if (el) el.style.cursor = 'default'
-                })
-                if (onClickDistrict)
-                    layer.on('click', () => onClickDistrict(String(name)))
-            }}
-        />
-    )
+      layer.on({
+          click: () => {
+              const name = feature?.properties?.name || feature?.properties?.NAME_1 || "";
+              onClickDistrict?.(name, feature); // <- segundo argumento é o feature
+          }
+      });
+        layer.on("mouseover", () => (layer as any).setStyle({ weight: hoverWeight }))
+        layer.on("mouseout",  () => (layer as any).setStyle({ weight: baseWeight }))
+        layer.bindTooltip(name, { sticky: true })
+        layer.on("click", () => onClickDistrict?.(name, feature))
+      }}
+    />
+  )
 }

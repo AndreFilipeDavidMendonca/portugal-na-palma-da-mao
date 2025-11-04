@@ -1,6 +1,5 @@
-
-export async function loadGeo(url: string){
-  const res = await fetch(url)
-  if(!res.ok) throw new Error('Falha a carregar ' + url)
-  return res.json()
+export async function loadGeo(path: string) {
+  const r = await fetch(path)
+  if (!r.ok) throw new Error(`Failed to load ${path}`)
+  return r.json()
 }

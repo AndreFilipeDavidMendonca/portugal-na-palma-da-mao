@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">
-  <rect width="100%" height="100%" fill="#f4f4f4"/>
-  <rect x="20" y="20" width="600" height="320" fill="#e0e0e0" stroke="#bbb"/>
-  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Arial" font-size="28" fill="#333">Castelo de São Jorge — Lisboa</text>
-  <text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Arial" font-size="14" fill="#666">Imagem de exemplo (substituir por fotografia real)</text>
-</svg>
