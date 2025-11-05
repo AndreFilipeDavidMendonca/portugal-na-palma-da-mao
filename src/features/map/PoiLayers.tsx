@@ -1,61 +1,106 @@
-// src/features/map/PoiLayers.tsx
-import { GeoJSON } from "react-leaflet";
+import React from "react";
+import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
-import { POI_COLORS, type PoiCategory } from "@/utils/constants";
-import { POI_ICON_URL, DEFAULT_ICON_SIZE, DEFAULT_ICON_ANCHOR } from "@/utils/icons";
+import type { PoiCategory } from "@/utils/constants";
+import { POI_COLORS, CATEGORY_COLORS } from "@/utils/constants";
+import { POI_ICON_SVG_RAW } from "@/utils/icons";
 
 type AnyGeo = any;
 
-/** Deduz a categoria a partir das tags OSM (ordem importa) */
+/** ===== Escalas ===== */
+function getIconSizeForZoom(zoom: number): number {
+    // z13 → 14px ... z17 → 22px (crescimento suave e contido)
+    const Z0 = 13, Z1 = 17;
+    const P0 = 14, P1 = 22;
+    const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
+    return Math.round(P0 + (P1 - P0) * t);
+}
+
+function getDotRadiusForZoom(zoom: number): number {
+    // z6 → 1px ... z12 → 3px
+    const Z0 = 6, Z1 = 12;
+    const R0 = 1, R1 = 3;
+    const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
+    return R0 + (R1 - R0) * t;
+}
+
+/** Hook para acompanhar o zoom atual do mapa */
+function useMapZoom(): number {
+    const map = useMap();
+    const [zoom, setZoom] = React.useState(map.getZoom());
+
+    React.useEffect(() => {
+        const onZoomEnd = () => setZoom(map.getZoom());
+        map.on("zoomend", onZoomEnd);
+
+        return () => {
+            map.off("zoomend", onZoomEnd);
+        };
+    }, [map]);
+
+    return zoom;
+}
+
+/** Ícone SVG colorido e dimensionado */
+function createPoiIcon(category: PoiCategory, sizePx: number) {
+    const color = CATEGORY_COLORS[category] || "#666";
+    const svg = POI_ICON_SVG_RAW[category];
+
+    if (!svg) {
+        // fallback: ponto simples
+        return L.divIcon({
+            html: `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;background:${color}"></span>`,
+            className: "",
+            iconSize: [sizePx, sizePx],
+            iconAnchor: [sizePx / 2, sizePx / 2],
+        });
+    }
+
+    return L.divIcon({
+        html: `
+      <div style="
+        width:${sizePx}px;height:${sizePx}px;
+        display:flex;align-items:center;justify-content:center;
+        color:${color};
+        line-height:0;
+        filter: drop-shadow(0 0 1px rgba(0,0,0,.35));
+      ">
+        <span style="display:inline-block;width:100%;height:100%;">${svg}</span>
+      </div>
+    `,
+        className: "poi-divicon",
+        iconSize: [sizePx, sizePx],
+        iconAnchor: [sizePx / 2, sizePx],
+    });
+}
+
+/** Categorias */
 export function getPoiCategory(f: any): PoiCategory | null {
     const p = f?.properties || {};
-
-    // ===== PALACE (prioridade alta para não cair como "castle") =====
-    if (p.historic === "palace") return "palace";
-    if (p.building === "palace") return "palace";
-    if (p.castle_type === "palace") return "palace";
-
-    // ===== CASTLE =====
-    if (p.historic === "castle") return "castle";
-    if (p.building === "castle") return "castle";
-    if (p.castle_type === "castle" || p.castle_type === "fortress") return "castle";
-
-    // Ruínas de castelo
+    if (p.historic === "palace" || p.building === "palace" || p.castle_type === "palace") return "palace";
+    if (p.historic === "castle" || p.building === "castle" || p.castle_type === "castle" || p.castle_type === "fortress") return "castle";
     if (p.historic === "ruins" && p.ruins === "castle") return "ruins";
-
-    // ===== MONUMENT / RUINS (genéricas) =====
     if (p.historic === "monument") return "monument";
     if (p.historic === "ruins") return "ruins";
-
-    // ===== CHURCH =====
-    if (p.historic === "church") return "church";
-    if (p.amenity === "place_of_worship") return "church";
-    if (p.building === "church") return "church";
-
-    // ===== VIEWPOINT =====
+    if (p.historic === "church" || p.amenity === "place_of_worship" || p.building === "church") return "church";
     if (p.tourism === "viewpoint") return "viewpoint";
-
-    // ===== ÁREAS =====
     if (p.leisure === "park") return "park";
     if (p.boundary === "protected_area") return "protected_area";
-
     return null;
 }
 
-/** Filtra a FeatureCollection pelos tipos seleccionados */
+/** Filtro por tipos */
 export function filterFeaturesByTypes(geo: AnyGeo | null, selected: Set<PoiCategory>) {
     if (!geo) return null;
     if (!geo.features) return geo;
-
     const feats = geo.features.filter((f: any) => {
         const k = getPoiCategory(f);
         return k ? selected.has(k) : false;
     });
-
     return { type: "FeatureCollection", features: feats };
 }
 
-/** Camada de pontos culturais com ícones (fallback: círculo colorido) */
+/** Camada principal */
 export function PoiPointsLayer({
                                    data,
                                    selectedTypes,
@@ -63,7 +108,12 @@ export function PoiPointsLayer({
     data: AnyGeo;
     selectedTypes: Set<PoiCategory>;
 }) {
-    const key = Array.from(selectedTypes).sort().join(",");
+    const zoom = useMapZoom();
+    const showSvg = zoom >= 13; // 👈 ícones só a partir do zoom 13
+    const iconSize = getIconSizeForZoom(zoom);
+    const dotRadius = getDotRadiusForZoom(zoom);
+
+    const key = `${Array.from(selectedTypes).sort().join(",")}|mode:${showSvg ? "svg" : "dots"}|z:${zoom}`;
 
     return (
         <GeoJSON
@@ -76,22 +126,31 @@ export function PoiPointsLayer({
             pointToLayer={(feature: any, latlng: LatLngExpression) => {
                 const cat = getPoiCategory(feature);
 
-                if (cat && POI_ICON_URL[cat]) {
-                    const icon = L.icon({
-                        iconUrl: POI_ICON_URL[cat],
-                        iconSize: DEFAULT_ICON_SIZE,
-                        iconAnchor: DEFAULT_ICON_ANCHOR,
+                if (!showSvg) {
+                    // ——— modo pontos (zoom < 13)
+                    const color = (cat && POI_COLORS[cat]) || "#455A64";
+                    return L.circleMarker(latlng, {
+                        radius: dotRadius,
+                        weight: 0.6,
+                        color,
+                        fillColor: color,
+                        fillOpacity: 0.7,
                     });
+                }
+
+                // ——— modo ícones SVG (zoom ≥ 13)
+                if (cat) {
+                    const icon = createPoiIcon(cat, iconSize);
                     return L.marker(latlng, { icon });
                 }
 
-                const color = (cat && POI_COLORS[cat]) || "#455A64";
+                // fallback
                 return L.circleMarker(latlng, {
-                    radius: 6,
-                    weight: 1.25,
-                    color,
-                    fillColor: color,
-                    fillOpacity: 0.9,
+                    radius: dotRadius,
+                    weight: 0.6,
+                    color: "#455A64",
+                    fillColor: "#455A64",
+                    fillOpacity: 0.7,
                 });
             }}
             onEachFeature={(feature, layer) => {

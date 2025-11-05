@@ -17,6 +17,17 @@ export const OVERPASS_ENDPOINTS = [
     "https://z.overpass-api.de/api/interpreter",
 ] as const;
 
+export const CATEGORY_COLORS: Record<PoiCategory, string> = {
+    castle: "#8E24AA",
+    palace: "#C2185B",
+    monument: "#3949AB",
+    ruins: "#6D4C41",
+    church: "#1E88E5",
+    viewpoint: "#FB8C00",
+    park: "#2E7D32",
+    protected_area: "#66BB6A",
+};
+
 // === Categorias de POI ===
 export type PoiCategory =
     | "castle"
