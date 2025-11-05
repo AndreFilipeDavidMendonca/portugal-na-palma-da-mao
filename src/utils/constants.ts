@@ -22,7 +22,7 @@ export const CATEGORY_COLORS: Record<PoiCategory, string> = {
     palace: "#501c61",
     monument: "#24338e",
     ruins: "#51362c",
-    church: "#acc4dc",
+    church: "#3890dc",
     viewpoint: "#1e4c13",
     park: "#2E7D32",
     protected_area: "#66BB6A",
@@ -53,11 +53,11 @@ export const POI_LABELS: Record<PoiCategory, string> = {
 
 // === Cores ===
 export const POI_COLORS: Record<PoiCategory, string> = {
-    castle: "#7e113b",
+    castle: "#7e1616",
     palace: "#501c61",
     monument: "#24338e",
-    ruins: "#634539",
-    church: "#acc4dc",
+    ruins: "#51362c",
+    church: "#3890dc",
     viewpoint: "#1e4c13",
     park: "#2E7D32",
     protected_area: "#66BB6A",

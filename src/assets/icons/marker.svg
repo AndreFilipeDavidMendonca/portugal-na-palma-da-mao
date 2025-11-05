@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
+    <!-- Corpo do pin — será colorido via código -->
+    <path
+            d="M12 22C16 18 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 8 18 12 22Z"
+            fill="currentColor"
+            stroke="#000"
+            stroke-width="0.5"
+    />
+
+    <!-- Círculo interior branco fixo -->
+    <circle
+            cx="12"
+            cy="10"
+            r="2.5"
+            fill="#fff"
+            stroke="#000"
+            stroke-width="0.5"
+    />
+</svg>

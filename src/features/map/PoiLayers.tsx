@@ -2,26 +2,29 @@ import React from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
 import type { PoiCategory } from "@/utils/constants";
-import { POI_COLORS, CATEGORY_COLORS } from "@/utils/constants";
+import { CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
+import markerSvgRaw from "@/assets/icons/marker.svg?raw";
 
 type AnyGeo = any;
 
 /** ===== Escalas ===== */
 function getIconSizeForZoom(zoom: number): number {
-    // z13 → 14px ... z17 → 22px (crescimento suave e contido)
-    const Z0 = 13, Z1 = 17;
-    const P0 = 14, P1 = 22;
+    // Ícones SVG (categorias) — crescimento contido
+    // z10 → 14px ... z19 → 24px
+    const Z0 = 10, Z1 = 19;
+    const P0 = 14, P1 = 24;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
 
-function getDotRadiusForZoom(zoom: number): number {
-    // z6 → 1px ... z12 → 3px
-    const Z0 = 6, Z1 = 12;
-    const R0 = 1, R1 = 3;
+function getPinSizeForZoom(zoom: number): number {
+    // Marker genérico (marker.svg) para zooms baixos
+    // z7 → 6px ... z10 → 12px
+    const Z0 = 7, Z1 = 10;
+    const P0 = 6, P1 = 12;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
-    return R0 + (R1 - R0) * t;
+    return Math.round(P0 + (P1 - P0) * t);
 }
 
 /** Hook para acompanhar o zoom atual do mapa */
@@ -30,15 +33,35 @@ function useMapZoom(): number {
     const [zoom, setZoom] = React.useState(map.getZoom());
 
     React.useEffect(() => {
-        const onZoomEnd = () => setZoom(map.getZoom());
-        map.on("zoomend", onZoomEnd);
-
+        const handleZoom = () => setZoom(map.getZoom());
+        map.on("zoomend", handleZoom);
         return () => {
-            map.off("zoomend", onZoomEnd);
+            map.off("zoomend", handleZoom);
         };
     }, [map]);
 
     return zoom;
+}
+function createLowZoomMarker(category: PoiCategory, sizePx: number) {
+    const color = CATEGORY_COLORS[category] || "#777";
+
+    const html = `
+    <div style="
+      width:${sizePx}px; height:${sizePx}px;
+      display:flex; align-items:center; justify-content:center;
+      line-height:0; color:${color};
+      filter: drop-shadow(0 0 1px rgba(0,0,0,.35));
+    ">
+      <span style="display:inline-block;width:100%;height:100%;">${markerSvgRaw}</span>
+    </div>
+  `;
+
+    return L.divIcon({
+        html,
+        className: "poi-pin",
+        iconSize: [sizePx, sizePx],
+        iconAnchor: [sizePx / 2, sizePx],
+    });
 }
 
 /** Ícone SVG colorido e dimensionado */
@@ -47,12 +70,11 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
     const svg = POI_ICON_SVG_RAW[category];
 
     if (!svg) {
-        // fallback: ponto simples
         return L.divIcon({
             html: `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;background:${color}"></span>`,
             className: "",
             iconSize: [sizePx, sizePx],
-            iconAnchor: [sizePx / 2, sizePx / 2],
+            iconAnchor: [sizePx / 2, sizePx],
         });
     }
 
@@ -61,8 +83,7 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
       <div style="
         width:${sizePx}px;height:${sizePx}px;
         display:flex;align-items:center;justify-content:center;
-        color:${color};
-        line-height:0;
+        color:${color};line-height:0;
         filter: drop-shadow(0 0 1px rgba(0,0,0,.35));
       ">
         <span style="display:inline-block;width:100%;height:100%;">${svg}</span>
@@ -73,6 +94,7 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
         iconAnchor: [sizePx / 2, sizePx],
     });
 }
+
 
 /** Categorias */
 export function getPoiCategory(f: any): PoiCategory | null {
@@ -109,11 +131,11 @@ export function PoiPointsLayer({
     selectedTypes: Set<PoiCategory>;
 }) {
     const zoom = useMapZoom();
-    const showSvg = zoom >= 12; // 👈 ícones só a partir do zoom 13
+    const showSvg = zoom >= 13;
     const iconSize = getIconSizeForZoom(zoom);
-    const dotRadius = getDotRadiusForZoom(zoom);
+    const pinSize  = getPinSizeForZoom(zoom);
 
-    const key = `${Array.from(selectedTypes).sort().join(",")}|mode:${showSvg ? "svg" : "dots"}|z:${zoom}`;
+    const key = `${Array.from(selectedTypes).sort().join(",")}|mode:${showSvg ? "svg" : "pin"}|z:${zoom}`;
 
     return (
         <GeoJSON
@@ -127,18 +149,12 @@ export function PoiPointsLayer({
                 const cat = getPoiCategory(feature);
 
                 if (!showSvg) {
-                    // ——— modo pontos (zoom < 13)
-                    const color = (cat && POI_COLORS[cat]) || "#455A64";
-                    return L.circleMarker(latlng, {
-                        radius: dotRadius,
-                        weight: 0.6,
-                        color,
-                        fillColor: color,
-                        fillOpacity: 0.7,
-                    });
+                    // —— zoom baixo: usar marker.svg pintado
+                    const icon = createLowZoomMarker(cat || "castle", pinSize);
+                    return L.marker(latlng, { icon });
                 }
 
-                // ——— modo ícones SVG (zoom ≥ 13)
+                // —— zoom alto: usar SVG da categoria
                 if (cat) {
                     const icon = createPoiIcon(cat, iconSize);
                     return L.marker(latlng, { icon });
@@ -146,10 +162,10 @@ export function PoiPointsLayer({
 
                 // fallback
                 return L.circleMarker(latlng, {
-                    radius: dotRadius,
+                    radius: 2,
                     weight: 0.6,
-                    color: "#455A64",
-                    fillColor: "#455A64",
+                    color: "#555",
+                    fillColor: "#555",
                     fillOpacity: 0.7,
                 });
             }}
