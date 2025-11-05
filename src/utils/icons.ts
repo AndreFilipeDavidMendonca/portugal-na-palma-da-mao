@@ -8,7 +8,6 @@ import monumentSvgRaw  from "@/assets/icons/monument.svg?raw";
 import ruinsSvgRaw     from "@/assets/icons/ruins.svg?raw";
 import churchSvgRaw    from "@/assets/icons/church.svg?raw";
 import viewpointSvgRaw from "@/assets/icons/viewpoint.svg?raw";
-import markerSvgRaw from "@/assets/icons/marker.svg?raw";
 
 // Garante que tudo pinta a partir de currentColor (remove fills rígidos)
 function normalizeSvg(svg: string) {

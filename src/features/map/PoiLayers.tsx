@@ -96,18 +96,56 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
 }
 
 
-/** Categorias */
+function tag(p: any, key: string) {
+    // tenta properties[key] e depois properties.tags[key]
+    return p?.[key] ?? p?.tags?.[key] ?? null;
+}
+
+function getName(p: any) {
+    const tags = p?.tags ?? {};
+    return p?.["name:pt"] || p?.name || tags["name:pt"] || tags.name || null;
+}
+
+// ————— categorias com fallback para properties.tags.* —————
 export function getPoiCategory(f: any): PoiCategory | null {
     const p = f?.properties || {};
-    if (p.historic === "palace" || p.building === "palace" || p.castle_type === "palace") return "palace";
-    if (p.historic === "castle" || p.building === "castle" || p.castle_type === "castle" || p.castle_type === "fortress") return "castle";
-    if (p.historic === "ruins" && p.ruins === "castle") return "ruins";
-    if (p.historic === "monument") return "monument";
-    if (p.historic === "ruins") return "ruins";
-    if (p.historic === "church" || p.amenity === "place_of_worship" || p.building === "church") return "church";
-    if (p.tourism === "viewpoint") return "viewpoint";
-    if (p.leisure === "park") return "park";
-    if (p.boundary === "protected_area") return "protected_area";
+
+    const historic    = tag(p, "historic");
+    const building    = tag(p, "building");
+    const castle_type = tag(p, "castle_type");
+    const ruins       = tag(p, "ruins");
+    const amenity     = tag(p, "amenity");
+    const tourism     = tag(p, "tourism");
+    const leisure     = tag(p, "leisure");
+    const boundary    = tag(p, "boundary");
+
+    // PALACE (dar prioridade para não cair em castle)
+    if (historic === "palace" || building === "palace" || castle_type === "palace")
+        return "palace";
+
+    // CASTLE / FORTRESS
+    if (historic === "castle" || building === "castle" ||
+        castle_type === "castle" || castle_type === "fortress")
+        return "castle";
+
+    // RUINS de castelo
+    if (historic === "ruins" && ruins === "castle") return "ruins";
+
+    // MONUMENT / RUINS (genéricas)
+    if (historic === "monument") return "monument";
+    if (historic === "ruins")    return "ruins";
+
+    // CHURCH (várias formas)
+    if (historic === "church" || amenity === "place_of_worship" || building === "church")
+        return "church";
+
+    // VIEWPOINT
+    if (tourism === "viewpoint") return "viewpoint";
+
+    // ÁREAS
+    if (leisure === "park")            return "park";
+    if (boundary === "protected_area") return "protected_area";
+
     return null;
 }
 
@@ -131,7 +169,7 @@ export function PoiPointsLayer({
     selectedTypes: Set<PoiCategory>;
 }) {
     const zoom = useMapZoom();
-    const showSvg = zoom >= 13;
+    const showSvg = zoom >= 14;
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize  = getPinSizeForZoom(zoom);
 
@@ -171,11 +209,10 @@ export function PoiPointsLayer({
             }}
             onEachFeature={(feature, layer) => {
                 const p = (feature as any).properties || {};
-                const name = p["name:pt"] || p.name || "Sem nome";
-                const cat = getPoiCategory(feature);
-                const catLabel = cat ? cat : "";
+                const name = getName(p) || "Sem nome";
+                const cat  = getPoiCategory(feature) ?? "";
                 layer.bindTooltip(
-                    `<strong>${name}</strong>${catLabel ? `<div>${catLabel}</div>` : ""}`,
+                    `<strong>${name}</strong>${cat ? `<div>${cat}</div>` : ""}`,
                     { direction: "top", offset: L.point(0, -10), sticky: true }
                 );
             }}

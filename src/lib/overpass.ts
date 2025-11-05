@@ -19,6 +19,45 @@ type CacheEntry = {
 const CACHE_KEY_PREFIX = "ovps-cache:";
 const DEFAULT_TTL_MS = 1000 * 60 * 60 * 24 * 3; // 3 dias
 
+// --- limpeza periódica do cache local ---
+const LAST_CLEANUP_KEY = "ovps-cache:lastCleanup";
+const CLEANUP_INTERVAL_MS = 1000 * 60 * 60 * 24 * 3; // 3 dias
+
+function runCacheCleanup(ttlMs = DEFAULT_TTL_MS) {
+    try {
+        const lastStr = localStorage.getItem(LAST_CLEANUP_KEY);
+        const last = lastStr ? Number(lastStr) : 0;
+        const now = Date.now();
+
+        // Só corre se passaram 3 dias desde a última limpeza
+        if (now - last < CLEANUP_INTERVAL_MS) return;
+
+        const toDelete: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith(CACHE_KEY_PREFIX)) continue;
+
+            const raw = localStorage.getItem(k);
+            if (!raw) { toDelete.push(k); continue; }
+
+            try {
+                const entry = JSON.parse(raw) as { savedAt?: number };
+                // remove se estiver expirado ou mal-formado
+                if (!entry?.savedAt || now - entry.savedAt > ttlMs) {
+                    toDelete.push(k);
+                }
+            } catch {
+                toDelete.push(k);
+            }
+        }
+
+        toDelete.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem(LAST_CLEANUP_KEY, String(now));
+    } catch {
+        console.log("Overpass: erro ao limpar cache local");
+    }
+}
+
 /* ------------------------- util cache localStorage ------------------------ */
 function hashQuery(q: string) {
     let h = 0;
@@ -130,6 +169,7 @@ async function fetchOverpassOnce(endpoint: string, query: string, signal?: Abort
     const json = await res.json();
     // osmtogeojson já calcula bbox e center quando possível
     const gj = osmtogeojson(json);
+    console.log("Overpass: ", gj);
     const deduped = dedupeByOsmId(gj);
     return normalizeToPoints(deduped);
 }
@@ -144,7 +184,7 @@ export async function overpassQueryToGeoJSON(
     // cache
     const cached = loadCache(query, ttlMs);
     if (cached) return cached;
-
+    console.log("Overpass: ", cached);
     for (const ep of OVERPASS_ENDPOINTS) {
         let attempt = 0;
         while (attempt <= maxRetriesPerEndpoint) {
@@ -213,3 +253,6 @@ export function buildCulturalPointsQuery(poly: string) {
 out center tags qt;
 `;
 }
+
+// Clean Local Storage on page load when passed more than 3 days
+runCacheCleanup();
