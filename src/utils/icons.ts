@@ -1,4 +1,3 @@
-// src/utils/icons.ts
 import type { PoiCategory } from "@/utils/constants";
 
 // Importa SVGs (Vite devolve URLs finais prontas para <img> ou Leaflet L.icon)
