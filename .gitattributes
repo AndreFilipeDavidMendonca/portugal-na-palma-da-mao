@@ -1,4 +1,7 @@
+# Ficheiros grandes de dados (GeoJSON e Shapefiles)
 *.geojson filter=lfs diff=lfs merge=lfs -text
-*.shp filter=lfs diff=lfs merge=lfs -text
-public/geo/*.geojson filter=lfs diff=lfs merge=lfs -text
-data/*.shp filter=lfs diff=lfs merge=lfs -text
+*.shp      filter=lfs diff=lfs merge=lfs -text
+
+# (opcional) se quiseres garantir apenas nestas pastas
+public/geo/** filter=lfs diff=lfs merge=lfs -text
+data/**       filter=lfs diff=lfs merge=lfs -text
