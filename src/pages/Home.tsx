@@ -1,11 +1,10 @@
-// src/pages/Home.tsx
-import {MapContainer, TileLayer, GeoJSON, Pane, useMap} from "react-leaflet";
+import {MapContainer, TileLayer, Pane, useMap} from "react-leaflet";
 import {useEffect, useRef, useState, useMemo} from "react";
 import L from "leaflet";
 import {loadGeo} from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
 import {buildCulturalPointsQuery, overpassQueryToGeoJSON} from "@/lib/overpass";
-import {WORLD_BASE, WORLD_LABELS, DEFAULT_POI_TYPES, type PoiCategory} from "@/utils/constants";
+import {WORLD_BASE, WORLD_LABELS, type PoiCategory} from "@/utils/constants";
 import {getDistrictKeyFromFeature} from "@/utils/geo";
 import {filterPointsInsideDistrict} from "@/lib/spatial";
 import DistrictModal from "@/features/map/DistrictModal";
@@ -69,7 +68,7 @@ export default function Home() {
     }, [pt]);
 
     // centra em Portugal (mais próximo e um pouco acima)
-    function FitToPortugal({geo}: { geo: any }) {
+    function FitToPortugal() {
         const map = useMap();
         const hasFit = useRef(false);
 
@@ -150,7 +149,7 @@ export default function Home() {
                                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'/>
                 </Pane>
 
-                {pt && <FitToPortugal geo={pt}/>}
+                {pt && <FitToPortugal />}
 
                 {distritos && (
                     <DistrictsHoverLayer

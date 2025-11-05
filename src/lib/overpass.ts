@@ -104,7 +104,6 @@ function normalizeToPoints(fc: any) {
                 geometry: { type: "Point", coordinates: [lon, lat] },
                 properties: f.properties || {},
             });
-            continue;
         }
     }
 
