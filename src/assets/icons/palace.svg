@@ -1,0 +1,4 @@
+<!-- public/icons/palace.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="#AB47BC">
+    <path d="M5 21V9l3-2 3 2 3-2 3 2v12h-2v-6h-2v6h-2v-6h-2v6H5zm3-8h2V9.8L8 8.7V13zm6 0h2V8.7l-2 1.1V13zM4 21H2v-2h2v2zm18 0h-2v-2h2v2zM4 9H2V7l2-1v3zm16 0V6l2 1v2h-2zM8 7l3-2 3 2-3 2-3-2z"/>
+</svg>

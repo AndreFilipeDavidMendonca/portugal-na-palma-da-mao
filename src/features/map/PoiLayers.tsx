@@ -1,33 +1,48 @@
 // src/features/map/PoiLayers.tsx
 import { GeoJSON } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
-import { POI_COLORS, type PoiCategory, CULTURAL_NODE_TAGS } from "@/utils/constants";
+import { POI_COLORS, type PoiCategory } from "@/utils/constants";
+import { POI_ICON_URL, DEFAULT_ICON_SIZE, DEFAULT_ICON_ANCHOR } from "@/utils/icons";
 
 type AnyGeo = any;
 
-function getPoiCategory(f: any): PoiCategory | null {
+/** Deduz a categoria a partir das tags OSM (ordem importa) */
+export function getPoiCategory(f: any): PoiCategory | null {
     const p = f?.properties || {};
-    // historic
-    const h = p.historic as string | undefined;
-    if (h && ([
-        "castle","monument","memorial","ruins","church"
-    ] as PoiCategory[]).includes(h as PoiCategory)) return h as PoiCategory;
 
-    // tourism
-    const t = p.tourism as string | undefined;
-    if (t && ([
-        "museum","artwork","viewpoint","attraction"
-    ] as PoiCategory[]).includes(t as PoiCategory)) return t as PoiCategory;
+    // ===== PALACE (prioridade alta para não cair como "castle") =====
+    if (p.historic === "palace") return "palace";
+    if (p.building === "palace") return "palace";
+    if (p.castle_type === "palace") return "palace";
 
-    // áreas (caso uses este componente para áreas em vez do de áreas)
-    const leisure = p.leisure as string | undefined;
-    if (leisure === "park") return "park";
-    const boundary = p.boundary as string | undefined;
-    if (boundary === "protected_area") return "protected_area";
+    // ===== CASTLE =====
+    if (p.historic === "castle") return "castle";
+    if (p.building === "castle") return "castle";
+    if (p.castle_type === "castle" || p.castle_type === "fortress") return "castle";
+
+    // Ruínas de castelo
+    if (p.historic === "ruins" && p.ruins === "castle") return "ruins";
+
+    // ===== MONUMENT / RUINS (genéricas) =====
+    if (p.historic === "monument") return "monument";
+    if (p.historic === "ruins") return "ruins";
+
+    // ===== CHURCH =====
+    if (p.historic === "church") return "church";
+    if (p.amenity === "place_of_worship") return "church";
+    if (p.building === "church") return "church";
+
+    // ===== VIEWPOINT =====
+    if (p.tourism === "viewpoint") return "viewpoint";
+
+    // ===== ÁREAS =====
+    if (p.leisure === "park") return "park";
+    if (p.boundary === "protected_area") return "protected_area";
 
     return null;
 }
 
+/** Filtra a FeatureCollection pelos tipos seleccionados */
 export function filterFeaturesByTypes(geo: AnyGeo | null, selected: Set<PoiCategory>) {
     if (!geo) return null;
     if (!geo.features) return geo;
@@ -40,28 +55,37 @@ export function filterFeaturesByTypes(geo: AnyGeo | null, selected: Set<PoiCateg
     return { type: "FeatureCollection", features: feats };
 }
 
+/** Camada de pontos culturais com ícones (fallback: círculo colorido) */
 export function PoiPointsLayer({
                                    data,
-                                   selectedTypes
+                                   selectedTypes,
                                }: {
     data: AnyGeo;
     selectedTypes: Set<PoiCategory>;
 }) {
-    // força re-montagem quando filtros mudam (para re-aplicar filter/estilo)
     const key = Array.from(selectedTypes).sort().join(",");
 
     return (
         <GeoJSON
             key={key}
             data={data as any}
-            // inclui só se a categoria estiver selecionada
             filter={(f: any) => {
                 const cat = getPoiCategory(f);
                 return cat ? selectedTypes.has(cat) : false;
             }}
             pointToLayer={(feature: any, latlng: LatLngExpression) => {
                 const cat = getPoiCategory(feature);
-                const color = (cat && POI_COLORS[cat]) || "#D32F2F";
+
+                if (cat && POI_ICON_URL[cat]) {
+                    const icon = L.icon({
+                        iconUrl: POI_ICON_URL[cat],
+                        iconSize: DEFAULT_ICON_SIZE,
+                        iconAnchor: DEFAULT_ICON_ANCHOR,
+                    });
+                    return L.marker(latlng, { icon });
+                }
+
+                const color = (cat && POI_COLORS[cat]) || "#455A64";
                 return L.circleMarker(latlng, {
                     radius: 6,
                     weight: 1.25,
@@ -74,14 +98,17 @@ export function PoiPointsLayer({
                 const p = (feature as any).properties || {};
                 const name = p["name:pt"] || p.name || "Sem nome";
                 const cat = getPoiCategory(feature);
-                const label = cat ? cat : "";
-                layer.bindTooltip(`<strong>${name}</strong>${label ? `<div>${label}</div>` : ""}`);
+                const catLabel = cat ? cat : "";
+                layer.bindTooltip(
+                    `<strong>${name}</strong>${catLabel ? `<div>${catLabel}</div>` : ""}`,
+                    { direction: "top", offset: L.point(0, -10), sticky: true }
+                );
             }}
         />
     );
 }
 
-// (se já usas um layer próprio para áreas, mantém como estava)
+/** Áreas (parques, zonas protegidas) */
 export function PoiAreasLayer({ data }: { data: AnyGeo }) {
     return (
         <GeoJSON

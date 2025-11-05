@@ -9,9 +9,21 @@ import {
     DISTRICT_LABELS,
     POI_LABELS,
     POI_COLORS,
+    COLOR_RIVER,
+    COLOR_LAKE,
+    COLOR_RAIL,
+    COLOR_ROAD,
+    COLOR_PEAK,
+    Z_RIVERS,
+    Z_LAKES,
+    Z_RAIL,
+    Z_ROADS,
+    Z_PEAKS,
+    Z_PLACES,
+    POI_CATEGORIES,
     type PoiCategory,
 } from "@/utils/constants";
-import { PoiPointsLayer, PoiAreasLayer, filterFeaturesByTypes } from "./PoiLayers";
+import { PoiPointsLayer, PoiAreasLayer, filterFeaturesByTypes, getPoiCategory } from "./PoiLayers";
 
 type AnyGeo = any;
 
@@ -122,24 +134,17 @@ export default function DistrictModal({
         [poiPoints, selectedTypes]
     );
 
-    // Contagens por categoria
+
+
     const countsByCat = useMemo(() => {
         const counts: Record<PoiCategory, number> = {} as any;
-        Array.from(selectedTypes).forEach((k) => (counts[k] = 0));
-        if (poiPoints?.features) {
-            for (const f of poiPoints.features) {
-                const p = f?.properties || {};
-                let k: PoiCategory | null = null;
-                if (p.historic && selectedTypes.has(p.historic as PoiCategory)) {
-                    k = p.historic as PoiCategory;
-                } else if (p.tourism && selectedTypes.has(p.tourism as PoiCategory)) {
-                    k = p.tourism as PoiCategory;
-                }
-                if (k) counts[k] = (counts[k] || 0) + 1;
-            }
+        for (const f of poiPoints?.features ?? []) {
+            const cat = getPoiCategory(f);
+            if (cat) counts[cat] = (counts[cat] || 0) + 1;
         }
         return counts;
-    }, [poiPoints, selectedTypes]);
+    }, [poiPoints]);
+
 
     if (!open) return null;
 
@@ -173,7 +178,8 @@ export default function DistrictModal({
                                 attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                             />
                         </Pane>
-                        {/* Labels por cima */}
+
+                        {/* Labels por cima (opcional) */}
                         <Pane name="districtLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
                             <TileLayer
                                 url={DISTRICT_LABELS}
@@ -192,10 +198,10 @@ export default function DistrictModal({
 
                         {/* Rios */}
                         {rivers && (
-                            <Pane name="rivers" style={{ zIndex: 420 }}>
+                            <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
                                 <GeoJSON
                                     data={rivers as any}
-                                    style={{ color: "#1E88E5", weight: 1.5, opacity: 0.9 }}
+                                    style={{ color: COLOR_RIVER, weight: 1.5, opacity: 0.9 }}
                                     interactive={false}
                                 />
                             </Pane>
@@ -203,13 +209,13 @@ export default function DistrictModal({
 
                         {/* Lagos */}
                         {lakes && (
-                            <Pane name="lakes" style={{ zIndex: 422 }}>
+                            <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
                                 <GeoJSON
                                     data={lakes as any}
                                     style={{
-                                        color: "#42A5F5",
+                                        color: COLOR_LAKE,
                                         weight: 1,
-                                        fillColor: "#42A5F5",
+                                        fillColor: COLOR_LAKE,
                                         fillOpacity: 0.3,
                                         opacity: 0.9,
                                     }}
@@ -220,10 +226,10 @@ export default function DistrictModal({
 
                         {/* Ferrovias */}
                         {rails && (
-                            <Pane name="rails" style={{ zIndex: 424 }}>
+                            <Pane name="rails" style={{ zIndex: Z_RAIL }}>
                                 <GeoJSON
                                     data={rails as any}
-                                    style={{ color: "#616161", weight: 1, dashArray: "4,3", opacity: 0.9 }}
+                                    style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }}
                                     interactive={false}
                                 />
                             </Pane>
@@ -231,10 +237,10 @@ export default function DistrictModal({
 
                         {/* Estradas */}
                         {roads && (
-                            <Pane name="roads" style={{ zIndex: 426 }}>
+                            <Pane name="roads" style={{ zIndex: Z_ROADS }}>
                                 <GeoJSON
                                     data={roads as any}
-                                    style={{ color: "#F57C00", weight: 1.2, opacity: 0.9 }}
+                                    style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }}
                                     interactive={false}
                                 />
                             </Pane>
@@ -242,15 +248,15 @@ export default function DistrictModal({
 
                         {/* Picos / montanhas */}
                         {peaks && (
-                            <Pane name="peaks" style={{ zIndex: 428 }}>
+                            <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
                                 <GeoJSON
                                     data={peaks as any}
                                     pointToLayer={(_f, latlng) =>
                                         L.circleMarker(latlng, {
                                             radius: 3.5,
-                                            color: "#6D4C41",
+                                            color: COLOR_PEAK,
                                             weight: 1,
-                                            fillColor: "#6D4C41",
+                                            fillColor: COLOR_PEAK,
                                             fillOpacity: 0.9,
                                         })
                                     }
@@ -258,13 +264,18 @@ export default function DistrictModal({
                             </Pane>
                         )}
 
-                        {/* Cidades / lugares povoados */}
+                        {/* Cidades / lugares povoados (labels sem interação) */}
                         {places && (
-                            <Pane name="places" style={{ zIndex: 440, pointerEvents: "none" }}>
+                            <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
                                 <GeoJSON
                                     data={places as any}
                                     pointToLayer={(f, latlng) => {
-                                        const name = f?.properties?.NAME ?? f?.properties?.name ?? null;
+                                        const name =
+                                            f?.properties?.NAME ??
+                                            f?.properties?.name ??
+                                            f?.properties?.["name:pt"] ??
+                                            null;
+
                                         if (!name) {
                                             return L.circleMarker(latlng, {
                                                 radius: 2,
@@ -328,39 +339,27 @@ export default function DistrictModal({
                         <h3 style={{ margin: "12px 0 8px" }}>Filtros culturais</h3>
 
                         <div className="filters-grid">
-                            {(
-                                [
-                                    "castle",
-                                    "monument",
-                                    "memorial",
-                                    "ruins",
-                                    "church",
-                                    "museum",
-                                    "artwork",
-                                    "viewpoint",
-                                    "attraction",
-                                ] as PoiCategory[]
-                            ).map((k) => {
-                                const checked = selectedTypes.has(k);
-                                const count = countsByCat[k] ?? 0;
-                                return (
-                                    <label
-                                        key={k}
-                                        className={`filter-chip ${checked ? "on" : ""}`}
-                                        style={{
-                                            borderLeft: `8px solid ${POI_COLORS[k] || "#455A64"}`,
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            onChange={() => onToggleType(k)}
-                                        />
-                                        <span>{POI_LABELS[k]}</span>
-                                        <em>{count}</em>
-                                    </label>
-                                );
-                            })}
+                            {POI_CATEGORIES
+                                .filter(c => c.kind === "node") // só nós culturais
+                                .map(({ key }) => {
+                                    const checked = selectedTypes.has(key);
+                                    const count = countsByCat[key] ?? 0;
+                                    return (
+                                        <label
+                                            key={key}
+                                            className={`filter-chip ${checked ? "on" : ""}`}
+                                            style={{ borderLeft: `8px solid ${POI_COLORS[key] || "#455A64"}` }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => onToggleType(key)}
+                                            />
+                                            <span>{POI_LABELS[key]}</span>
+                                            <em>{count}</em>
+                                        </label>
+                                    );
+                                })}
                         </div>
 
                         <button className="btn-clear" onClick={onClearTypes}>
