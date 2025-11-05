@@ -18,12 +18,12 @@ export const OVERPASS_ENDPOINTS = [
 ] as const;
 
 export const CATEGORY_COLORS: Record<PoiCategory, string> = {
-    castle: "#8E24AA",
-    palace: "#C2185B",
-    monument: "#3949AB",
-    ruins: "#6D4C41",
-    church: "#1E88E5",
-    viewpoint: "#FB8C00",
+    castle: "#7e1616",
+    palace: "#501c61",
+    monument: "#24338e",
+    ruins: "#51362c",
+    church: "#acc4dc",
+    viewpoint: "#1e4c13",
     park: "#2E7D32",
     protected_area: "#66BB6A",
 };
@@ -53,12 +53,12 @@ export const POI_LABELS: Record<PoiCategory, string> = {
 
 // === Cores ===
 export const POI_COLORS: Record<PoiCategory, string> = {
-    castle: "#8E24AA",
-    palace: "#C2185B",
-    monument: "#3949AB",
-    ruins: "#6D4C41",
-    church: "#1E88E5",
-    viewpoint: "#FB8C00",
+    castle: "#7e113b",
+    palace: "#501c61",
+    monument: "#24338e",
+    ruins: "#634539",
+    church: "#acc4dc",
+    viewpoint: "#1e4c13",
     park: "#2E7D32",
     protected_area: "#66BB6A",
 };
