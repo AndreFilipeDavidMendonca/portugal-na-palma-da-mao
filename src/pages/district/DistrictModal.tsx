@@ -56,10 +56,13 @@ export default function DistrictModal(props: Props) {
     const {
         open, onClose, districtFeature,
         selectedTypes, onToggleType, onClearTypes,
-        poiPoints, poiAreas = null, population = null,
-        rivers: riversProp = null, lakes: lakesProp = null,
-        rails: railsProp = null, roads: roadsProp = null,
-        peaks: peaksProp = null, places: placesProp = null,
+        poiPoints, poiAreas = null,
+        rivers: riversProp = null,
+        lakes: lakesProp = null,
+        rails: railsProp = null,
+        roads: roadsProp = null,
+        peaks: peaksProp = null,
+        places: placesProp = null,
     } = props;
 
     const [rivers, setRivers] = useState<any>(riversProp);

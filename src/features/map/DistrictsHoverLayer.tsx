@@ -1,4 +1,4 @@
-import { GeoJSON, useMap } from "react-leaflet";
+import { GeoJSON } from "react-leaflet";
 import L from "leaflet";
 
 type Props = {
