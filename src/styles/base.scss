@@ -1,64 +1,156 @@
 /* --------------------------------
-   Base global + tema
+   Base global + tema + tipografia
+--------------------------------- */
+
+/* Import das fontes */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Poppins:wght@300;400;500&display=swap');
+
+/* Paleta + fontes globais */
+:root {
+  /* Cores */
+  --bg-deep: #0f2418;       /* fundo geral escuro */
+  --bg-panel: #122b1a;      /* componentes/painéis */
+  --bg-panel-2: #163521;    /* hover/selecionado leve */
+  --border: #254b32;        /* borda */
+  --border-2: #2d593b;      /* foco */
+  --gold: #d7b25a;          /* texto principal */
+  --gold-dark: #b38f3b;     /* bordas dourado */
+  --gold-strong: #f1d27a;   /* ativo/hover */
+  --muted: rgba(215,178,90,.75);
+
+  /* Fontes (fácil de trocar no futuro) */
+  --font-body: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-title: 'Cormorant Garamond', serif;
+
+  /* Pesos padrão */
+  --font-weight-body: 400;
+  --font-weight-title: 600;
+}
+
+/* --------------------------------
+   Estrutura + tipografia base
 --------------------------------- */
 
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-body);
+  background-color: var(--bg-deep);
+  color: var(--gold);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: var(--font-weight-title);
+  letter-spacing: .5px;
+  color: var(--gold);
+  margin: 0;
+}
+
+/* Estrutura base */
+.app-root { display: flex; flex-direction: column; height: 100%; }
+.map-pad  { flex: 1; }
+
+.map-root .leaflet-container {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Header */
+.header {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  padding: .5rem .75rem;
+  border-bottom: 1px solid var(--border);
+
+  input {
+    flex: 1;
+    padding: .4rem .6rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--gold);
+    font-family: var(--font-body);
+  }
+}
+
+.btn {
+  padding: .35rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--gold);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all .2s ease;
+
+  &:hover {
+    background: var(--bg-panel-2);
+    border-color: var(--gold);
+  }
+}
+
+/* Etiquetas */
+.country-label span {
+  font: 600 12px/1.2 var(--font-body);
+  color: var(--gold);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* --------------------------------
+   Overlay (vídeo/logo)
+--------------------------------- */
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #0e3b2e;
+  display: grid;
+  place-items: center;
+}
+
+.loading-frame {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
 }
 
 :root {
-  --bg-deep: #0f2418;     /* fundo geral escuro */
-  --bg-panel: #122b1a;    /* componentes/painéis */
-  --bg-panel-2: #163521;  /* hover/selecionado leve */
-  --border: #254b32;      /* borda */
-  --border-2: #2d593b;    /* foco */
-  --gold: #d7b25a;        /* texto principal */
-  --gold-dark: #b38f3b;   /* bordas dourado */
-  --gold-strong: #f1d27a; /* ativo/hover */
-  --muted: rgba(215,178,90,.75);
+  --logo-shift-x: 0%;
+  --logo-shift-y: 0%;
 }
 
-/* Estrutura básica */
-.app-root { height: 100%; display: flex; flex-direction: column; }
-.map-pad  { flex: 1; }
-.map-root .leaflet-container { height: 100vh; width: 100vw; }
-
-/* Header simples */
-.header {
-  display: flex; gap: .75rem; align-items: center;
-  padding: .5rem .75rem; border-bottom: 1px solid #eee;
-  input { flex: 1; padding: .4rem .6rem; }
-}
-.btn { padding: .35rem .6rem; border:1px solid #e5e5e5; background:#fafafa; border-radius:6px; cursor:pointer; }
-
-/* Etiqueta de países/lugares */
-.country-label span {
-  font: 600 12px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial;
-  color: #555; text-shadow: 0 1px 2px rgba(255,255,255,.75);
-  user-select: none; pointer-events: none;
-}
-
-/* Overlay (logo/vídeo) – opcional, mantém aqui global */
-.loading-overlay {
-  position: fixed; inset: 0; z-index: 99999;
-  background: #0e3b2e;
-  display: grid; place-items: center;
-}
-.loading-frame { position: relative; width: 100vw; height: 100vh; }
-:root { --logo-shift-x: 0%; --logo-shift-y: 0%; }
 .loading-video {
-  position: absolute; inset: 0; width: 100%; height: 100%;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
   background: #0e3b2e;
 }
 
-/* --------- IMPORTANTE ---------
-   Não estilizamos .modal-close aqui para evitar
-   conflitos com o novo botão .gold-close do PoiFilter.
-   (Se existir .modal-close legacy, estilize num ficheiro
-   específico desse componente.)
+/* --------------------------------
+   Acessibilidade e performance
 --------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Não definir .modal-close aqui (está no PoiFilter/DistrictModal) */

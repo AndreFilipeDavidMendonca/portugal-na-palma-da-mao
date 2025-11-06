@@ -1,0 +1,182 @@
+{
+  "Aveiro": {
+    "inhabited_since": "Idade do Ferro (~800 a.C.)",
+    "description": "Distrito costeiro com forte tradição lagunar e industrial; cidades marítimas e rede urbana dinâmica.",
+    "history": "A presença humana na região de Aveiro remonta à Idade do Ferro, com ocupações romanas em torno da laguna. O crescimento medieval consolidou os canais e o comércio marítimo. Nos séculos XIX–XX, a ferrovia, a cerâmica e a indústria transformaram o território, mantendo relação íntima com a Ria e a pesca do bacalhau.",
+    "population": 713000,
+    "municipalities": 19,
+    "parishes": 208,
+    "photos": [],
+    "sources": []
+  },
+  "Beja": {
+    "inhabited_since": "Época romana (~100 a.C.)",
+    "description": "Planícies alentejanas extensas; património romano e medieval; vocação agrícola e olivícola.",
+    "history": "Conhecida como Pax Julia durante o domínio romano, Beja foi nó viário e agrícola de relevo. A Idade Média reforçou o papel de praça fortificada e centro de lavoura. No século XX, a modernização agrária e o olival consolidaram a identidade económica do Baixo Alentejo.",
+    "population": 141000,
+    "municipalities": 14,
+    "parishes": 75,
+    "photos": [],
+    "sources": []
+  },
+  "Braga": {
+    "inhabited_since": "Idade do Ferro (~1000 a.C.)",
+    "description": "Centro histórico e religioso do Minho; tecido urbano jovem e universitário.",
+    "history": "Bracara Augusta foi uma das cidades mais antigas da Península, fundada pelos romanos sobre antigos castros celtas, com continuidade urbana de dois milénios. A cristianização precoce e a sede arquiepiscopal moldaram a influência regional. Hoje, Braga combina património barroco com ecossistema tecnológico e universitário vibrante.",
+    "population": 856000,
+    "municipalities": 14,
+    "parishes": 61,
+    "photos": [],
+    "sources": []
+  },
+  "Bragança": {
+    "inhabited_since": "Idade do Bronze (~1500 a.C.)",
+    "description": "Trás-os-Montes profundo; paisagem serrana e património de montanha.",
+    "history": "Território de castros proto-históricos, romanização esparsa e povoamento serrano persistente. A cidadela de Bragança consolidou-se na Idade Média como praça-forte raiana. A cultura transmontana preserva tradições agro-pastoris e mascaradas invernais de raiz ancestral.",
+    "population": 122000,
+    "municipalities": 12,
+    "parishes": 299,
+    "photos": [],
+    "sources": []
+  },
+  "Castelo Branco": {
+    "inhabited_since": "Idade do Bronze (~1200 a.C.)",
+    "description": "Interior Centro; vilas históricas, bordados e jardins; eixo entre serra e planalto.",
+    "history": "De antigas vias romanas e castros, emergiu um território templário e de senhorialização medieval. A manufatura dos bordados, os jardins barrocos e a proximidade à Estrela definiram o carácter cultural. A modernidade trouxe indústria leve e serviços regionais.",
+    "population": 186000,
+    "municipalities": 11,
+    "parishes": 160,
+    "photos": [],
+    "sources": []
+  },
+  "Coimbra": {
+    "inhabited_since": "Época romana (~200 a.C.)",
+    "description": "Cidade universitária por excelência; Mondego como eixo cultural e urbano.",
+    "history": "Conímbriga e Aeminium revelam continuidade desde Roma, evoluindo para capital do reino na Alta Idade Média. A Universidade, entre as mais antigas da Europa, moldou ciência, letras e urbanismo. O Mondego estruturou agricultura, comércio e paisagem literária.",
+    "population": 418000,
+    "municipalities": 17,
+    "parishes": 143,
+    "photos": [],
+    "sources": []
+  },
+  "Évora": {
+    "inhabited_since": "Calcolítico (~3000 a.C.)",
+    "description": "Coração patrimonial do Alentejo; centro classificado e paisagem cerealífera/olivícola.",
+    "history": "Região megalítica por excelência, com antas e cromeleques milenares. Ebora romana floresceu com fórum e templo; a cidade medieval e renascentista ganhou centralidade régia. O centro histórico UNESCO preserva camadas de longa duração cultural e urbana.",
+    "population": 150000,
+    "municipalities": 14,
+    "parishes": 75,
+    "photos": [],
+    "sources": []
+  },
+  "Faro": {
+    "inhabited_since": "Época romana (~200 a.C.)",
+    "description": "Capital do Algarve; salinas, ilhas-barreira e turismo balnear.",
+    "history": "Ossonoba romana foi polo mercantil e salineiro, sucedida por período islâmico de grande dinamismo. Após a integração no reino, o litoral manteve vocação marítima e comercial. No século XX, o turismo transformou a economia e a urbanização costeira.",
+    "population": 473000,
+    "municipalities": 16,
+    "parishes": 67,
+    "photos": [],
+    "sources": []
+  },
+  "Guarda": {
+    "inhabited_since": "Idade do Bronze (~1500 a.C.)",
+    "description": "Cidade mais alta; paisagens de serra e memória judaica/medieval.",
+    "history": "A Estrela foi habitada desde a pré-história, com pastoreio de altitude e povoados fortificados. A Guarda medieval ergueu-se como praça estratégica. As judiarias históricas e a transumância deixaram marcas identitárias duradouras.",
+    "population": 141000,
+    "municipalities": 14,
+    "parishes": 193,
+    "photos": [],
+    "sources": []
+  },
+  "Leiria": {
+    "inhabited_since": "Época romana (~100 a.C.)",
+    "description": "Entre mar e pinhal; indústria e património régio no centro litoral.",
+    "history": "Do castelejo régio e da proteção do Pinhal de Leiria nasceu um eixo económico entre serra e oceano. Vilas piscatórias, mosteiros e manufaturas estruturaram a região. A modernidade trouxe indústria diversificada e ligações rodo-ferroviárias.",
+    "population": 470000,
+    "municipalities": 16,
+    "parishes": 128,
+    "photos": [],
+    "sources": []
+  },
+  "Lisboa": {
+    "inhabited_since": "Idade do Bronze (~1200 a.C.)",
+    "description": "Capital atlântica; centro político, económico e cultural.",
+    "history": "Olisipo pré-romana e romana foi porto atlântico fulcral. A cidade islâmica e, depois, a capital cristã expandiram-se com as Descobertas, redes mercantis e cultura de corte. Reconstruída após 1755, Lisboa liderou a modernização e hoje é hub europeu de serviços e tecnologia.",
+    "population": 2300000,
+    "municipalities": 16,
+    "parishes": 118,
+    "photos": [],
+    "sources": []
+  },
+  "Portalegre": {
+    "inhabited_since": "Idade do Ferro (~800 a.C.)",
+    "description": "Serra de S. Mamede e vilas fronteiriças; têxteis, cortiça e património defensivo.",
+    "history": "A Serra de S. Mamede apresenta ocupação desde a Idade do Ferro, com castros e vestígios romanos. O burgo muralhado medieval estruturou a defesa raiana e o artesanato têxtil. A cortiça e a paisagem serrana definem hoje a matriz económica e ambiental.",
+    "population": 104000,
+    "municipalities": 15,
+    "parishes": 69,
+    "photos": [],
+    "sources": []
+  },
+  "Porto": {
+    "inhabited_since": "Idade do Bronze (~1000 a.C.)",
+    "description": "Metrópole do Norte; vinho, comércio e indústria.",
+    "history": "O povoado do Cale remonta à Idade do Bronze; Portus Cale romano deu origem ao burgo medieval ribeirinho. O Douro estruturou o comércio do vinho e a ligação atlântica. No século XIX, indústria e finanças criaram a segunda cidade do país — hoje metrópole cultural e tecnológica.",
+    "population": 1780000,
+    "municipalities": 18,
+    "parishes": 82,
+    "photos": [],
+    "sources": []
+  },
+  "Santarém": {
+    "inhabited_since": "Idade do Ferro (~800 a.C.)",
+    "description": "Lezírias do Tejo; agro-pecuária e miradouros históricos.",
+    "history": "Do castro pré-romano a Escalabis, o planalto escalabitano domina o vale do Tejo. A Idade Média consolidou a rede de vilas muradas e agricultura de regadio. Feira, tauromaquia e património gótico exprimem uma tradição ribatejana singular.",
+    "population": 440000,
+    "municipalities": 21,
+    "parishes": 162,
+    "photos": [],
+    "sources": []
+  },
+  "Setúbal": {
+    "inhabited_since": "Época romana (~200 a.C.)",
+    "description": "Sado, Arrábida e indústria; portos e praias abrigadas.",
+    "history": "Salinas e cetárias romanas atestam a antiguidade do povoamento litoral. Mosteiros, fortificações e a baía moldaram a economia marítima e industrial. No século XX, indústria pesada e turismo coexistem com áreas naturais protegidas.",
+    "population": 905000,
+    "municipalities": 13,
+    "parishes": 72,
+    "photos": [],
+    "sources": []
+  },
+  "Viana do Castelo": {
+    "inhabited_since": "Idade do Ferro (~1000 a.C.)",
+    "description": "Atlântico, romarias e estaleiros; cultura minhota.",
+    "history": "Castros costeiros e navegação antiga precederam a vila quinhentista. A pesca de alto mar, a construção naval e as romarias teceram identidade. Hoje, património, mar e vento ancoram uma economia que cruza tradição e inovação.",
+    "population": 235000,
+    "municipalities": 10,
+    "parishes": 208,
+    "photos": [],
+    "sources": []
+  },
+  "Vila Real": {
+    "inhabited_since": "Idade do Bronze (~1500 a.C.)",
+    "description": "Douro e Marão; solares, vinhas e serras.",
+    "history": "Território castrejo e romanizado cedo, com vias de montanha e vales agrícolas. A cidade senhorial desenvolveu-se entre solares e mosteiros. O Douro e as serras estruturam paisagem vinhateira, aldeias e património barroco.",
+    "population": 185000,
+    "municipalities": 14,
+    "parishes": 187,
+    "photos": [],
+    "sources": []
+  },
+  "Viseu": {
+    "inhabited_since": "Idade do Ferro (~800 a.C.)",
+    "description": "Beira Alta urbana; vinhos do Dão e arte de Grão Vasco.",
+    "history": "Vissaium romana sucedeu a castros beirões, mantendo continuidade urbana. A diocese e as feiras medievais reforçaram centralidade. No século XX, Viseu consolidou-se como polo de serviços, com forte ligação à vitivinicultura do Dão.",
+    "population": 377000,
+    "municipalities": 24,
+    "parishes": 100,
+    "photos": [],
+    "sources": []
+  }
+}

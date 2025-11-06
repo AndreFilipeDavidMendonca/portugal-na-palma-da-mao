@@ -1,19 +1,37 @@
-export async function fetchDistrictInfo(name: string) {
+// src/lib/districtInfo.ts
+export type DistrictInfo = {
+    inhabited_since?: string;
+    description?: string;
+    history?: string;
+    parishes?: number | null;
+    photos?: string[];
+    sources?: { label: string; url: string }[];
+};
+
+type DistrictsMap = Record<string, DistrictInfo>;
+
+// util: normaliza a chave "Lisboa" => "lisboa"
+const norm = (s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+
+let cache: DistrictsMap | null = null;
+
+export async function fetchDistrictInfo(name: string): Promise<DistrictInfo | null> {
     try {
-        const wikiRes = await fetch(`https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name + "_(distrito)")}`);
-        const wikiData = await wikiRes.json();
+        if (!cache) {
+            const data = await import("@/data/districts.json");
+            cache = data.default as DistrictsMap;
 
-        const description = wikiData.extract || "Descrição não disponível.";
-        const image = wikiData.thumbnail?.source || null;
-
-        return {
-            name,
-            description,
-            image,
-            founded: wikiData.timestamp ? new Date(wikiData.timestamp).getFullYear() : null,
-        };
-    } catch (err) {
-        console.error("Erro ao obter dados da Wikipedia:", err);
-        return { name, description: "Sem dados.", image: null, founded: null };
+            // cria um índice normalizado para lookup mais robusto
+            const ncache: DistrictsMap = {};
+            for (const [k, v] of Object.entries(cache)) {
+                ncache[norm(k)] = v;
+            }
+            cache = ncache;
+        }
+        return cache[norm(name)] ?? null;
+    } catch (e) {
+        console.error("[districtInfo] erro a carregar districts.json:", e);
+        return null;
     }
 }

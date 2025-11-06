@@ -73,7 +73,7 @@ export default function PoiFilter({
 
                 {/* LIMPAR logo após as categorias */}
                 <button type="button" className="poi-clear" onClick={onClear}>
-                    LIMPAR
+                    Limpar
                 </button>
 
                 {/* espaço flexível para empurrar o X */}

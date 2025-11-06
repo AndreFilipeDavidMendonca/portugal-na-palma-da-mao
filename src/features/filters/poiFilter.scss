@@ -1,105 +1,184 @@
 /* src/features/filters/poiFilter.scss */
 
+/* Barra de filtros */
 .poi-filter {
   background: var(--bg-panel);
   border-bottom: 2px solid var(--gold-dark);
-  &--top { position: sticky; top: 0; z-index: 9000; }
+
+  /* Escalas fluidas ajustáveis */
+  --chip-fs: clamp(14px, 1.5vw, 17px);
+  --chip-px: clamp(7px, 0.9vw, 12px);   /* padding horizontal fino */
+  --chip-py: clamp(2px, 0.6vw, 5px);    /* padding vertical fino */
+  --chip-gap: clamp(5px, 0.8vw, 9px);
+  --chip-minh: clamp(30px, 3.8vh, 38px);
+
+  --clear-fs: clamp(14px, 1.5vw, 17px);   /* LIMPAR menor */
+
+  --count-fs: clamp(13px, 1.3vw, 16px); /* contador equilibrado */
+  --count-weight: 500;
+
+  &--top {
+    position: sticky;
+    top: 0;
+    z-index: 9000;
+  }
+
   &__inner {
     position: relative; /* para ancorar o X */
-    display: flex; align-items: center; gap: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 10px 14px;
-    overflow-x: auto; scrollbar-width: thin;
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 }
 
+/* Chip individual */
 .poi-chip {
   position: relative;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 10px;
-  border: 1.5px solid var(--gold-dark);   /* mais fino */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chip-gap);
+  padding: var(--chip-py) var(--chip-px);
+  min-height: var(--chip-minh);
+  border: 1.3px solid var(--gold-dark);
   border-radius: 12px;
   background: var(--gold);
   color: var(--bg-panel);
+  font-family: var(--font-title, "Cormorant Garamond", serif);
+  font-size: var(--chip-fs);
   font-weight: 600;
   cursor: pointer;
-  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition:
+          color .15s ease,
+          background-color .15s ease,
+          border-color .15s ease,
+          box-shadow .15s ease;
 
-  input { position: absolute; opacity: 0; pointer-events: none; }
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
 
-  /* Ícone SVG: mantém igual ao que já tens */
+  /* Ícone ligeiramente mais alto */
   .poi-chip__icon {
-    width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; line-height: 0;
-    svg { width: 18px !important; height: 18px !important; display: block !important; }
+    width: 1.2em;
+    height: 1.2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-1.5px);
+
+    svg {
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+    }
     svg [fill]   { fill: currentColor !important; }
     svg [stroke] { stroke: currentColor !important; }
   }
 
-  /* Hover sem deslocar */
+  .poi-chip__label {
+    line-height: 1;
+    display: inline-block;
+    transform: translateY(-1px);
+  }
+
+  /* Número (count) ajustado */
+  .poi-chip__count {
+    margin-left: 3px;              /* antes era 6px */
+    font-style: normal;
+    font-size: var(--count-fs);
+    line-height: 1;
+    opacity: 0.95;
+    font-weight: var(--count-weight);
+    transform: translateY(-1px);
+  }
+
   &:hover {
-    /* sem translate/scale */
     box-shadow: 0 2px 5px rgba(0,0,0,.12);
     border-color: var(--gold-strong);
   }
 
   &.poi-chip--on {
     background: var(--gold-strong);
-    border: 1.5px solid var(--gold-dark); /* mantém espessura */
+    border: 1.3px solid var(--gold-dark);
     box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179,143,59,.28);
   }
 
-  /* Active sem “saltos” */
   &:active {
-    /* sem scale */
     box-shadow: 0 1px 3px rgba(0,0,0,.14);
   }
 }
 
-/* Botão LIMPAR com borda fina e estável */
+/* Botão LIMPAR (agora com a mesma fonte dos chips) */
 .poi-clear {
   flex: 0 0 auto;
-  padding: 9px 12px;
-  border: 1.5px solid var(--gold-dark);   /* mais fino */
+  padding: var(--chip-py) var(--chip-px);
+  min-height: var(--chip-minh);
+  border: 1.3px solid var(--gold-dark);
   border-radius: 12px;
-  background: var(--bg-panel);            /* verde escuro */
-  color: var(--gold);                     /* dourado */
+  background: var(--bg-panel);
+  color: var(--gold);
+  font-family: var(--font-title, "Cormorant Garamond", serif);
+  font-size: var(--clear-fs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: .6px;
   cursor: pointer;
-  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition:
+          color .15s ease,
+          background-color .15s ease,
+          border-color .15s ease,
+          box-shadow .15s ease;
 
   &:hover {
-    /* sem translate */
     box-shadow: 0 2px 5px rgba(0,0,0,.12);
     border-color: var(--gold-strong);
   }
+
   &:active {
-    /* sem scale */
     box-shadow: 0 1px 3px rgba(0,0,0,.14);
   }
 }
 
-.poi-spacer { flex: 1 1 auto; min-width: 8px; }
+/* Espaço flexível para empurrar o X */
+.poi-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
 
-/* Botão X dourado redondo, centrado */
+/* Botão X dourado redondo */
 .gold-close {
   position: absolute;
   top: 50%;
   right: 12px;
-  transform: translateY(-50%); /* centra verticalmente no bar */
-  width: 42px; height: 42px; border-radius: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   border: 2px solid var(--gold-dark);
   background-color: var(--gold);
   color: var(--bg-deep);
-  font-size: 22px; font-weight: 700; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; z-index: 2;
-  transition: all .25s ease;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease;
+
   &:hover {
     background-color: var(--gold-strong);
     border-color: var(--gold);
     color: var(--bg-panel);
     box-shadow: 0 0 10px rgba(215,178,90,.5);
   }
-  &:active { transform: translateY(-50%) scale(.94); }
+
+  &:active {
+    transform: translateY(-50%);
+  }
 }

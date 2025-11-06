@@ -226,12 +226,30 @@ export default function DistrictModal(props: Props) {
 
                 <aside className="right-panel">
                     <div className="right-inner">
-                        <h2>{districtFeature?.properties?.name || "Distrito"}</h2>
+                        <h1><strong>{districtFeature?.properties?.name || "Distrito"}</strong></h1>
+
                         {districtInfo && (
                             <div className="district-info">
-                                <div><strong>Fundado:</strong> {districtInfo.founded || "—"}</div>
-                                <div><strong>População:</strong> {population?.toLocaleString("pt-PT") || "—"}</div>
-                                <p>{districtInfo.description}</p>
+                                <div className="district-meta">
+                                    <div><strong>População:</strong> {districtInfo.population?.toLocaleString("pt-PT") ?? "—"}</div>
+                                    <div><strong>Concelhos:</strong> {districtInfo.municipalities ?? "—"}</div>
+                                    <div><strong>Freguesias:</strong> {districtInfo.parishes ?? "—"}</div>
+                                    <div><strong>Habitado desde:</strong> {districtInfo.inhabited_since ?? "—"}</div>
+                                </div>
+
+                                {/* descrição breve */}
+                                {districtInfo.description && (
+                                    <p className="district-description">
+                                        {districtInfo.description}
+                                    </p>
+                                )}
+
+                                {/* história mais extensa */}
+                                {districtInfo.history && (
+                                    <p className="district-history">
+                                        {districtInfo.history}
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>
