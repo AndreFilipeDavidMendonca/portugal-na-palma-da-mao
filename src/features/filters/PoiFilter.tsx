@@ -30,11 +30,6 @@ export default function PoiFilter({
         []
     );
 
-    const handleClose = () => {
-        if (onClose) onClose();
-        else window.dispatchEvent(new CustomEvent("district-close"));
-    };
-
     return (
         <div
             className={`poi-filter ${isTop ? "poi-filter--top" : "poi-filter--panel"}`}
