@@ -88,7 +88,7 @@
 .tdf-item{
   padding: 8px 10px; border-radius: 8px;
   color: var(--gold); cursor: pointer;
-  font-family: var(--font-body);
+  font-family: var(--font-body), serif;
 }
 
 .tdf-item:hover, .tdf-item.is-active{
