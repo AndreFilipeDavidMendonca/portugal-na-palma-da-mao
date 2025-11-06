@@ -20,10 +20,12 @@ import {
     Z_ROADS,
     Z_PEAKS,
     Z_PLACES,
-    POI_CATEGORIES,
     type PoiCategory,
 } from "@/utils/constants";
 import { PoiPointsLayer, PoiAreasLayer, filterFeaturesByTypes, getPoiCategory } from "./PoiLayers";
+import PoiFilter from "@/features/filters/PoiFilter";
+import {fetchDistrictInfo} from "@/lib/districtInfo";
+
 
 type AnyGeo = any;
 
@@ -98,6 +100,15 @@ export default function DistrictModal({
     const [roads, setRoads] = useState<AnyGeo | null>(roadsProp);
     const [peaks, setPeaks] = useState<AnyGeo | null>(peaksProp);
     const [places, setPlaces] = useState<AnyGeo | null>(placesProp);
+    const [districtInfo, setDistrictInfo] = useState<any>(null);
+
+    useEffect(() => {
+        if (!districtFeature?.properties?.name) return;
+        const name = districtFeature.properties.name;
+        import("@/lib/districtInfo").then(({ fetchDistrictInfo }) => {
+            fetchDistrictInfo(name).then(setDistrictInfo);
+        });
+    }, [districtFeature]);
 
     // Carrega apenas se não foram passadas via props
     useEffect(() => {
@@ -135,7 +146,6 @@ export default function DistrictModal({
     );
 
 
-
     const countsByCat = useMemo(() => {
         const counts: Record<PoiCategory, number> = {} as any;
         for (const f of poiPoints?.features ?? []) {
@@ -159,7 +169,13 @@ export default function DistrictModal({
             >
                 ×
             </button>
-
+            <PoiFilter
+                variant="top"
+                selected={selectedTypes}
+                onToggle={onToggleType}
+                onClear={onClearTypes}
+                countsByCat={countsByCat}
+            />
             <div className="modal-content">
                 {/* ESQUERDA: mapa do distrito */}
                 <div className="left-map">
@@ -321,50 +337,16 @@ export default function DistrictModal({
                         <h2 style={{ marginTop: 0 }}>
                             {districtFeature?.properties?.name || "Distrito"}
                         </h2>
-
-                        <div className="meta">
-                            <div>
-                                <strong>Pontos de interesse:</strong>{" "}
-                                {filteredPoints?.features?.length ?? 0}
-                            </div>
-                            {typeof population === "number" && (
-                                <div>
-                                    <strong>População:</strong> {population.toLocaleString("pt-PT")}
-                                </div>
-                            )}
-                        </div>
-
                         <hr />
+                        {districtInfo && (
+                            <div className="district-info">
+                                <div><strong>Fundado:</strong> {districtInfo.founded || "—"}</div>
+                                <div><strong>População:</strong> {population?.toLocaleString("pt-PT") || "—"}</div>
+                                <p style={{ marginTop: 6 }}>{districtInfo.description}</p>
 
-                        <h3 style={{ margin: "12px 0 8px" }}>Filtros culturais</h3>
+                            </div>
+                        )}
 
-                        <div className="filters-grid">
-                            {POI_CATEGORIES
-                                .filter(c => c.kind === "node") // só nós culturais
-                                .map(({ key }) => {
-                                    const checked = selectedTypes.has(key);
-                                    const count = countsByCat[key] ?? 0;
-                                    return (
-                                        <label
-                                            key={key}
-                                            className={`filter-chip ${checked ? "on" : ""}`}
-                                            style={{ borderLeft: `8px solid ${POI_COLORS[key] || "#455A64"}` }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={() => onToggleType(key)}
-                                            />
-                                            <span>{POI_LABELS[key]}</span>
-                                            <em>{count}</em>
-                                        </label>
-                                    );
-                                })}
-                        </div>
-
-                        <button className="btn-clear" onClick={onClearTypes}>
-                            Limpar
-                        </button>
                     </div>
                 </aside>
             </div>

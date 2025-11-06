@@ -169,7 +169,7 @@ export function PoiPointsLayer({
     selectedTypes: Set<PoiCategory>;
 }) {
     const zoom = useMapZoom();
-    const showSvg = zoom >= 14;
+    const showSvg = zoom >= 11;
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize  = getPinSizeForZoom(zoom);
 

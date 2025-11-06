@@ -1,12 +1,7 @@
 // src/lib/overpass.ts
 import osmtogeojson from "osmtogeojson";
+import {OVERPASS_ENDPOINTS} from "@/utils/constants";
 
-/** Mirrors do Overpass (ordem de tentativa) */
-export const OVERPASS_ENDPOINTS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://z.overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-] as const;
 
 type AnyGeo = any;
 
@@ -184,7 +179,6 @@ export async function overpassQueryToGeoJSON(
     // cache
     const cached = loadCache(query, ttlMs);
     if (cached) return cached;
-    console.log("Overpass: ", cached);
     for (const ep of OVERPASS_ENDPOINTS) {
         let attempt = 0;
         while (attempt <= maxRetriesPerEndpoint) {
