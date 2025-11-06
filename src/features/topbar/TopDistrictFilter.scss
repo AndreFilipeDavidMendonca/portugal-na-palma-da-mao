@@ -1,0 +1,97 @@
+.top-district-filter{
+  position: sticky; top: 0; z-index: 9500;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.tdf-inner{
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 12px;           /* ligeiro ajuste */
+  height: 56px;                /* trava a altura da barra */
+  box-sizing: border-box;
+}
+
+/* wrap */
+.tdf-wrap{
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: nowrap;
+}
+
+/* logo grande sem aumentar a barra */
+.tdf-logo{
+  flex: 0 0 auto;
+  width: 54px; height: 54px;       /* caixa fixa */
+  display: grid; place-items: center;
+  margin-right: clamp(8px, 1vw, 16px);
+  overflow: visible;               /* deixa “sair” visualmente, sem medir */
+}
+
+.tdf-logo img{
+  width: 40px;
+  height: 40px;       /* imagem mede menos que a caixa… */
+  display: block;
+  object-fit: contain;
+  transform: scale(1.18);          /* …e cresce visualmente sem reflow */
+  transform-origin: center;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+  pointer-events: none;
+  user-select: none;
+}
+
+.tdf-label{
+  font-family: var(--font-title), serif;
+  color: var(--gold);
+  font-weight: 500;
+  font-size: clamp(15px, 2vw, 20px);
+  letter-spacing: .3px;
+  line-height: 1;                  /* evita esticar verticalmente */
+}
+
+/* input + dropdown */
+.tdf-inputbox{
+  position: relative;
+  display: flex; align-items: center;
+  min-width: 240px;
+  flex: 1 1 320px;                 /* torna fluido, não “empurra” a barra */
+}
+
+.tdf-input{
+  width: 100%;
+  background: var(--bg-panel);
+  color: var(--gold);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+  font-family: var(--font-body), serif;
+  line-height: 1.2;
+}
+
+.tdf-input:focus{
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+}
+
+/* dropdown */
+.tdf-list{
+  position: absolute;
+  left: 0; right: 0; top: calc(100% + 6px);
+  max-height: 280px; overflow: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  list-style: none; margin: 0; padding: 6px;
+}
+
+.tdf-item{
+  padding: 8px 10px; border-radius: 8px;
+  color: var(--gold); cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.tdf-item:hover, .tdf-item.is-active{
+  background: var(--bg-panel-2);
+  border: 1px solid var(--gold-dark);
+}
