@@ -130,19 +130,18 @@ export default function Home() {
 
     // 👇 overlay visível enquanto houver loading real OU até cumprir o mínimo
     const showOverlay = (isGeoLoading || isOverpassLoading) || !minTimeElapsed;
-    const mapInteractive = !showOverlay;
 
     return (
         <>
             {showOverlay && <LoadingOverlay />}
 
-            <div className={`map-shell ${mapInteractive ? "" : "blocked"}`}>
+            <div className="map-shell">
                 <MapContainer
-                    center={[39.7, -8.1]}
-                    zoom={1}
-                    scrollWheelZoom={mapInteractive}
-                    dragging={mapInteractive}
-                    doubleClickZoom={mapInteractive}
+                    center={[35, -15]}
+                    zoom={5}
+                    scrollWheelZoom={true}
+                    dragging={true}
+                    doubleClickZoom={true}
                     attributionControl
                     preferCanvas
                     style={{ height: "100vh", width: "100vw" }}
@@ -182,10 +181,6 @@ export default function Home() {
                 poiPoints={districtPoiPoints}
                 population={null}
             />
-
-            <style>{`
-        .map-shell.blocked { pointer-events: none; }
-      `}</style>
         </>
     );
 }
@@ -198,26 +193,33 @@ function FitPortugalIslands() {
     useEffect(() => {
         if (did.current) return;
 
+        // Bounds mais justos para Portugal continental (inclui Minho e Algarve sem sobras)
         const portugalBounds = L.latLngBounds(
-            [32.0, -32.0],
-            [43.0,  -6.0]
+            [36.6, -10.3], // sudoeste (um pouco ao largo do Algarve)
+            [42.3,  -6.0]  // nordeste (fronteira Trás-os-Montes)
         );
 
+        // 1) Enquadra sem animação
         map.fitBounds(portugalBounds, {
             animate: false,
-            paddingTopLeft: [20, 60],
-            paddingBottomRight: [20, 20],
+            paddingTopLeft: [18, 56],
+            paddingBottomRight: [18, 18],
         });
-        map.setMaxBounds(portugalBounds.pad(0.3));
 
+        // 2) Micro-ajuste: mais zoom e desloca ligeiramente para a direita (leste)
+        const c = map.getCenter();
+        const targetZoom = Math.min(map.getZoom() + 0.7, 8.2); // “mais zoom”
+        map.setView([c.lat, c.lng + 0.28], targetZoom, { animate: false }); // “mais para a direita”
+
+        // 3) Max bounds com folga pequena
+        map.setMaxBounds(portugalBounds.pad(0.22));
+
+        // 4) Quando o mapa estiver pronto, invalida tamanho e reaplica ajuste (Chrome fix)
         map.whenReady(() => {
             setTimeout(() => {
                 map.invalidateSize();
-                map.fitBounds(portugalBounds, {
-                    animate: false,
-                    paddingTopLeft: [20, 60],
-                    paddingBottomRight: [20, 20],
-                });
+                const c2 = map.getCenter();
+                map.setView([c2.lat, c2.lng + 0.0], targetZoom, { animate: false });
             }, 0);
         });
 

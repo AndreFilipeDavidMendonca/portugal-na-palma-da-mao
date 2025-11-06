@@ -1,20 +1,23 @@
 /* src/features/filters/poiFilter.scss */
 
 /* Barra de filtros */
+:root {
+  --poi-bar-h: 50px; /* altura da barra fixa */
+}
+
 .poi-filter {
   background: var(--bg-panel);
   border-bottom: 2px solid var(--gold-dark);
 
   /* Escalas fluidas ajustáveis */
   --chip-fs: clamp(14px, 1.5vw, 17px);
-  --chip-px: clamp(7px, 0.9vw, 12px);   /* padding horizontal fino */
-  --chip-py: clamp(2px, 0.6vw, 5px);    /* padding vertical fino */
+  --chip-px: clamp(7px, 0.9vw, 12px);
+  --chip-py: clamp(2px, 0.6vw, 5px);
   --chip-gap: clamp(5px, 0.8vw, 9px);
   --chip-minh: clamp(30px, 3.8vh, 38px);
 
-  --clear-fs: clamp(14px, 1.5vw, 17px);   /* LIMPAR menor */
-
-  --count-fs: clamp(13px, 1.3vw, 16px); /* contador equilibrado */
+  --clear-fs: clamp(14px, 1.5vw, 17px);
+  --count-fs: clamp(13px, 1.3vw, 16px);
   --count-weight: 500;
 
   &--top {
@@ -24,12 +27,14 @@
   }
 
   &__inner {
-    position: relative; /* para ancorar o X */
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
+    min-height: var(--poi-bar-h); /* altura fixa */
     overflow-x: auto;
+    overflow-y: visible;
     scrollbar-width: thin;
   }
 }
@@ -62,7 +67,6 @@
     pointer-events: none;
   }
 
-  /* Ícone ligeiramente mais alto */
   .poi-chip__icon {
     width: 1.2em;
     height: 1.2em;
@@ -86,9 +90,8 @@
     transform: translateY(-1px);
   }
 
-  /* Número (count) ajustado */
   .poi-chip__count {
-    margin-left: 3px;              /* antes era 6px */
+    margin-left: 3px;
     font-style: normal;
     font-size: var(--count-fs);
     line-height: 1;
@@ -105,7 +108,8 @@
   &.poi-chip--on {
     background: var(--gold-strong);
     border: 1.3px solid var(--gold-dark);
-    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179,143,59,.28);
+    box-shadow: 0 0 0 2px var(--gold-dark),
+    0 0 6px rgba(179,143,59,.28);
   }
 
   &:active {
@@ -113,7 +117,7 @@
   }
 }
 
-/* Botão LIMPAR (agora com a mesma fonte dos chips) */
+/* Botão LIMPAR (mesma fonte que os chips) */
 .poi-clear {
   flex: 0 0 auto;
   padding: var(--chip-py) var(--chip-px);
@@ -143,6 +147,31 @@
   }
 }
 
+/* LOGO aumentado (sem crescer a barra) */
+.poi-logo {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: var(--poi-bar-h);
+  margin-right: clamp(8px, 1vw, 16px);
+  overflow: visible;
+}
+
+.poi-logo img {
+  height: calc(var(--poi-bar-h) - 9px);
+  width: auto;
+  object-fit: contain;
+  transform: scale(1.35);          /* aumenta o logo sem afetar layout */
+  transform-origin: left center;   /* expande para fora pela esquerda */
+  filter: brightness(1.05) saturate(1.1);
+  transition: transform .25s ease;
+}
+
+/* opcional: ligeiro hover no logo */
+.poi-logo:hover img {
+  transform: scale(1.4);
+}
+
 /* Espaço flexível para empurrar o X */
 .poi-spacer {
   flex: 1 1 auto;
@@ -169,7 +198,10 @@
   justify-content: center;
   cursor: pointer;
   z-index: 2;
-  transition: background-color .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease;
+  transition: background-color .25s ease,
+  border-color .25s ease,
+  color .25s ease,
+  box-shadow .25s ease;
 
   &:hover {
     background-color: var(--gold-strong);

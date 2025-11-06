@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { POI_CATEGORIES, PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
+import logo from "@/assets/logo.png";
 import "./PoiFilter.scss";
 
 type Props = {
@@ -36,6 +37,12 @@ export default function PoiFilter({
             data-poi-filter={isTop ? "top" : "panel"}
         >
             <div className="poi-filter__inner">
+
+                {/* 🟡 LOGO .PT no lado esquerdo */}
+                <div className="poi-logo">
+                    <img src={logo} alt=".PT" />
+                </div>
+
                 {/* categorias */}
                 {nodeCategories.map(({ key, label }) => {
                     const checked = selected.has(key);

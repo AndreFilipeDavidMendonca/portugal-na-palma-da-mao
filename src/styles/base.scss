@@ -80,6 +80,19 @@ h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-body);
   }
 }
+.district-label span {
+  display: inline-block;
+  font-family: var(--font-title);
+  color: var(--gold);
+  font-size: clamp(14px, 1.4vw, 18px);
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
 
 .btn {
   padding: .35rem .6rem;
@@ -139,6 +152,36 @@ h1, h2, h3, h4, h5, h6 {
   object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
   background: #0e3b2e;
 }
+.leaflet-tooltip.district-badge {
+  --badge-bg: var(--bg-panel-2);
+  --badge-border: var(--gold-dark);
+  --badge-text: var(--gold);
+
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  border: 1.6px solid var(--badge-border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-family: var(--font-title, "Cormorant Garamond", serif);
+  font-weight: 600;
+  font-size: clamp(14px, 1.4vw, 18px);
+  letter-spacing: .3px;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  pointer-events: none;
+  animation: district-badge-pop .18s ease-out both;
+}
+
+.leaflet-tooltip-top.district-badge:before {
+  border-top-color: var(--bg-panel-2) !important;
+  border-width: 7px !important;
+}
+
+/* transições suaves nos polígonos */
+.leaflet-interactive {
+  transition: fill-opacity .22s ease, stroke .22s ease, stroke-width .22s ease, fill .22s ease;
+}
+
 
 /* --------------------------------
    Acessibilidade e performance
