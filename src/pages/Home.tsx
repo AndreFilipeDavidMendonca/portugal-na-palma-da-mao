@@ -219,7 +219,7 @@ function FitPortugalIslands() {
             setTimeout(() => {
                 map.invalidateSize();
                 const c2 = map.getCenter();
-                map.setView([c2.lat, c2.lng + 0.0], targetZoom, { animate: false });
+                map.setView([c2.lat, c2.lng], targetZoom, { animate: false });
             }, 0);
         });
 

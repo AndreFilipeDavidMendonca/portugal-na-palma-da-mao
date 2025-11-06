@@ -51,7 +51,7 @@
   border-radius: 12px;
   background: var(--gold);
   color: var(--bg-panel);
-  font-family: var(--font-title, "Cormorant Garamond", serif);
+  font-family: var(--font-title, "Cormorant Garamond", serif), serif;
   font-size: var(--chip-fs);
   font-weight: 600;
   cursor: pointer;
@@ -126,7 +126,7 @@
   border-radius: 12px;
   background: var(--bg-panel);
   color: var(--gold);
-  font-family: var(--font-title, "Cormorant Garamond", serif);
+  font-family: var(--font-title, "Cormorant Garamond", serif), serif;
   font-size: var(--clear-fs);
   font-weight: 700;
   letter-spacing: .6px;

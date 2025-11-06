@@ -7,7 +7,6 @@ type Props = {
 };
 
 export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
-    const map = useMap();
 
     // Cores do tema
     const cs = getComputedStyle(document.documentElement);
