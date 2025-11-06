@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css"
 import "./styles/leaflet-fixes.css"
 import 'leaflet/dist/leaflet.css';
 import './styles/leaflet-fixes.css';
-import "./styles/base.css"
+import "./styles/base.scss"
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
