@@ -1,0 +1,64 @@
+/* src/pages/district/DistrictModal.scss */
+
+.district-modal.theme-dark {
+  position: fixed;
+  inset: 0;
+  z-index: 5000; /* acima do Leaflet */
+  display: grid;
+  grid-template-rows: auto 1fr; /* topo (filtros) + conteúdo */
+  background: var(--bg-deep);
+  color: var(--gold);
+  overflow: hidden;
+
+  .poi-top {
+    /* a barra já tem o estilo via .poi-filter; isto só garante layout */
+  }
+
+  .modal-content {
+    display: grid;
+    grid-template-columns: 1fr clamp(420px, 28vw, 560px);
+    min-height: 0; /* evita overflow */
+  }
+
+  .left-map {
+    position: relative;
+    min-height: 0;
+    .leaflet-container {
+      height: 100% !important;
+      width: 100% !important;
+    }
+  }
+
+  .right-panel {
+    background: var(--bg-panel) !important;
+    color: var(--gold);
+    border-left: 1px solid var(--border);
+    overflow: auto;
+  }
+
+  .right-inner {
+    padding: 22px 20px 24px;
+
+    h2 {
+      margin: 0 0 6px 0;
+      color: var(--gold);
+      font-weight: 600;
+      font-size: 1.7rem;
+      letter-spacing: .5px;
+      text-transform: capitalize;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    .district-info {
+      margin-top: 12px;
+      strong { color: var(--gold-strong); }
+      p { color: var(--muted); margin-top: 6px; line-height: 1.55; }
+    }
+  }
+
+  .place-label span {
+    color: var(--gold);
+    text-shadow: 0 1px 2px rgba(0,0,0,.55);
+  }
+}

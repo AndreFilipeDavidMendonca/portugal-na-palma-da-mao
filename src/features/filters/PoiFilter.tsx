@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { POI_CATEGORIES, PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
-import "./poiFilter.scss";
+import "./PoiFilter.scss";
 
 type Props = {
     selected: ReadonlySet<PoiCategory>;
@@ -87,11 +87,10 @@ export default function PoiFilter({
                 {/* X encostado à direita */}
                 {showClose && (
                     <button
-                        type="button"
-                        className="poi-close"
+                        className="gold-close"
+                        onClick={onClose}
                         aria-label="Fechar distrito"
                         title="Fechar distrito"
-                        onClick={handleClose}
                     >
                         ×
                     </button>

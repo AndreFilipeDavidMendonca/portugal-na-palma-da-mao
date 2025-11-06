@@ -1,300 +1,64 @@
-/* ------------------------------
-   Base global
------------------------------- */
+/* --------------------------------
+   Base global + tema
+--------------------------------- */
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-/* ------------------------------
-   Paleta de cores (tema)
------------------------------- */
 :root {
-  --bg-deep: #0f2418;           /* fundo geral escuro */
-  --bg-panel: #122b1a;          /* componentes/painéis */
-  --bg-panel-2: #163521;        /* hover/selecionado leve */
-  --border: #254b32;            /* borda ligeiramente mais clara */
-  --border-2: #2d593b;          /* realce de foco */
-  --gold: #d7b25a;              /* texto principal */
-  --gold-dark: #b38f3b;
-  --gold-strong: #f1d27a;       /* foco/hover/ativo */
-  --muted: rgba(215, 178, 90, .75); /* placeholder/labels */
+  --bg-deep: #0f2418;     /* fundo geral escuro */
+  --bg-panel: #122b1a;    /* componentes/painéis */
+  --bg-panel-2: #163521;  /* hover/selecionado leve */
+  --border: #254b32;      /* borda */
+  --border-2: #2d593b;    /* foco */
+  --gold: #d7b25a;        /* texto principal */
+  --gold-dark: #b38f3b;   /* bordas dourado */
+  --gold-strong: #f1d27a; /* ativo/hover */
+  --muted: rgba(215,178,90,.75);
 }
 
-/* ------------------------------
-   Estrutura global da app
------------------------------- */
+/* Estrutura básica */
+.app-root { height: 100%; display: flex; flex-direction: column; }
+.map-pad  { flex: 1; }
+.map-root .leaflet-container { height: 100vh; width: 100vw; }
 
-.app-root {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Header simples */
 .header {
-  display: flex;
-  gap: .75rem;
-  align-items: center;
-  padding: .5rem .75rem;
-  border-bottom: 1px solid #eee;
-
-  input {
-    flex: 1;
-    padding: .4rem .6rem;
-  }
+  display: flex; gap: .75rem; align-items: center;
+  padding: .5rem .75rem; border-bottom: 1px solid #eee;
+  input { flex: 1; padding: .4rem .6rem; }
 }
+.btn { padding: .35rem .6rem; border:1px solid #e5e5e5; background:#fafafa; border-radius:6px; cursor:pointer; }
 
-.btn {
-  padding: .35rem .6rem;
-  border: 1px solid #e5e5e5;
-  background: #fafafa;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.map-pad {
-  flex: 1;
-}
-
-/* Mapa global em páginas inteiras */
-.map-root .leaflet-container {
-  height: 100vh;
-  width: 100vw;
-}
-
-/* Dentro do modal, o mapa já é controlado pelo SCSS do modal */
-
-
-/* ------------------------------
-   Modal genérico antigo (LEGACY)
-   Mantido para compatibilidade
------------------------------- */
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, .3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-panel {
-  width: min(1100px, 96vw);
-  height: min(92vh, 900px);
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: 56% 44%;
-  position: relative;
-}
-
-.modal-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  border: none;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.modal-left,
-.modal-right {
-  overflow: auto;
-}
-
-.modal-left {
-  background: #f7f9fb;
-}
-
-.modal-right {
-  padding: 16px;
-}
-
-/* ------------------------------
-   Estatísticas / lista POIs (legacy)
------------------------------- */
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 12px 0 8px;
-}
-
-.stat {
-  background: #f4f6f8;
-  border: 1px solid #e8ebef;
-  border-radius: 10px;
-  padding: 10px;
-
-  .k {
-    font: 700 20px/1.1 system-ui;
-  }
-}
-
-.poi-list {
-  padding: 10px;
-}
-
-.poi-item {
-  display: flex;
-  gap: 10px;
-  padding: 8px 10px;
-  border-bottom: 1px dashed #e7e7e7;
-
-  h4 {
-    margin: 0;
-    font: 600 14px/1.2 system-ui;
-  }
-
-  small {
-    color: #6b7280;
-  }
-}
-
-/* ------------------------------
-   Etiquetas (países / lugares)
------------------------------- */
-
+/* Etiqueta de países/lugares */
 .country-label span {
-  font: 600 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  color: #555;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, .75);
-  user-select: none;
-  pointer-events: none;
+  font: 600 12px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial;
+  color: #555; text-shadow: 0 1px 2px rgba(255,255,255,.75);
+  user-select: none; pointer-events: none;
 }
 
-/* ------------------------------
-   Compatibilidade com modais antigos
------------------------------- */
-.dm-backdrop,
-.dm-window,
-.district-modal-overlay {
-  display: none !important; /* desativado no novo modal */
+/* Overlay (logo/vídeo) – opcional, mantém aqui global */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: #0e3b2e;
+  display: grid; place-items: center;
+}
+.loading-frame { position: relative; width: 100vw; height: 100vh; }
+:root { --logo-shift-x: 0%; --logo-shift-y: 0%; }
+.loading-video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain;
+  object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
+  background: #0e3b2e;
 }
 
-/* ------------------------------
-   Tema escuro + dourado (aplicado no novo modal)
------------------------------- */
-
-.district-modal.theme-dark {
-  background: var(--bg-deep) !important;
-  color: var(--gold);
-  overflow: visible;
-
-  .modal-content {
-    height: 100%;
-  }
-
-  .left-map {
-    position: relative;
-    height: 100%;
-  }
-
-  .leaflet-container {
-    height: 100% !important;
-    width: 100% !important;
-  }
-
-  .right-panel {
-    background: var(--bg-panel);
-    border-left: 1px solid var(--border);
-    overflow: auto;
-  }
-
-  .modal-close {
-    z-index: 10001;
-    border: 1px solid var(--border);
-    background: var(--bg-panel);
-    color: var(--gold);
-
-    &:hover {
-      border-color: var(--gold);
-      background: var(--bg-panel-2);
-      color: var(--gold-strong);
-    }
-  }
-
-  .right-inner h2 {
-    color: var(--gold);
-  }
-
-  .right-inner hr {
-    border: 0;
-    border-top: 1px solid var(--border);
-    margin: 8px 0 14px;
-  }
-
-  .district-info strong {
-    color: var(--gold-strong);
-  }
-
-  .district-info p {
-    color: var(--muted);
-  }
-
-  /* Inputs e botões no tema */
-  input,
-  select,
-  textarea {
-    background: var(--bg-panel);
-    color: var(--gold);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
-    outline: none;
-    transition: all 0.2s ease;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--muted);
-  }
-
-  input:focus,
-  select:focus,
-  textarea:focus {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
-  }
-
-  button {
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
-    color: var(--gold);
-    border-radius: 12px;
-    padding: 10px 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-
-    &:hover {
-      border-color: var(--gold);
-      background: var(--bg-panel-2);
-      color: var(--gold-strong);
-    }
-  }
-
-  input[type="checkbox"],
-  input[type="radio"] {
-    accent-color: var(--gold);
-  }
-
-  .place-label span {
-    color: var(--gold);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
-  }
-}
+/* --------- IMPORTANTE ---------
+   Não estilizamos .modal-close aqui para evitar
+   conflitos com o novo botão .gold-close do PoiFilter.
+   (Se existir .modal-close legacy, estilize num ficheiro
+   específico desse componente.)
+--------------------------------- */

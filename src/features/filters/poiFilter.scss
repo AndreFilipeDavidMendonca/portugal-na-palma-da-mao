@@ -1,145 +1,105 @@
-/* Barra de filtros (tema premium) */
+/* src/features/filters/poiFilter.scss */
+
 .poi-filter {
   background: var(--bg-panel);
   border-bottom: 2px solid var(--gold-dark);
-  color: var(--bg-panel);
-
-  &--top {
-    position: sticky;
-    top: 0;
-    z-index: 9000;
-  }
-
-  &--panel {
-    background: var(--gold);
-    border: 2px solid var(--gold-dark);
-    border-radius: 12px;
-  }
-
+  &--top { position: sticky; top: 0; z-index: 9000; }
   &__inner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    position: relative; /* para ancorar o X */
+    display: flex; align-items: center; gap: 10px;
     padding: 10px 14px;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-
-  /* grelha para painel (se algum dia usado) */
-  &[data-poi-filter="panel"] &__inner {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    overflow: visible;
+    overflow-x: auto; scrollbar-width: thin;
   }
 }
 
-/* espaçador empurra o X para a direita */
-.poi-spacer {
-  flex: 1 1 auto;
-  min-width: 12px;
-}
-
-/* chip/pill */
 .poi-chip {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
   padding: 8px 10px;
-  border: 2px solid var(--gold-dark);
+  border: 1.5px solid var(--gold-dark);   /* mais fino */
   border-radius: 12px;
   background: var(--gold);
   color: var(--bg-panel);
-  white-space: nowrap;
-  user-select: none;
   font-weight: 600;
-  transition: all 0.15s ease-in-out;
   cursor: pointer;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
 
-  /* esconder a checkbox mas manter acessível */
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+  input { position: absolute; opacity: 0; pointer-events: none; }
+
+  /* Ícone SVG: mantém igual ao que já tens */
+  .poi-chip__icon {
+    width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; line-height: 0;
+    svg { width: 18px !important; height: 18px !important; display: block !important; }
+    svg [fill]   { fill: currentColor !important; }
+    svg [stroke] { stroke: currentColor !important; }
   }
 
-  &__icon {
-    width: 18px;
-    height: 18px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 0;
-  }
-
-  &__label { color: var(--bg-panel); }
-  &__count { margin-left: 6px; font-style: normal; font-size: 12px; opacity: .7; color: var(--bg-panel); }
-
+  /* Hover sem deslocar */
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0,0,0,.15);
+    /* sem translate/scale */
+    box-shadow: 0 2px 5px rgba(0,0,0,.12);
     border-color: var(--gold-strong);
   }
 
   &.poi-chip--on {
     background: var(--gold-strong);
-    border: 2px solid var(--gold-dark);
-    color: var(--bg-panel);
-    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179,143,59,.35);
-    transform: translateY(0);
+    border: 1.5px solid var(--gold-dark); /* mantém espessura */
+    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179,143,59,.28);
+  }
+
+  /* Active sem “saltos” */
+  &:active {
+    /* sem scale */
+    box-shadow: 0 1px 3px rgba(0,0,0,.14);
   }
 }
 
-
-/* espaçador para empurrar o X à direita */
-.poi-spacer {
-  flex: 1 1 auto;
-  min-width: 8px;
-}
-
-/* botão LIMPAR (ao lado das categorias) */
+/* Botão LIMPAR com borda fina e estável */
 .poi-clear {
   flex: 0 0 auto;
   padding: 9px 12px;
-  border: 2px solid var(--gold-dark);
+  border: 1.5px solid var(--gold-dark);   /* mais fino */
   border-radius: 12px;
-  background: var(--gold);
-  color: var(--bg-panel);
-  cursor: pointer;
+  background: var(--bg-panel);            /* verde escuro */
+  color: var(--gold);                     /* dourado */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .5px;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0,0,0,.15);
+    /* sem translate */
+    box-shadow: 0 2px 5px rgba(0,0,0,.12);
     border-color: var(--gold-strong);
+  }
+  &:active {
+    /* sem scale */
+    box-shadow: 0 1px 3px rgba(0,0,0,.14);
   }
 }
 
-/* botão X encostado à direita – dourado + borda dourado-escuro + X verde-escuro */
-.poi-close {
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid var(--gold-dark);
-  background: var(--gold);
-  color: var(--bg-panel); /* X verde-escuro */
-  font-size: 22px;
-  line-height: 1;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+.poi-spacer { flex: 1 1 auto; min-width: 8px; }
 
+/* Botão X dourado redondo, centrado */
+.gold-close {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%); /* centra verticalmente no bar */
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 2px solid var(--gold-dark);
+  background-color: var(--gold);
+  color: var(--bg-deep);
+  font-size: 22px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 2;
+  transition: all .25s ease;
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0,0,0,.15);
-    border-color: var(--gold-strong);
+    background-color: var(--gold-strong);
+    border-color: var(--gold);
+    color: var(--bg-panel);
+    box-shadow: 0 0 10px rgba(215,178,90,.5);
   }
+  &:active { transform: translateY(-50%) scale(.94); }
 }

@@ -9,6 +9,7 @@ import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
 import { getDistrictKeyFromFeature } from "@/utils/geo";
 import { filterPointsInsideDistrict } from "@/lib/spatial";
 import DistrictModal from "@/pages/district/DistrictModal";
+import LoadingOverlay from "@/features/map/LoadingOverlay";
 
 type AnyGeo = any;
 
@@ -17,17 +18,27 @@ export default function Home() {
     const [pt, setPt] = useState<AnyGeo>(null);
     const [distritos, setDistritos] = useState<AnyGeo>(null);
 
-    // Filtros (vazios por omissão)
+    // Filtros
     const [selectedTypes, setSelectedTypes] = useState<Set<PoiCategory>>(new Set());
 
-    // POIs Overpass (do país; filtramos por distrito depois)
+    // POIs Overpass (filtramos por distrito depois)
     const [allPoiPoints, setAllPoiPoints] = useState<AnyGeo | null>(null);
 
-    // Loading
+    // Loading flags
     const [isGeoLoading, setIsGeoLoading] = useState(true);
     const [isOverpassLoading, setIsOverpassLoading] = useState(false);
+
+    // ⏱️ tempo mínimo do overlay
+    const MIN_OVERLAY_MS = 1000;                       // <- ajusta aqui (12s)
+    const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+    useEffect(() => {
+        const t = setTimeout(() => setMinTimeElapsed(true), MIN_OVERLAY_MS);
+        return () => clearTimeout(t);
+    }, []);
+
+    // mantém o “min spinner” do overpass (não conflita com o mínimo global)
     const overlayStartRef = useRef<number>(0);
-    const MIN_SPINNER_MS = 900; // tempo mínimo visível do overlay
+    const MIN_SPINNER_MS = 900;
 
     // Modal
     const [open, setOpen] = useState(false);
@@ -50,16 +61,10 @@ export default function Home() {
                 setPt(ptData);
                 setDistritos(distData);
             })
-            .catch((e) => {
-                console.error("[geo] Falha ao carregar PT/distritos:", e);
-            })
-            .finally(() => {
-                if (!aborted) setIsGeoLoading(false);
-            });
+            .catch((e) => console.error("[geo] Falha ao carregar PT/distritos:", e))
+            .finally(() => !aborted && setIsGeoLoading(false));
 
-        return () => {
-            aborted = true;
-        };
+        return () => { aborted = true; };
     }, []);
 
     // 2) Overpass assim que tivermos PT
@@ -75,16 +80,13 @@ export default function Home() {
         const q = buildCulturalPointsQuery(poly);
         const controller = new AbortController();
 
-        // ligar overlay e registar início (para tempo mínimo)
         overlayStartRef.current = performance.now();
         setIsOverpassLoading(true);
 
         overpassQueryToGeoJSON(q, 2, controller.signal)
             .then((gj) => setAllPoiPoints(gj))
             .catch((e) => {
-                if (e?.name !== "AbortError") {
-                    console.error("[overpass] falhou:", e);
-                }
+                if (e?.name !== "AbortError") console.error("[overpass] falhou:", e);
                 setAllPoiPoints(null);
             })
             .finally(() => {
@@ -126,20 +128,13 @@ export default function Home() {
         return filtered;
     }, [activeFeature, allPoiPoints]);
 
-    const showOverlay = isGeoLoading || isOverpassLoading;
+    // 👇 overlay visível enquanto houver loading real OU até cumprir o mínimo
+    const showOverlay = (isGeoLoading || isOverpassLoading) || !minTimeElapsed;
     const mapInteractive = !showOverlay;
 
     return (
         <>
-            {showOverlay && (
-                <div className="loading-overlay" aria-busy="true" aria-live="polite">
-                    <div className="loading-inner">
-                        <div className="brand">.pt</div>
-                        <div className="msg">A carregar pontos culturais…</div>
-                        <div className="spinner" />
-                    </div>
-                </div>
-            )}
+            {showOverlay && <LoadingOverlay />}
 
             <div className={`map-shell ${mapInteractive ? "" : "blocked"}`}>
                 <MapContainer
@@ -190,28 +185,6 @@ export default function Home() {
 
             <style>{`
         .map-shell.blocked { pointer-events: none; }
-
-        .loading-overlay{
-          position: fixed; inset: 0;
-          background: #0e3b2e; /* verde escuro */
-          display: grid; place-items: center;
-          z-index: 99999;
-        }
-        .loading-inner{ display:flex; flex-direction:column; align-items:center; gap:14px; }
-        .brand{
-          font-size: 48px; font-weight: 800; letter-spacing: 1px;
-          color: #d4af37; /* dourado */
-        }
-        .msg{
-          font-size: 18px; color: #e7cf7a; opacity: .95;
-        }
-        .spinner{
-          width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.25);
-          border-top-color: #d4af37; border-radius: 50%;
-          animation: spin 0.9s linear infinite;
-          margin-top: 6px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
         </>
     );
@@ -226,11 +199,10 @@ function FitPortugalIslands() {
         if (did.current) return;
 
         const portugalBounds = L.latLngBounds(
-            [32.0, -32.0], // sudoeste (Madeira + Atlântico)
-            [43.0,  -6.0]  // nordeste (Minho interior)
+            [32.0, -32.0],
+            [43.0,  -6.0]
         );
 
-        // Faz fit imediato…
         map.fitBounds(portugalBounds, {
             animate: false,
             paddingTopLeft: [20, 60],
@@ -238,12 +210,9 @@ function FitPortugalIslands() {
         });
         map.setMaxBounds(portugalBounds.pad(0.3));
 
-        // …e quando o mapa estiver pronto, invalida o tamanho e volta a aplicar um micro-ajuste.
         map.whenReady(() => {
-            // ajuda o Chrome a recalcular o tamanho real do container
             setTimeout(() => {
                 map.invalidateSize();
-                // pequeno re-fit sem animação para garantir o mesmo enquadramento do Firefox
                 map.fitBounds(portugalBounds, {
                     animate: false,
                     paddingTopLeft: [20, 60],
@@ -258,7 +227,7 @@ function FitPortugalIslands() {
     return null;
 }
 
-/** Converte GeoJSON (Polygon/MultiPolygon/Feature/FC) em poly:"lat lon ..." para Overpass */
+/** Converte GeoJSON em poly:"lat lon ..." para Overpass */
 function geoToOverpassPoly(geo: any): string | null {
     const rings: number[][][] = [];
     const pushFeature = (f: any) => {
