@@ -7,8 +7,6 @@ import { loadGeo } from "@/lib/geo";
 import {
     DISTRICT_DETAIL,
     DISTRICT_LABELS,
-    POI_LABELS,
-    POI_COLORS,
     COLOR_RIVER,
     COLOR_LAKE,
     COLOR_RAIL,
