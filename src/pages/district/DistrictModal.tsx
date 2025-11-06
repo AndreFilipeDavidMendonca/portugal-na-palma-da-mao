@@ -1,4 +1,3 @@
-// src/features/map/DistrictModal.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -20,10 +19,9 @@ import {
     Z_PLACES,
     type PoiCategory,
 } from "@/utils/constants";
-import { PoiPointsLayer, PoiAreasLayer, filterFeaturesByTypes, getPoiCategory } from "./PoiLayers";
-import PoiFilter from "@/features/filters/PoiFilter";
-import {fetchDistrictInfo} from "@/lib/districtInfo";
 
+import { PoiPointsLayer, PoiAreasLayer, filterFeaturesByTypes, getPoiCategory } from "@/features/map/PoiLayers";
+import PoiFilter from "@/features/filters/PoiFilter";
 
 type AnyGeo = any;
 
@@ -38,11 +36,11 @@ type Props = {
     onClearTypes: () => void;
 
     // dados (POIs culturais vindos do Overpass)
-    poiPoints: AnyGeo | null;     // nodes culturais
-    poiAreas?: AnyGeo | null;     // parks/protected (opcional)
+    poiPoints: AnyGeo | null;
+    poiAreas?: AnyGeo | null;
     population?: number | null;
 
-    // OPCIONAIS: se quiseres injetar camadas vetoriais de fora
+    // camadas opcionais
     rivers?: AnyGeo | null;
     lakes?: AnyGeo | null;
     rails?: AnyGeo | null;
@@ -82,8 +80,6 @@ export default function DistrictModal({
                                           poiPoints,
                                           poiAreas = null,
                                           population = null,
-
-                                          // opcionais (se vierem, usamos; caso contrário, tentamos carregar de /public/geo/)
                                           rivers: riversProp = null,
                                           lakes: lakesProp = null,
                                           rails: railsProp = null,
@@ -91,7 +87,6 @@ export default function DistrictModal({
                                           peaks: peaksProp = null,
                                           places: placesProp = null,
                                       }: Props) {
-    // === Camadas estáticas ===
     const [rivers, setRivers] = useState<AnyGeo | null>(riversProp);
     const [lakes, setLakes] = useState<AnyGeo | null>(lakesProp);
     const [rails, setRails] = useState<AnyGeo | null>(railsProp);
@@ -108,21 +103,14 @@ export default function DistrictModal({
         });
     }, [districtFeature]);
 
-    // Carrega apenas se não foram passadas via props
+    // Carrega camadas se não vierem por props
     useEffect(() => {
-        const safeLoad = async (
-            path: string,
-            setter: (gj: AnyGeo | null) => void,
-            already: AnyGeo | null
-        ) => {
-            if (already) return; // já veio por props
+        const safeLoad = async (path: string, setter: (gj: AnyGeo | null) => void, already: AnyGeo | null) => {
+            if (already) return;
             try {
                 const gj = await loadGeo(path);
-                if (gj && (gj.type === "FeatureCollection" || gj.type === "Feature")) {
-                    setter(gj);
-                } else {
-                    setter(null);
-                }
+                if (gj && (gj.type === "FeatureCollection" || gj.type === "Feature")) setter(gj);
+                else setter(null);
             } catch {
                 setter(null);
             }
@@ -134,15 +122,29 @@ export default function DistrictModal({
         safeLoad("/geo/estradas_pt.geojson", setRoads, roadsProp);
         safeLoad("/geo/picos_pt.geojson", setPeaks, peaksProp);
         safeLoad("/geo/cidades_pt.geojson", setPlaces, placesProp);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // === Filtro cultural (pontos) ===
-    const filteredPoints = useMemo(
-        () => filterFeaturesByTypes(poiPoints, selectedTypes),
-        [poiPoints, selectedTypes]
-    );
+    const filteredPoints = useMemo(() => {
+        if (!poiPoints) return null;
 
+        const filtered = filterFeaturesByTypes(poiPoints, selectedTypes);
+
+        const withNames = {
+            ...filtered,
+            features: filtered.features?.filter(
+                (f: any) =>
+                    !!(
+                        f.properties?.name ||
+                        f.properties?.["name:pt"] ||
+                        f.properties?.NAME
+                    )
+            ),
+        };
+        console.debug(
+            `POIs filtrados: ${filtered.features?.length} de ${poiPoints?.features?.length}`
+        );
+        return withNames;
+    }, [poiPoints, selectedTypes]);
 
     const countsByCat = useMemo(() => {
         const counts: Record<PoiCategory, number> = {} as any;
@@ -153,29 +155,24 @@ export default function DistrictModal({
         return counts;
     }, [poiPoints]);
 
-
     if (!open) return null;
 
     return (
-        <div className="district-modal">
-            {/* Botão X fixo (fora do MapContainer) */}
-            <button
-                className="modal-close"
-                onClick={onClose}
-                aria-label="Fechar"
-                title="Fechar"
-            >
-                ×
-            </button>
-            <PoiFilter
-                variant="top"
-                selected={selectedTypes}
-                onToggle={onToggleType}
-                onClear={onClearTypes}
-                countsByCat={countsByCat}
-            />
+        <div className="district-modal theme-dark">
+            {/* barra de filtros no topo do modal */}
+            <div className="poi-top">
+                <PoiFilter
+                    variant="top"
+                    selected={selectedTypes}
+                    onToggle={onToggleType}
+                    onClear={onClearTypes}
+                    countsByCat={countsByCat}
+                    showClose
+                    onClose={onClose}
+                />
+            </div>
+
             <div className="modal-content">
-                {/* ESQUERDA: mapa do distrito */}
                 <div className="left-map">
                     <MapContainer
                         center={[39.5, -8]}
@@ -185,7 +182,6 @@ export default function DistrictModal({
                         preferCanvas
                         style={{ height: "100%", width: "100%" }}
                     >
-                        {/* Base detalhada (estradas/rios/landuse) */}
                         <Pane name="districtBase" style={{ zIndex: 200 }}>
                             <TileLayer
                                 url={DISTRICT_DETAIL}
@@ -193,7 +189,6 @@ export default function DistrictModal({
                             />
                         </Pane>
 
-                        {/* Labels por cima (opcional) */}
                         <Pane name="districtLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
                             <TileLayer
                                 url={DISTRICT_LABELS}
@@ -201,7 +196,6 @@ export default function DistrictModal({
                             />
                         </Pane>
 
-                        {/* Limite do distrito */}
                         {districtFeature && (
                             <GeoJSON
                                 data={districtFeature as any}
@@ -210,18 +204,12 @@ export default function DistrictModal({
                             />
                         )}
 
-                        {/* Rios */}
                         {rivers && (
                             <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
-                                <GeoJSON
-                                    data={rivers as any}
-                                    style={{ color: COLOR_RIVER, weight: 1.5, opacity: 0.9 }}
-                                    interactive={false}
-                                />
+                                <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5, opacity: 0.9 }} interactive={false} />
                             </Pane>
                         )}
 
-                        {/* Lagos */}
                         {lakes && (
                             <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
                                 <GeoJSON
@@ -238,29 +226,18 @@ export default function DistrictModal({
                             </Pane>
                         )}
 
-                        {/* Ferrovias */}
                         {rails && (
                             <Pane name="rails" style={{ zIndex: Z_RAIL }}>
-                                <GeoJSON
-                                    data={rails as any}
-                                    style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }}
-                                    interactive={false}
-                                />
+                                <GeoJSON data={rails as any} style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }} interactive={false} />
                             </Pane>
                         )}
 
-                        {/* Estradas */}
                         {roads && (
                             <Pane name="roads" style={{ zIndex: Z_ROADS }}>
-                                <GeoJSON
-                                    data={roads as any}
-                                    style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }}
-                                    interactive={false}
-                                />
+                                <GeoJSON data={roads as any} style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }} interactive={false} />
                             </Pane>
                         )}
 
-                        {/* Picos / montanhas */}
                         {peaks && (
                             <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
                                 <GeoJSON
@@ -278,7 +255,6 @@ export default function DistrictModal({
                             </Pane>
                         )}
 
-                        {/* Cidades / lugares povoados (labels sem interação) */}
                         {places && (
                             <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
                                 <GeoJSON
@@ -311,14 +287,12 @@ export default function DistrictModal({
                             </Pane>
                         )}
 
-                        {/* Áreas (parques/protegidas) por baixo dos pontos culturais */}
                         {poiAreas && (
                             <Pane name="areas" style={{ zIndex: 430 }}>
                                 <PoiAreasLayer data={poiAreas} />
                             </Pane>
                         )}
 
-                        {/* Pontos culturais filtrados */}
                         {filteredPoints && (
                             <Pane name="points" style={{ zIndex: 460 }}>
                                 <PoiPointsLayer data={filteredPoints} selectedTypes={selectedTypes} />
@@ -329,22 +303,17 @@ export default function DistrictModal({
                     </MapContainer>
                 </div>
 
-                {/* DIREITA: painel info + filtros */}
                 <aside className="right-panel">
                     <div className="right-inner">
-                        <h2 style={{ marginTop: 0 }}>
-                            {districtFeature?.properties?.name || "Distrito"}
-                        </h2>
+                        <h2>{districtFeature?.properties?.name || "Distrito"}</h2>
                         <hr />
                         {districtInfo && (
                             <div className="district-info">
                                 <div><strong>Fundado:</strong> {districtInfo.founded || "—"}</div>
                                 <div><strong>População:</strong> {population?.toLocaleString("pt-PT") || "—"}</div>
-                                <p style={{ marginTop: 6 }}>{districtInfo.description}</p>
-
+                                <p>{districtInfo.description}</p>
                             </div>
                         )}
-
                     </div>
                 </aside>
             </div>

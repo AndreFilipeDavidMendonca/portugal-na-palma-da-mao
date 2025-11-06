@@ -8,7 +8,7 @@ import { buildCulturalPointsQuery, overpassQueryToGeoJSON } from "@/lib/overpass
 import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
 import { getDistrictKeyFromFeature } from "@/utils/geo";
 import { filterPointsInsideDistrict } from "@/lib/spatial";
-import DistrictModal from "@/features/map/DistrictModal";
+import DistrictModal from "@/pages/district/DistrictModal";
 
 type AnyGeo = any;
 

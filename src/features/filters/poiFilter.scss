@@ -1,0 +1,145 @@
+/* Barra de filtros (tema premium) */
+.poi-filter {
+  background: var(--bg-panel);
+  border-bottom: 2px solid var(--gold-dark);
+  color: var(--bg-panel);
+
+  &--top {
+    position: sticky;
+    top: 0;
+    z-index: 9000;
+  }
+
+  &--panel {
+    background: var(--gold);
+    border: 2px solid var(--gold-dark);
+    border-radius: 12px;
+  }
+
+  &__inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  /* grelha para painel (se algum dia usado) */
+  &[data-poi-filter="panel"] &__inner {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+  }
+}
+
+/* espaçador empurra o X para a direita */
+.poi-spacer {
+  flex: 1 1 auto;
+  min-width: 12px;
+}
+
+/* chip/pill */
+.poi-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--bg-panel);
+  white-space: nowrap;
+  user-select: none;
+  font-weight: 600;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+
+  /* esconder a checkbox mas manter acessível */
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &__icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  &__label { color: var(--bg-panel); }
+  &__count { margin-left: 6px; font-style: normal; font-size: 12px; opacity: .7; color: var(--bg-panel); }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0,0,0,.15);
+    border-color: var(--gold-strong);
+  }
+
+  &.poi-chip--on {
+    background: var(--gold-strong);
+    border: 2px solid var(--gold-dark);
+    color: var(--bg-panel);
+    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179,143,59,.35);
+    transform: translateY(0);
+  }
+}
+
+
+/* espaçador para empurrar o X à direita */
+.poi-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+/* botão LIMPAR (ao lado das categorias) */
+.poi-clear {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--bg-panel);
+  cursor: pointer;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0,0,0,.15);
+    border-color: var(--gold-strong);
+  }
+}
+
+/* botão X encostado à direita – dourado + borda dourado-escuro + X verde-escuro */
+.poi-close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--gold-dark);
+  background: var(--gold);
+  color: var(--bg-panel); /* X verde-escuro */
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0,0,0,.15);
+    border-color: var(--gold-strong);
+  }
+}

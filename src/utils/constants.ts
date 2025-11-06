@@ -41,14 +41,14 @@ export type PoiCategory =
 
 // === Labels ===
 export const POI_LABELS: Record<PoiCategory, string> = {
-    castle: "Castelo",
-    palace: "Palácio",
-    monument: "Monumento",
+    castle: "Castelos",
+    palace: "Palácios",
+    monument: "Monumentos",
     ruins: "Ruínas",
-    church: "Igreja",
-    viewpoint: "Miradouro",
-    park: "Parque",
-    protected_area: "Área protegida",
+    church: "Igrejas",
+    viewpoint: "Miradouros",
+    park: "Parques",
+    protected_area: "Áreas protegidas",
 };
 
 // === Cores ===

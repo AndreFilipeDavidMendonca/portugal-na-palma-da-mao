@@ -1,17 +1,16 @@
-// src/features/map/PoiFilter.tsx
-import { POI_CATEGORIES, PoiCategory } from "@/utils/constants";
+import React, { useMemo } from "react";
+import { POI_CATEGORIES, PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
-import { CATEGORY_COLORS } from "@/utils/constants";
-import React from "react";
+import "./poiFilter.scss";
 
 type Props = {
-    selected: Set<PoiCategory>;
+    selected: ReadonlySet<PoiCategory>;
     onToggle: (k: PoiCategory) => void;
     onClear: () => void;
-    /** opcional: mostrar contagem por categoria */
-    countsByCat?: Partial<Record<PoiCategory, number>>;
-    /** "top" = barra horizontal fixa; "panel" = o painel antigo */
+    countsByCat?: Readonly<Partial<Record<PoiCategory, number>>>;
     variant?: "top" | "panel";
+    showClose?: boolean;
+    onClose?: () => void;
 };
 
 export default function PoiFilter({
@@ -20,118 +19,83 @@ export default function PoiFilter({
                                       onClear,
                                       countsByCat = {},
                                       variant = "top",
+                                      showClose = false,
+                                      onClose,
                                   }: Props) {
     const isTop = variant === "top";
 
-    const wrapStyle: React.CSSProperties = isTop
-        ? {
-            position: "sticky",
-            top: 0,
-            zIndex: 10000,
-            background: "rgba(255,255,255,.96)",
-            backdropFilter: "saturate(120%) blur(2px)",
-            borderBottom: "1px solid #eee",
-        }
-        : {
-            background: "rgba(255,255,255,0.95)",
-            borderRadius: 12,
-            padding: 12,
-            boxShadow: "0 6px 16px rgba(0,0,0,.15)",
-        };
+    // evita recalcular em cada render
+    const nodeCategories = useMemo(
+        () => POI_CATEGORIES.filter((c) => c.kind === "node"),
+        []
+    );
 
-    const innerStyle: React.CSSProperties = isTop
-        ? {
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            padding: "10px 14px",
-            overflowX: "auto",
-            scrollbarWidth: "thin",
-        }
-        : {
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0,1fr))", // 3 colunas
-            gap: 8,
-        };
-
-    const chipStyle: React.CSSProperties = {
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "8px 10px",
-        border: "1px solid #E0E0E0",
-        borderRadius: 12,
-        background: "#fff",
-        whiteSpace: "nowrap",
-        userSelect: "none",
-    };
-
-    const chipOnStyle: React.CSSProperties = {
-        background: "#F3F6FF",
-        borderColor: "#C5CAE9",
+    const handleClose = () => {
+        if (onClose) onClose();
+        else window.dispatchEvent(new CustomEvent("district-close"));
     };
 
     return (
-        <div style={wrapStyle}>
-            <div style={innerStyle}>
-                {POI_CATEGORIES.filter(c => c.kind === "node").map(({ key, label }) => {
+        <div
+            className={`poi-filter ${isTop ? "poi-filter--top" : "poi-filter--panel"}`}
+            data-poi-filter={isTop ? "top" : "panel"}
+        >
+            <div className="poi-filter__inner">
+                {/* categorias */}
+                {nodeCategories.map(({ key, label }) => {
                     const checked = selected.has(key);
-                    const svg = POI_ICON_SVG_RAW[key];
                     const color = CATEGORY_COLORS[key] || "#777";
                     const count = countsByCat[key] ?? 0;
+                    const svg = POI_ICON_SVG_RAW[key];
 
                     return (
                         <label
                             key={key}
-                            style={{ ...chipStyle, ...(checked ? chipOnStyle : null) }}
+                            className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
                             title={label}
                         >
+                            {/* checkbox invisível mas acessível */}
                             <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => onToggle(key)}
-                                style={{
-                                    width: 13,
-                                    height: 13,
-                                    transform: "translateY(-0.5px)",
-                                    accentColor: color, // usa a cor da categoria, se suportado
-                                    cursor: "pointer"
-                                }}
+                                // accentColor é dinâmico por categoria
+                                style={{ accentColor: color }}
                             />
                             {svg && (
                                 <span
-                                    style={{
-                                        width: 18,
-                                        height: 18,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color,
-                                        lineHeight: 0,
-                                    }}
+                                    className="poi-chip__icon"
+                                    style={{ color }}
+                                    // svg inline já vem sanitizado da tua lib
                                     dangerouslySetInnerHTML={{ __html: svg }}
                                 />
                             )}
-                            <span>{label}</span>
-                            <em style={{ marginLeft: 6, fontStyle: "normal", fontSize: 12, opacity: 0.65 }}>
-                                {count}
-                            </em>
+                            <span className="poi-chip__label">{label}</span>
+                            <em className="poi-chip__count">{count}</em>
                         </label>
                     );
                 })}
 
-                {/* botão limpar */}
-                <button
-                    onClick={onClear}
-                    style={{
-                        ...chipStyle,
-                        borderColor: "#ddd",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                    }}
-                >
-                    Limpar
+                {/* LIMPAR logo após as categorias */}
+                <button type="button" className="poi-clear" onClick={onClear}>
+                    LIMPAR
                 </button>
+
+                {/* espaço flexível para empurrar o X */}
+                {showClose && <div className="poi-spacer" />}
+
+                {/* X encostado à direita */}
+                {showClose && (
+                    <button
+                        type="button"
+                        className="poi-close"
+                        aria-label="Fechar distrito"
+                        title="Fechar distrito"
+                        onClick={handleClose}
+                    >
+                        ×
+                    </button>
+                )}
             </div>
         </div>
     );

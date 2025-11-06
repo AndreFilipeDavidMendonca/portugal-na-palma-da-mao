@@ -12,8 +12,8 @@ type AnyGeo = any;
 function getIconSizeForZoom(zoom: number): number {
     // Ícones SVG (categorias) — crescimento contido
     // z10 → 14px ... z19 → 24px
-    const Z0 = 10, Z1 = 19;
-    const P0 = 14, P1 = 24;
+    const Z0 = 14, Z1 = 20;
+    const P0 = 20, P1 = 25;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
@@ -169,7 +169,7 @@ export function PoiPointsLayer({
     selectedTypes: Set<PoiCategory>;
 }) {
     const zoom = useMapZoom();
-    const showSvg = zoom >= 11;
+    const showSvg = zoom >= 13;
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize  = getPinSizeForZoom(zoom);
 
