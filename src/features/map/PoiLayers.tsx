@@ -1,5 +1,5 @@
 // src/features/map/PoiLayers.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
 
@@ -40,7 +40,6 @@ export function getPoiCategory(f: any): PoiCategory | null {
     const leisure     = tag(p, "leisure");
     const boundary    = tag(p, "boundary");
 
-    // Ajusta estes nomes para encaixar no teu union PoiCategory (ex.: "castle", "palace", ...)
     if (historic === "palace" || building === "palace" || castle_type === "palace")
         return "palace" as PoiCategory;
 
@@ -72,6 +71,8 @@ export function filterFeaturesByTypes(
 ) {
     if (!geo) return null;
     if (!geo.features) return geo;
+
+    // Sem seleção → coleção vazia (não mostra nada)
     if (!selected || selected.size === 0)
         return { type: "FeatureCollection", features: [] };
 
@@ -99,15 +100,17 @@ function getPinSizeForZoom(zoom: number): number {
     return Math.round(P0 + (P1 - P0) * t);
 }
 
+/** Zoom atual do mapa (sem tipos malucos no cleanup) */
 function useMapZoom(): number {
     const map = useMap();
-    const [zoom, setZoom] = React.useState(map.getZoom());
-    useEffect(() => {
-        if (!map) return;
+    const [zoom, setZoom] = React.useState(() => map.getZoom());
+
+    React.useEffect(() => {
         const onZoom = () => setZoom(map.getZoom());
         map.on("zoomend", onZoom);
-        return () => map.off("zoomend", onZoom);
+        return () => { map.off("zoomend", onZoom); };
     }, [map]);
+
     return zoom;
 }
 
@@ -181,7 +184,9 @@ export function PoiPointsLayer({
     const showSvg = zoom >= 13;
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize  = getPinSizeForZoom(zoom);
-    const showAll = false;
+
+    // “Sem nada selecionado” => esconder tudo (GeoJSON.filter retorna false p/ todos)
+    const nothingSelected = !selectedTypes || selectedTypes.size === 0;
 
     // Modal interno do layer
     const [open, setOpen]   = React.useState(false);
@@ -204,7 +209,7 @@ export function PoiPointsLayer({
                 key={key}
                 data={data as any}
                 filter={(f: any) => {
-                    if (showAll) return true;
+                    if (nothingSelected) return false; // ← esconde tudo sem seleção
                     const cat = getPoiCategory(f);
                     return cat ? selectedTypes.has(cat) : false;
                 }}
@@ -244,21 +249,22 @@ export function PoiPointsLayer({
                         const props  = { ...(feature.properties || {}) };
                         const tags   = props.tags ?? {};
                         const merged = { ...props, ...tags, tags };
-                        const poiNorm = { ...feature, properties: merged };
 
+                        if (!merged.id && feature.id)   merged.id = feature.id;
+                        if (!merged.type && feature.type) merged.type = feature.type;
+
+                        const poiNorm = { ...feature, properties: merged };
                         const clickId = ++lastClickIdRef.current;
+
                         setPoi(poiNorm);
                         setOpen(true);
 
                         try {
-                            const wikidataId: string | null =
-                                merged.wikidata || merged["wikidata:id"] || null;
-                            if (wikidataId) {
-                                const extra = await fetchPoiInfo(wikidataId);
-                                if (clickId === lastClickIdRef.current) setInfo(extra);
-                            } else {
-                                if (clickId === lastClickIdRef.current) setInfo(null);
-                            }
+                            const wikidata  = merged.wikidata || merged["wikidata:id"] || null;
+                            const wikipedia = merged.wikipedia || merged["wikipedia:pt"] || merged["wikipedia:en"] || null;
+
+                            const extra = await fetchPoiInfo({ wikidata, wikipedia });
+                            if (clickId === lastClickIdRef.current) setInfo(extra ?? null);
                         } catch {
                             if (clickId === lastClickIdRef.current) setInfo(null);
                         }
