@@ -34,6 +34,17 @@ import "./DistrictModal.scss";
 
 type AnyGeo = any;
 
+/* ---------------- Debug helpers ---------------- */
+const DEBUG_POI = (() => {
+    try {
+        if (import.meta.env?.VITE_DEBUG_POI === "true") return true;
+        return new URLSearchParams(window.location.search).get("debug") === "poi";
+    } catch { return false; }
+})();
+const dlog = (...args: any[]) => { if (DEBUG_POI) console.log("[POI]", ...args); };
+const dgrp = (t: string) => { if (DEBUG_POI) console.groupCollapsed(t); };
+const dgrpEnd = () => { if (DEBUG_POI) console.groupEnd(); };
+
 /* ---------- Fit Bounds ---------- */
 function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
     const map = useMap();
@@ -73,17 +84,13 @@ function normalizeCommonsUrl(u: string): string {
         if (/\/wiki\/Special:Redirect\/file\//i.test(p)) {
             const filePart = p.replace(/.*\/wiki\/Special:Redirect\/file\//i, "");
             const fileName = extractFileName(filePart);
-            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
-                fileName
-            )}`;
+            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
         }
 
         if (/\/wiki\/(File|Ficheiro):/i.test(p)) {
             const filePart = p.replace(/.*\/wiki\/(File|Ficheiro):/i, "");
             const fileName = extractFileName(filePart);
-            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
-                fileName
-            )}`;
+            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
         }
 
         return u;
@@ -92,10 +99,7 @@ function normalizeCommonsUrl(u: string): string {
     }
 }
 
-function buildNormalizedGallery(info: {
-    image?: string | null;
-    images?: string[] | null;
-}): string[] {
+function buildNormalizedGallery(info: { image?: string | null; images?: string[] | null }): string[] {
     const arr: string[] = [];
     const push = (s?: string | null) => {
         if (!s) return;
@@ -125,22 +129,13 @@ function testLoadable(url: string, timeoutMs = 8000): Promise<boolean> {
     return new Promise((resolve) => {
         const img = new Image();
         const t = setTimeout(() => resolve(false), timeoutMs);
-        img.onload = () => {
-            clearTimeout(t);
-            resolve(true);
-        };
-        img.onerror = () => {
-            clearTimeout(t);
-            resolve(false);
-        };
+        img.onload = () => { clearTimeout(t); resolve(true); };
+        img.onerror = () => { clearTimeout(t); resolve(false); };
         img.src = url;
     });
 }
 
-async function filterLoadableImages(
-    urls: string[],
-    timeoutMs = 8000
-): Promise<string[]> {
+async function filterLoadableImages(urls: string[], timeoutMs = 8000): Promise<string[]> {
     const results = await Promise.all(urls.map((u) => testLoadable(u, timeoutMs)));
     return urls.filter((_, i) => results[i]);
 }
@@ -187,7 +182,7 @@ export default function DistrictModal(props: Props) {
         places: placesProp = null,
     } = props;
 
-    /* ====== Estado do POI selecionado (MOVER PARA O TOPO) ====== */
+    /* ====== Estado do POI selecionado ====== */
     const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
     const [selectedPoiInfo, setSelectedPoiInfo] = useState<PoiInfo | null>(null);
     const [showPoiModal, setShowPoiModal] = useState(false);
@@ -223,6 +218,7 @@ export default function DistrictModal(props: Props) {
             .catch(() => setDistrictInfo(null));
     }, [districtFeature]);
 
+    /* ----- lazy load camadas geográficas ----- */
     useEffect(() => {
         const safeLoad = async (path: string, set: (v: any) => void, already: any) => {
             if (already) return;
@@ -299,6 +295,13 @@ export default function DistrictModal(props: Props) {
             })
             .filter(Boolean);
 
+        if (DEBUG_POI) {
+            dgrp("[POI] normalizedPoints");
+            dlog("total in:", poiPoints.features?.length ?? 0);
+            dlog("total out:", feats.length);
+            dgrpEnd();
+        }
+
         return { ...poiPoints, features: feats };
     }, [poiPoints]);
 
@@ -314,7 +317,7 @@ export default function DistrictModal(props: Props) {
         return counts;
     }, [normalizedPoints]);
 
-    /* ----- Aplicar filtros ----- */
+    /* ----- Aplicar filtros por seleção ----- */
     const filteredPoints = useMemo(() => {
         if (!normalizedPoints) return null;
         if (!selectedTypes || selectedTypes.size === 0) return normalizedPoints;
@@ -327,10 +330,13 @@ export default function DistrictModal(props: Props) {
 
     /* ====== Clique num ponto ====== */
     const onPoiClick = (feature: any) => {
+        dgrp("[POI] click feature");
+        console.log(feature);
+        dgrpEnd();
         setSelectedPoi(feature);
     };
 
-    /* ====== Fetch info + pré-carregamento de imagens ====== */
+    /* ====== Fetch info + pré-carregar imagens + decisão de abrir ====== */
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -349,9 +355,29 @@ export default function DistrictModal(props: Props) {
                     null;
                 const wd: string | null = selectedPoi.properties.wikidata ?? null;
 
-                let info = await fetchPoiInfo({ wikidata: wd, wikipedia: wp });
+                const approxName =
+                    selectedPoi.properties["name:pt"] ??
+                    selectedPoi.properties.name ??
+                    null;
+                const approxLat = selectedPoi.geometry?.coordinates?.[1];
+                const approxLon = selectedPoi.geometry?.coordinates?.[0];
+
+                dgrp("[POI] fetchPoiInfo start");
+                dlog({ wd, wp, approx: { name: approxName, lat: approxLat, lon: approxLon } });
+                dgrpEnd();
+
+                let info = await fetchPoiInfo({
+                    wikidata: wd,
+                    wikipedia: wp,
+                    approx: { name: approxName, lat: approxLat, lon: approxLon },
+                });
                 if (!alive || reqId !== lastReqRef.current) return;
 
+                dgrp("[POI] fetchPoiInfo result (raw)");
+                console.log(info);
+                dgrpEnd();
+
+                // normalizar + filtrar imagens que realmente carregam
                 const normalized = buildNormalizedGallery(info ?? {});
                 const loadable = await filterLoadableImages(normalized, 8000);
                 if (!alive || reqId !== lastReqRef.current) return;
@@ -373,15 +399,16 @@ export default function DistrictModal(props: Props) {
 
                 setSelectedPoiInfo(finalInfo);
 
-                // Abrir se existir: título OU descrição OU alguma imagem
                 const hasAnyImage = loadable.length > 0;
                 const hasTitle = !!finalInfo.label;
-                const hasDesc =
-                    !!finalInfo.description && finalInfo.description.trim().length > 0;
-
+                const hasDesc = !!finalInfo.description && finalInfo.description.trim().length > 0;
                 const shouldOpen = hasTitle || hasDesc || hasAnyImage;
+
+                dlog("[POI] open decision:", { hasAnyImage, hasTitle, hasDesc, shouldOpen });
+
                 setShowPoiModal(shouldOpen);
-            } catch {
+            } catch (e) {
+                console.warn("[POI] fetchPoiInfo error", e);
                 if (!alive || reqId !== lastReqRef.current) return;
                 setSelectedPoiInfo(null);
                 setShowPoiModal(false);
@@ -390,9 +417,7 @@ export default function DistrictModal(props: Props) {
             }
         })();
 
-        return () => {
-            alive = false;
-        };
+        return () => { alive = false; };
     }, [selectedPoi]);
 
     if (!open) return null;
@@ -442,13 +467,74 @@ export default function DistrictModal(props: Props) {
                             />
                         )}
 
-                        {/* exemplo de camada extra (rios) — podes reativar as restantes */}
+                        {/* exemplos de camadas extra (ativar as que quiseres) */}
                         {rivers && (
                             <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
+                                <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5 }} interactive={false} />
+                            </Pane>
+                        )}
+                        {lakes && (
+                            <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
                                 <GeoJSON
-                                    data={rivers as any}
-                                    style={{ color: COLOR_RIVER, weight: 1.5 }}
+                                    data={lakes as any}
+                                    style={{ color: COLOR_LAKE, weight: 1, fillColor: COLOR_LAKE, fillOpacity: 0.3, opacity: 0.9 }}
                                     interactive={false}
+                                />
+                            </Pane>
+                        )}
+                        {rails && (
+                            <Pane name="rails" style={{ zIndex: Z_RAIL }}>
+                                <GeoJSON data={rails as any} style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }} interactive={false} />
+                            </Pane>
+                        )}
+                        {roads && (
+                            <Pane name="roads" style={{ zIndex: Z_ROADS }}>
+                                <GeoJSON data={roads as any} style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }} interactive={false} />
+                            </Pane>
+                        )}
+                        {peaks && (
+                            <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
+                                <GeoJSON
+                                    data={peaks as any}
+                                    pointToLayer={(_f, latlng) =>
+                                        L.circleMarker(latlng, {
+                                            radius: 3.5,
+                                            color: COLOR_PEAK,
+                                            weight: 1,
+                                            fillColor: COLOR_PEAK,
+                                            fillOpacity: 0.9,
+                                        })
+                                    }
+                                />
+                            </Pane>
+                        )}
+                        {places && (
+                            <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
+                                <GeoJSON
+                                    data={places as any}
+                                    pointToLayer={(f, latlng) => {
+                                        const name =
+                                            f?.properties?.NAME ??
+                                            f?.properties?.name ??
+                                            f?.properties?.["name:pt"] ??
+                                            null;
+                                        if (!name) {
+                                            return L.circleMarker(latlng, {
+                                                radius: 2,
+                                                color: "#444",
+                                                weight: 1,
+                                                fillColor: "#444",
+                                                fillOpacity: 0.7,
+                                            });
+                                        }
+                                        return L.marker(latlng, {
+                                            icon: L.divIcon({
+                                                className: "place-label",
+                                                html: `<span>${name}</span>`,
+                                            }),
+                                            interactive: false,
+                                        });
+                                    }}
                                 />
                             </Pane>
                         )}
