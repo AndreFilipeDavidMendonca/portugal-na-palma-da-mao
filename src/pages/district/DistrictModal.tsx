@@ -22,17 +22,19 @@ import {
     type PoiCategory,
 } from "@/utils/constants";
 import {
-    PoiPointsLayer,
     PoiAreasLayer,
     getPoiCategory,
+    PoiPointsLayer,
 } from "@/features/map/PoiLayers";
 import PoiFilter from "@/features/filters/PoiFilter";
+import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
+import PoiModal from "@/pages/poi/PoiModal";
 
 import "./DistrictModal.scss";
 
 type AnyGeo = any;
 
-/** Mantém o mapa centrado no distrito ativo */
+/* ---------- Fit Bounds ---------- */
 function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
     const map = useMap();
     const prevRef = useRef<string | null>(null);
@@ -54,6 +56,96 @@ function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
     return null;
 }
 
+/* ---------- Helpers: normalizar & validar imagens ---------- */
+function normalizeCommonsUrl(u: string): string {
+    if (!u) return u;
+    try {
+        const url = new URL(u);
+        if (!/commons\.wikimedia\.org$/i.test(url.hostname)) return u;
+        const p = url.pathname;
+
+        const extractFileName = (s: string) => {
+            const decoded = decodeURIComponent(s);
+            const afterColon = decoded.split(":").pop() || decoded;
+            return afterColon.trim();
+        };
+
+        if (/\/wiki\/Special:Redirect\/file\//i.test(p)) {
+            const filePart = p.replace(/.*\/wiki\/Special:Redirect\/file\//i, "");
+            const fileName = extractFileName(filePart);
+            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
+                fileName
+            )}`;
+        }
+
+        if (/\/wiki\/(File|Ficheiro):/i.test(p)) {
+            const filePart = p.replace(/.*\/wiki\/(File|Ficheiro):/i, "");
+            const fileName = extractFileName(filePart);
+            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
+                fileName
+            )}`;
+        }
+
+        return u;
+    } catch {
+        return u;
+    }
+}
+
+function buildNormalizedGallery(info: {
+    image?: string | null;
+    images?: string[] | null;
+}): string[] {
+    const arr: string[] = [];
+    const push = (s?: string | null) => {
+        if (!s) return;
+        const n = normalizeCommonsUrl(s);
+        if (n && !arr.includes(n)) arr.push(n);
+    };
+    push(info.image ?? null);
+    for (const u of info.images ?? []) push(u);
+    return arr;
+}
+
+function getFeatureName(f: any): string | null {
+    const p = f?.properties ?? {};
+    const tags = p.tags ?? {};
+    return (
+        p["name:pt"] ||
+        p.name ||
+        p["name:en"] ||
+        tags["name:pt"] ||
+        tags.name ||
+        tags["name:en"] ||
+        null
+    );
+}
+
+function testLoadable(url: string, timeoutMs = 8000): Promise<boolean> {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const t = setTimeout(() => resolve(false), timeoutMs);
+        img.onload = () => {
+            clearTimeout(t);
+            resolve(true);
+        };
+        img.onerror = () => {
+            clearTimeout(t);
+            resolve(false);
+        };
+        img.src = url;
+    });
+}
+
+async function filterLoadableImages(
+    urls: string[],
+    timeoutMs = 8000
+): Promise<string[]> {
+    const results = await Promise.all(urls.map((u) => testLoadable(u, timeoutMs)));
+    return urls.filter((_, i) => results[i]);
+}
+
+/* ---------- Props ---------- */
 type Props = {
     open: boolean;
     onClose: () => void;
@@ -69,7 +161,6 @@ type Props = {
 
     population?: number | null;
 
-    // camadas extra opcionais
     rivers?: AnyGeo | null;
     lakes?: AnyGeo | null;
     rails?: AnyGeo | null;
@@ -96,10 +187,17 @@ export default function DistrictModal(props: Props) {
         places: placesProp = null,
     } = props;
 
-    // ----- nonce para forçar remount do layer quando limpamos -----
+    /* ====== Estado do POI selecionado (MOVER PARA O TOPO) ====== */
+    const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
+    const [selectedPoiInfo, setSelectedPoiInfo] = useState<PoiInfo | null>(null);
+    const [showPoiModal, setShowPoiModal] = useState(false);
+    const [loadingPoi, setLoadingPoi] = useState(false);
+    const lastReqRef = useRef(0);
+
+    /* ----- remount nonce para limpar layers ----- */
     const [renderNonce, setRenderNonce] = useState(0);
 
-    // camadas base opcionais (lazy se não vierem por props)
+    /* ----- camadas base (lazy) ----- */
     const [rivers, setRivers] = useState<any>(riversProp);
     const [lakes, setLakes] = useState<any>(lakesProp);
     const [rails, setRails] = useState<any>(railsProp);
@@ -107,8 +205,11 @@ export default function DistrictModal(props: Props) {
     const [peaks, setPeaks] = useState<any>(peaksProp);
     const [places, setPlaces] = useState<any>(placesProp);
 
-    // info do distrito (opcional)
+    /* ----- info do distrito ----- */
     const [districtInfo, setDistrictInfo] = useState<any>(null);
+
+    const isPoiCategory = (val: any): val is PoiCategory =>
+        val != null && Object.prototype.hasOwnProperty.call(POI_LABELS, val);
 
     useEffect(() => {
         if (!districtFeature?.properties?.name) {
@@ -122,7 +223,6 @@ export default function DistrictModal(props: Props) {
             .catch(() => setDistrictInfo(null));
     }, [districtFeature]);
 
-    // lazy load de camadas geográficas (só se não vieram por props)
     useEffect(() => {
         const safeLoad = async (path: string, set: (v: any) => void, already: any) => {
             if (already) return;
@@ -143,48 +243,157 @@ export default function DistrictModal(props: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // 1) Normalização — mescla properties + tags e anota categoria
+    /* ----- Normalização + filtro (remove sem nome e "só nome") ----- */
     const normalizedPoints = useMemo(() => {
         if (!poiPoints) return null;
-        const feats = (poiPoints.features ?? []).map((f: any) => {
-            const props = { ...(f.properties || {}) };
-            const tags = props.tags ?? f.tags ?? {};
-            const mergedProps = { ...props, ...tags, tags };
-            const nf = { ...f, properties: mergedProps };
 
-            const cat = getPoiCategory(nf);
-            if (cat) nf.properties.__cat = cat;
+        const feats = (poiPoints.features ?? [])
+            .map((f: any) => {
+                const props = { ...(f.properties || {}) };
+                const tags = props.tags ?? f.tags ?? {};
+                const mergedProps = { ...props, ...tags, tags };
 
-            return nf;
-        });
+                // nome do POI
+                const name =
+                    mergedProps["name:pt"] ||
+                    mergedProps.name ||
+                    mergedProps["name:en"] ||
+                    mergedProps["label"] ||
+                    null;
+
+                // 1) sem nome -> descarta
+                if (!name || typeof name !== "string" || name.trim() === "") return null;
+
+                // 2) só nome sem refs/tipo -> descarta (TODO: remover quando enriquecermos automaticamente)
+                const hasRefs =
+                    mergedProps.wikipedia ||
+                    mergedProps["wikipedia:pt"] ||
+                    mergedProps["wikipedia:en"] ||
+                    mergedProps.wikidata ||
+                    mergedProps["wikidata:id"] ||
+                    mergedProps.website ||
+                    mergedProps["contact:website"] ||
+                    mergedProps.image ||
+                    mergedProps["wikimedia_commons"] ||
+                    tags.wikipedia ||
+                    tags.wikidata ||
+                    tags.website ||
+                    tags.image;
+
+                const hasType =
+                    mergedProps.historic ||
+                    mergedProps.building ||
+                    mergedProps.castle_type ||
+                    mergedProps.amenity ||
+                    mergedProps.tourism ||
+                    mergedProps.leisure ||
+                    mergedProps.boundary;
+
+                if (!hasRefs && !hasType) return null; // ← filtro “só nome”
+
+                const nf = { ...f, properties: mergedProps as any };
+                const cat = getPoiCategory(nf);
+                if (isPoiCategory(cat)) (nf.properties as any).__cat = cat;
+
+                return nf;
+            })
+            .filter(Boolean);
+
         return { ...poiPoints, features: feats };
     }, [poiPoints]);
 
-    // 2) Contagens por categoria (para o PoiFilter)
+    /* ----- Contagens para o filtro ----- */
     const countsByCat = useMemo<Record<PoiCategory, number>>(() => {
         const counts = Object.create(null) as Record<PoiCategory, number>;
         const allCats = Object.keys(POI_LABELS) as PoiCategory[];
         for (const c of allCats) counts[c] = 0;
-
         for (const f of normalizedPoints?.features ?? []) {
-            const cat = getPoiCategory(f) as PoiCategory | null;
-            if (!cat) continue;
-            counts[cat] = (counts[cat] ?? 0) + 1;
+            const cat = (f.properties as any).__cat as PoiCategory | undefined;
+            if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
         }
         return counts;
     }, [normalizedPoints]);
 
-    // 3) Aplicação de filtros — se nada selecionado, mostra tudo
+    /* ----- Aplicar filtros ----- */
     const filteredPoints = useMemo(() => {
         if (!normalizedPoints) return null;
         if (!selectedTypes || selectedTypes.size === 0) return normalizedPoints;
-
         const feats = normalizedPoints.features.filter((f: any) => {
-            const cat = getPoiCategory(f);
+            const cat = (f.properties as any).__cat as PoiCategory | undefined;
             return cat ? selectedTypes.has(cat) : false;
         });
         return { ...normalizedPoints, features: feats };
     }, [normalizedPoints, selectedTypes]);
+
+    /* ====== Clique num ponto ====== */
+    const onPoiClick = (feature: any) => {
+        setSelectedPoi(feature);
+    };
+
+    /* ====== Fetch info + pré-carregamento de imagens ====== */
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            if (!selectedPoi?.properties) return;
+
+            setShowPoiModal(false);
+            setSelectedPoiInfo(null);
+            setLoadingPoi(true);
+            const reqId = ++lastReqRef.current;
+
+            try {
+                const wp: string | null =
+                    selectedPoi.properties.wikipedia ??
+                    selectedPoi.properties["wikipedia:pt"] ??
+                    selectedPoi.properties["wikipedia:en"] ??
+                    null;
+                const wd: string | null = selectedPoi.properties.wikidata ?? null;
+
+                let info = await fetchPoiInfo({ wikidata: wd, wikipedia: wp });
+                if (!alive || reqId !== lastReqRef.current) return;
+
+                const normalized = buildNormalizedGallery(info ?? {});
+                const loadable = await filterLoadableImages(normalized, 8000);
+                if (!alive || reqId !== lastReqRef.current) return;
+
+                let image: string | null = null;
+                let images: string[] = [];
+                if (loadable.length > 0) {
+                    image = loadable[0];
+                    images = loadable.slice(1);
+                }
+
+                const finalInfo: PoiInfo = { ...(info ?? {}), image, images };
+
+                // fallback para título do próprio feature (se faltar label)
+                if (!finalInfo.label) {
+                    const fallbackName = getFeatureName(selectedPoi);
+                    if (fallbackName) finalInfo.label = fallbackName;
+                }
+
+                setSelectedPoiInfo(finalInfo);
+
+                // Abrir se existir: título OU descrição OU alguma imagem
+                const hasAnyImage = loadable.length > 0;
+                const hasTitle = !!finalInfo.label;
+                const hasDesc =
+                    !!finalInfo.description && finalInfo.description.trim().length > 0;
+
+                const shouldOpen = hasTitle || hasDesc || hasAnyImage;
+                setShowPoiModal(shouldOpen);
+            } catch {
+                if (!alive || reqId !== lastReqRef.current) return;
+                setSelectedPoiInfo(null);
+                setShowPoiModal(false);
+            } finally {
+                if (alive && reqId === lastReqRef.current) setLoadingPoi(false);
+            }
+        })();
+
+        return () => {
+            alive = false;
+        };
+    }, [selectedPoi]);
 
     if (!open) return null;
 
@@ -197,8 +406,8 @@ export default function DistrictModal(props: Props) {
                     selected={selectedTypes}
                     onToggle={onToggleType}
                     onClear={() => {
-                        onClearTypes();            // limpa no estado pai
-                        setRenderNonce((n) => n + 1); // força remount do GeoJSON
+                        onClearTypes();
+                        setRenderNonce((n) => n + 1);
                     }}
                     countsByCat={countsByCat}
                     showClose
@@ -217,17 +426,11 @@ export default function DistrictModal(props: Props) {
                         style={{ height: "100%", width: "100%" }}
                     >
                         <Pane name="districtBase" style={{ zIndex: 200 }}>
-                            <TileLayer
-                                url={DISTRICT_DETAIL}
-                                attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            />
+                            <TileLayer url={DISTRICT_DETAIL} />
                         </Pane>
 
                         <Pane name="districtLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                            <TileLayer
-                                url={DISTRICT_LABELS}
-                                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            />
+                            <TileLayer url={DISTRICT_LABELS} />
                         </Pane>
 
                         {/* contorno do distrito */}
@@ -239,74 +442,13 @@ export default function DistrictModal(props: Props) {
                             />
                         )}
 
-                        {/* camadas extra */}
+                        {/* exemplo de camada extra (rios) — podes reativar as restantes */}
                         {rivers && (
                             <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
-                                <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5, opacity: 0.9 }} interactive={false} />
-                            </Pane>
-                        )}
-                        {lakes && (
-                            <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
                                 <GeoJSON
-                                    data={lakes as any}
-                                    style={{ color: COLOR_LAKE, weight: 1, fillColor: COLOR_LAKE, fillOpacity: 0.3, opacity: 0.9 }}
+                                    data={rivers as any}
+                                    style={{ color: COLOR_RIVER, weight: 1.5 }}
                                     interactive={false}
-                                />
-                            </Pane>
-                        )}
-                        {rails && (
-                            <Pane name="rails" style={{ zIndex: Z_RAIL }}>
-                                <GeoJSON data={rails as any} style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }} interactive={false} />
-                            </Pane>
-                        )}
-                        {roads && (
-                            <Pane name="roads" style={{ zIndex: Z_ROADS }}>
-                                <GeoJSON data={roads as any} style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }} interactive={false} />
-                            </Pane>
-                        )}
-                        {peaks && (
-                            <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
-                                <GeoJSON
-                                    data={peaks as any}
-                                    pointToLayer={(_f, latlng) =>
-                                        L.circleMarker(latlng, {
-                                            radius: 3.5,
-                                            color: COLOR_PEAK,
-                                            weight: 1,
-                                            fillColor: COLOR_PEAK,
-                                            fillOpacity: 0.9,
-                                        })
-                                    }
-                                />
-                            </Pane>
-                        )}
-                        {places && (
-                            <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
-                                <GeoJSON
-                                    data={places as any}
-                                    pointToLayer={(f, latlng) => {
-                                        const name =
-                                            f?.properties?.NAME ??
-                                            f?.properties?.name ??
-                                            f?.properties?.["name:pt"] ??
-                                            null;
-                                        if (!name) {
-                                            return L.circleMarker(latlng, {
-                                                radius: 2,
-                                                color: "#444",
-                                                weight: 1,
-                                                fillColor: "#444",
-                                                fillOpacity: 0.7,
-                                            });
-                                        }
-                                        return L.marker(latlng, {
-                                            icon: L.divIcon({
-                                                className: "place-label",
-                                                html: `<span>${name}</span>`,
-                                            }),
-                                            interactive: false,
-                                        });
-                                    }}
                                 />
                             </Pane>
                         )}
@@ -324,7 +466,8 @@ export default function DistrictModal(props: Props) {
                                 <PoiPointsLayer
                                     data={filteredPoints}
                                     selectedTypes={selectedTypes}
-                                    nonce={renderNonce}        // << força remount quando limpar
+                                    nonce={renderNonce}
+                                    onSelect={onPoiClick}
                                 />
                             </Pane>
                         )}
@@ -371,6 +514,26 @@ export default function DistrictModal(props: Props) {
                     </div>
                 </aside>
             </div>
+
+            {/* Modal do POI */}
+            <PoiModal
+                open={showPoiModal}
+                onClose={() => {
+                    setShowPoiModal(false);
+                    setSelectedPoi(null);
+                    setSelectedPoiInfo(null);
+                }}
+                info={selectedPoiInfo}
+                poi={selectedPoi}
+            />
+
+            {/* Overlay de loading com blur verde-escuro */}
+            {loadingPoi && (
+                <div className="poi-preloader" role="status" aria-live="polite" aria-busy="true">
+                    <div className="spinner" />
+                    <span className="sr-only">A carregar…</span>
+                </div>
+            )}
         </div>
     );
 }

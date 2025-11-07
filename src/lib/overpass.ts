@@ -1,7 +1,6 @@
 // src/lib/overpass.ts
 import osmtogeojson from "osmtogeojson";
-import {OVERPASS_ENDPOINTS} from "@/utils/constants";
-
+import { OVERPASS_ENDPOINTS } from "@/utils/constants";
 
 type AnyGeo = any;
 
@@ -18,7 +17,7 @@ const DEFAULT_TTL_MS = 1000 * 60 * 60 * 24 * 3; // 3 dias
 const LAST_CLEANUP_KEY = "ovps-cache:lastCleanup";
 const CLEANUP_INTERVAL_MS = 1000 * 60 * 60 * 24 * 3; // 3 dias
 
-function runCacheCleanup(ttlMs = DEFAULT_TTL_MS) {
+function runCacheCleanup(ttlMs = DEFAULT_TTL_MS): void {
     try {
         const lastStr = localStorage.getItem(LAST_CLEANUP_KEY);
         const last = lastStr ? Number(lastStr) : 0;
@@ -33,7 +32,10 @@ function runCacheCleanup(ttlMs = DEFAULT_TTL_MS) {
             if (!k || !k.startsWith(CACHE_KEY_PREFIX)) continue;
 
             const raw = localStorage.getItem(k);
-            if (!raw) { toDelete.push(k); continue; }
+            if (!raw) {
+                toDelete.push(k);
+                continue;
+            }
 
             try {
                 const entry = JSON.parse(raw) as { savedAt?: number };
@@ -46,19 +48,20 @@ function runCacheCleanup(ttlMs = DEFAULT_TTL_MS) {
             }
         }
 
-        toDelete.forEach(k => localStorage.removeItem(k));
+        toDelete.forEach((k) => localStorage.removeItem(k));
         localStorage.setItem(LAST_CLEANUP_KEY, String(now));
     } catch {
-        console.log("Overpass: erro ao limpar cache local");
+        // ignore
     }
 }
 
 /* ------------------------- util cache localStorage ------------------------ */
-function hashQuery(q: string) {
+function hashQuery(q: string): string {
     let h = 0;
     for (let i = 0; i < q.length; i++) h = (h * 31 + q.charCodeAt(i)) | 0;
     return String(h);
 }
+
 function loadCache(q: string, ttlMs = DEFAULT_TTL_MS): AnyGeo | null {
     try {
         const key = CACHE_KEY_PREFIX + hashQuery(q);
@@ -71,7 +74,8 @@ function loadCache(q: string, ttlMs = DEFAULT_TTL_MS): AnyGeo | null {
         return null;
     }
 }
-function saveCache(q: string, data: AnyGeo) {
+
+function saveCache(q: string, data: AnyGeo): void {
     try {
         const key = CACHE_KEY_PREFIX + hashQuery(q);
         const entry: CacheEntry = { key, savedAt: Date.now(), data };
@@ -83,7 +87,7 @@ function saveCache(q: string, data: AnyGeo) {
 
 /* --------------------- helpers: dedupe + normalização --------------------- */
 /** Dedupe por @id (formato OSM: node/way/relation) */
-function dedupeByOsmId(fc: any) {
+function dedupeByOsmId(fc: AnyGeo): AnyGeo {
     if (!fc || fc.type !== "FeatureCollection") return fc;
     const seen = new Set<string>();
     const out = { type: "FeatureCollection", features: [] as any[] };
@@ -108,7 +112,7 @@ function dedupeByOsmId(fc: any) {
  * - senão, usa centro do bbox quando disponível.
  * (corre **após** dedupe)
  */
-function normalizeToPoints(fc: any) {
+function normalizeToPoints(fc: AnyGeo): AnyGeo {
     if (!fc || fc.type !== "FeatureCollection") return fc;
 
     const out = { type: "FeatureCollection", features: [] as any[] };
@@ -145,7 +149,7 @@ function normalizeToPoints(fc: any) {
 }
 
 /* ---------------------------- fetch de 1 mirror --------------------------- */
-async function fetchOverpassOnce(endpoint: string, query: string, signal?: AbortSignal) {
+async function fetchOverpassOnce(endpoint: string, query: string, signal?: AbortSignal): Promise<AnyGeo> {
     const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
@@ -162,9 +166,7 @@ async function fetchOverpassOnce(endpoint: string, query: string, signal?: Abort
     }
 
     const json = await res.json();
-    // osmtogeojson já calcula bbox e center quando possível
     const gj = osmtogeojson(json);
-    console.log("Overpass: ", gj);
     const deduped = dedupeByOsmId(gj);
     return normalizeToPoints(deduped);
 }
@@ -179,6 +181,7 @@ export async function overpassQueryToGeoJSON(
     // cache
     const cached = loadCache(query, ttlMs);
     if (cached) return cached;
+
     for (const ep of OVERPASS_ENDPOINTS) {
         let attempt = 0;
         while (attempt <= maxRetriesPerEndpoint) {
@@ -215,11 +218,11 @@ export async function overpassQueryToGeoJSON(
  * - cobre palácios (historic/building/castle_type=palace)
  * - cobre castelos, ruínas de castelo, igrejas e miradouros
  */
-export function buildCulturalPointsQuery(poly: string) {
+export function buildCulturalPointsQuery(poly: string): string {
     return `
 [out:json][timeout:40];
 (
-  /* Palácios (prioridade alta no parsing) */
+  /* Palácios */
   nwr[historic=palace](${poly});
   nwr[building=palace](${poly});
   nwr[castle_type=palace](${poly});
@@ -248,5 +251,5 @@ out center tags qt;
 `;
 }
 
-// Clean Local Storage on page load when passed more than 3 days
+// Limpeza periódica do storage (lazy, em load do módulo)
 runCacheCleanup();

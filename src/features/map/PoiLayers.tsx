@@ -1,15 +1,11 @@
-// src/features/map/PoiLayers.tsx
-import React, { useRef } from "react";
+import React from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
 
 import type { PoiCategory } from "@/utils/constants";
 import { CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
-import { fetchPoiInfo } from "@/lib/poiInfo";
-
 import markerSvgRaw from "@/assets/icons/marker.svg?raw";
-import PoiModal from "@/pages/poi/PoiModal";
 
 type AnyGeo = any;
 
@@ -72,7 +68,6 @@ export function filterFeaturesByTypes(
     if (!geo) return null;
     if (!geo.features) return geo;
 
-    // Sem seleção → coleção vazia (não mostra nada)
     if (!selected || selected.size === 0)
         return { type: "FeatureCollection", features: [] };
 
@@ -84,11 +79,11 @@ export function filterFeaturesByTypes(
 }
 
 /* =========================
-   Escalas / ícones
+   Escalas / zoom
    ========================= */
 function getIconSizeForZoom(zoom: number): number {
     const Z0 = 14, Z1 = 20;
-    const P0 = 20, P1 = 25;
+    const P0 = 20, P1 = 28;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
@@ -100,7 +95,7 @@ function getPinSizeForZoom(zoom: number): number {
     return Math.round(P0 + (P1 - P0) * t);
 }
 
-/** Zoom atual do mapa (sem tipos malucos no cleanup) */
+/** Zoom atual do mapa (cleanup seguro) */
 function useMapZoom(): number {
     const map = useMap();
     const [zoom, setZoom] = React.useState(() => map.getZoom());
@@ -115,8 +110,24 @@ function useMapZoom(): number {
 }
 
 /* =========================
-   Criação dos ícones
+   Ícones com cache
    ========================= */
+const iconCache = new Map<string, L.DivIcon>();
+
+function getCachedIcon(key: string, html: string, size: number, anchorY?: number) {
+    const k = `${key}|${size}`;
+    const cached = iconCache.get(k);
+    if (cached) return cached;
+    const div = L.divIcon({
+        html,
+        className: "poi-divicon",
+        iconSize: [size, size],
+        iconAnchor: [size / 2, anchorY ?? size],
+    });
+    iconCache.set(k, div);
+    return div;
+}
+
 function createLowZoomMarker(category: PoiCategory | null, sizePx: number) {
     const color = (category && CATEGORY_COLORS[category]) || "#777";
     const html = `
@@ -129,29 +140,15 @@ function createLowZoomMarker(category: PoiCategory | null, sizePx: number) {
       <span style="display:inline-block;width:100%;height:100%;">${markerSvgRaw}</span>
     </div>
   `;
-    return L.divIcon({
-        html,
-        className: "poi-pin",
-        iconSize: [sizePx, sizePx],
-        iconAnchor: [sizePx / 2, sizePx],
-    });
+    return getCachedIcon(`low:${category ?? "none"}`, html, sizePx);
 }
 
 function createPoiIcon(category: PoiCategory, sizePx: number) {
     const color = CATEGORY_COLORS[category] || "#666";
     const svg = POI_ICON_SVG_RAW[category];
 
-    if (!svg) {
-        return L.divIcon({
-            html: `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;background:${color}"></span>`,
-            className: "",
-            iconSize: [sizePx, sizePx],
-            iconAnchor: [sizePx / 2, sizePx],
-        });
-    }
-
-    return L.divIcon({
-        html: `
+    const html = svg
+        ? `
       <div style="
         width:${sizePx}px;height:${sizePx}px;
         display:flex;align-items:center;justify-content:center;
@@ -160,125 +157,88 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
       ">
         <span style="display:inline-block;width:100%;height:100%;">${svg}</span>
       </div>
-    `,
-        className: "poi-divicon",
-        iconSize: [sizePx, sizePx],
-        iconAnchor: [sizePx / 2, sizePx],
-    });
+    `
+        : `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;background:${color}"></span>`;
+
+    return getCachedIcon(`poi:${category}`, html, sizePx);
 }
 
 /* =========================
-   Camada de Pontos + Modal interno
+   Camada de Pontos (sem modal/fetch)
    ========================= */
 export function PoiPointsLayer({
                                    data,
                                    selectedTypes,
                                    nonce = 0,
+                                   onSelect,
                                }: {
-    data: AnyGeo;
+    data: any;
     selectedTypes: ReadonlySet<PoiCategory>;
-    /** força remount quando muda (ex.: ao limpar filtros) */
     nonce?: number;
+    onSelect?: (feature: any) => void;
 }) {
     const zoom = useMapZoom();
     const showSvg = zoom >= 13;
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize  = getPinSizeForZoom(zoom);
 
-    // “Sem nada selecionado” => esconder tudo (GeoJSON.filter retorna false p/ todos)
     const nothingSelected = !selectedTypes || selectedTypes.size === 0;
 
-    // Modal interno do layer
-    const [open, setOpen]   = React.useState(false);
-    const [poi,  setPoi]    = React.useState<any | null>(null);
-    const [info, setInfo]   = React.useState<any | null>(null);
-    const lastClickIdRef = useRef(0);
-
-    const handleClose = React.useCallback(() => {
-        setOpen(false);
-        setPoi(null);
-        setInfo(null);
-    }, []);
-
-    // Key inclui o nonce para “remontar” o GeoJSON quando limpas
     const key = `${Array.from(selectedTypes ?? []).sort().join(",")}|mode:${showSvg ? "svg" : "pin"}|z:${zoom}|n:${nonce}`;
 
     return (
-        <>
-            <GeoJSON
-                key={key}
-                data={data as any}
-                filter={(f: any) => {
-                    if (nothingSelected) return false; // ← esconde tudo sem seleção
-                    const cat = getPoiCategory(f);
-                    return cat ? selectedTypes.has(cat) : false;
-                }}
-                pointToLayer={(feature: any, latlng: LatLngExpression) => {
-                    const cat = getPoiCategory(feature);
+        <GeoJSON
+            key={key}
+            data={data as any}
+            filter={(f: any) => {
+                if (nothingSelected) return false;
+                const cat = getPoiCategory(f);
+                return cat ? selectedTypes.has(cat) : false;
+            }}
+            pointToLayer={(feature: any, latlng: LatLngExpression) => {
+                const cat = getPoiCategory(feature);
 
-                    if (!showSvg) {
-                        const icon = createLowZoomMarker(cat, pinSize);
-                        return L.marker(latlng, { icon });
-                    }
+                if (!showSvg) {
+                    const icon = createLowZoomMarker(cat, pinSize);
+                    const m = L.marker(latlng, { icon });
+                    if (onSelect) m.on("click", () => onSelect(feature));
+                    const el = (m as any)._icon as HTMLElement | undefined;
+                    if (el) el.style.cursor = "pointer";
+                    return m;
+                }
 
-                    if (cat) {
-                        const icon = createPoiIcon(cat, iconSize);
-                        return L.marker(latlng, { icon });
-                    }
+                if (cat) {
+                    const icon = createPoiIcon(cat, iconSize);
+                    const m = L.marker(latlng, { icon });
+                    if (onSelect) m.on("click", () => onSelect(feature));
+                    const el = (m as any)._icon as HTMLElement | undefined;
+                    if (el) el.style.cursor = "pointer";
+                    return m;
+                }
 
-                    // fallback
-                    return L.circleMarker(latlng, {
-                        radius: 2,
-                        weight: 0.6,
-                        color: "#555",
-                        fillColor: "#555",
-                        fillOpacity: 0.7,
-                    } as L.CircleMarkerOptions);
-                }}
-                onEachFeature={(feature: any, layer: L.Layer) => {
-                    const p = (feature as any).properties || {};
-                    const name = getName(p) || "Sem nome";
-                    const cat  = getPoiCategory(feature) ?? "";
-                    layer.bindTooltip(
-                        `<strong>${name}</strong>${cat ? `<div>${cat}</div>` : ""}`,
-                        { direction: "top", offset: L.point(0, -10), sticky: true }
-                    );
-
-                    // Clique → abre modal interno
-                    layer.on("click", async () => {
-                        const props  = { ...(feature.properties || {}) };
-                        const tags   = props.tags ?? {};
-                        const merged = { ...props, ...tags, tags };
-
-                        if (!merged.id && feature.id)   merged.id = feature.id;
-                        if (!merged.type && feature.type) merged.type = feature.type;
-
-                        const poiNorm = { ...feature, properties: merged };
-                        const clickId = ++lastClickIdRef.current;
-
-                        setPoi(poiNorm);
-                        setOpen(true);
-
-                        try {
-                            const wikidata  = merged.wikidata || merged["wikidata:id"] || null;
-                            const wikipedia = merged.wikipedia || merged["wikipedia:pt"] || merged["wikipedia:en"] || null;
-
-                            const extra = await fetchPoiInfo({ wikidata, wikipedia });
-                            if (clickId === lastClickIdRef.current) setInfo(extra ?? null);
-                        } catch {
-                            if (clickId === lastClickIdRef.current) setInfo(null);
-                        }
-                    });
-
-                    const anyLayer: any = layer as any;
-                    if (anyLayer._icon) anyLayer._icon.style.cursor = "pointer";
-                    if (anyLayer._path) anyLayer._path.style.cursor = "pointer";
-                }}
-            />
-
-            {/* Modal sobreposto */}
-            <PoiModal open={open} onClose={handleClose} poi={poi} info={info} />
-        </>
+                const cm = L.circleMarker(latlng, {
+                    radius: 2,
+                    weight: 0.6,
+                    color: "#555",
+                    fillColor: "#555",
+                    fillOpacity: 0.7,
+                } as L.CircleMarkerOptions);
+                if (onSelect) cm.on("click", () => onSelect(feature));
+                return cm;
+            }}
+            onEachFeature={(feature: any, layer: L.Layer) => {
+                const p = (feature as any).properties || {};
+                const name = getName(p) || "Sem nome";
+                const cat  = getPoiCategory(feature) ?? "";
+                layer.bindTooltip(
+                    `<strong>${name}</strong>${cat ? `<div>${cat}</div>` : ""}`,
+                    { direction: "top", offset: L.point(0, -10), sticky: true }
+                );
+                const anyLayer: any = layer as any;
+                if (anyLayer._icon) anyLayer._icon.style.cursor = "pointer";
+                if (anyLayer._path) anyLayer._path.style.cursor = "pointer";
+            }}
+        />
     );
 }
 
