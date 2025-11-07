@@ -35,7 +35,6 @@ function expandDayToken(tok: string): string[] {
 function daysLabel(days: string[]): string {
     if (days.length === 0) return "";
     const first = days[0], last = days[days.length - 1];
-    // sequências conhecidas
     if (days.join() === ["Mo","Tu","We","Th","Fr"].join()) return "Segunda a sexta";
     if (days.join() === DAY_ORDER.join()) return "Segunda a domingo";
     if (days.join() === ["Sa","Su"].join()) return "Sábado e domingo";
@@ -45,16 +44,13 @@ function daysLabel(days: string[]): string {
     return days.map(d => DAY_PT[d]).join(", ");
 }
 
-/** Formata strings simples do opening_hours em PT legível.
- *  Cobertura de padrões comuns: “Mo-Fr 09:00-18:00; Sa 10:00-14:00; Su off”, “Mo-Su 10:00-20:00”, etc.
- */
+/** Formata strings simples do opening_hours em PT legível. */
 function formatOpeningHours(raw?: string | null): string | null {
     if (!raw) return null;
     try {
         const rules = raw.split(";").map(s => s.trim()).filter(Boolean);
         const parts: string[] = [];
         for (const r of rules) {
-            // exemplo: "Mo-Fr 09:00-18:00" | "Su off" | "Sa 10:00-14:00, 16:00-19:00"
             const [daysPart, timesPart] = r.split(/\s+/, 2);
             if (!daysPart) continue;
             const dayGroups = daysPart.split(",").flatMap(expandDayToken);
@@ -108,11 +104,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
 
-    const displayHost = (url: string) => {
-        try { return new URL(url).hostname.replace(/^www\./, ""); }
-        catch { return url.replace(/^https?:\/\//, ""); }
-    };
-
     const renderStars = (v: number) => {
         const full = Math.floor(v);
         const half = v - full >= 0.5;
@@ -124,6 +115,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
       </span>
         );
     };
+    console.log(info);
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
@@ -187,8 +179,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                     {/* INFO */}
                     <aside className="poi-side">
-                        {/* Linha com Site oficial (chip) + Direções */}
-                        {/* Linha de botões */}
+                        {/* Botões: Site oficial + Direções */}
                         {(website || info.coords) && (
                             <div
                                 style={{
@@ -222,17 +213,20 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             </div>
                         )}
 
-                        {/* Novo divisor dourado */}
+                        {/* Divisor */}
                         <div className="meta-divider" />
 
                         {/* Rating (discreto) */}
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
-                                {renderStars(rating.value)} <span style={{ opacity: 0.85, marginLeft: 6 }}>{rating.value.toFixed(1)}</span>
+                                {renderStars(rating.value)}{" "}
+                                <span style={{ opacity: 0.85, marginLeft: 6 }}>
+                  {rating.value.toFixed(1)}
+                </span>
                             </p>
                         )}
 
-                        {/* Contactos + Horário (texto claro) */}
+                        {/* Contactos + Horário */}
                         <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
                             {contacts.phone && (
                                 <div>
@@ -243,7 +237,10 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                 </div>
                             )}
                             {contacts.email && (
-                                <div><strong>Email:</strong> <a href={`mailto:${contacts.email}`}>{contacts.email}</a></div>
+                                <div>
+                                    <strong>Email:</strong>{" "}
+                                    <a href={`mailto:${contacts.email}`}>{contacts.email}</a>
+                                </div>
                             )}
                             {ohText && (
                                 <div><strong>Horário:</strong> {ohText}</div>
@@ -252,10 +249,12 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                         {/* Descrição */}
                         {info.description ? (
-                            <p className="poi-desc" style={{ textTransform: "capitalize" }}>{info.description}</p>
+                            <p className="poi-desc" style={{ textTransform: "capitalize" }}>
+                                {info.description}
+                            </p>
                         ) : null}
 
-                        {/* Histórico / Arquitetura */}
+                        {/* Histórico */}
                         {info.historyText ? (
                             <>
                                 <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Histórico</h4>
@@ -263,10 +262,29 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             </>
                         ) : null}
 
-                        {info.architectureText ? (
+                        {/* Arquitetura: texto + estilos/arquitetos/materiais */}
+                        {(info.architectureText ||
+                            (info.architectureStyles?.length || info.architects?.length || info.materials?.length)) ? (
                             <>
                                 <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Arquitetura</h4>
-                                <p className="poi-desc">{info.architectureText}</p>
+
+                                {/* Texto livre (DGPC/SIPA — futuro) */}
+                                {info.architectureText ? (
+                                    <p className="poi-desc">{info.architectureText}</p>
+                                ) : null}
+
+                                {/* Listas curtas: estilos / arquitetos / materiais */}
+                                <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
+                                    {info.architectureStyles?.length ? (
+                                        <div><strong>Estilo:</strong> {info.architectureStyles.join(" · ")}</div>
+                                    ) : null}
+                                    {info.architects?.length ? (
+                                        <div><strong>Arquiteto(s):</strong> {info.architects.join(", ")}</div>
+                                    ) : null}
+                                    {info.materials?.length ? (
+                                        <div><strong>Materiais:</strong> {info.materials.join(", ")}</div>
+                                    ) : null}
+                                </div>
                             </>
                         ) : null}
 

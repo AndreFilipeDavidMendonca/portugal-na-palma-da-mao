@@ -31,12 +31,17 @@ export type PoiInfo = {
     wikipediaUrl?: string | null;
     wikidataId?: string | null;
 
-    // extra existentes
+    // semântica/ligada
     coords?: { lat: number; lon: number } | null;
     website?: string | null;
     instanceOf?: string[];
     locatedIn?: string[];
     heritage?: string[];
+
+    // NOVO (fase 2)
+    architectureStyles?: string[];  // WD P149
+    architects?: string[];          // WD P84
+    materials?: string[];           // WD P186
 
     // enriquecimento
     openingHours?: OpeningHours | null;
@@ -70,9 +75,9 @@ const commonsCategoryMembers = (category: string, limit = 60) =>
 const WD_WBGETENTITIES = (ids: string[]) =>
     `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(
         ids.join("|")
-    )}&props=labels|claims|sitelinks&languages=pt|en&format=json&origin=*`;
+    )}&props=labels|claims|sitelinks&languages=pt|en|es&format=json&origin=*`;
 
-// OpenTripMap
+// —— OpenTripMap
 const OTM_KEY = import.meta.env.VITE_OPENTRIPMAP_KEY as string | undefined;
 const OTM_BASE = "https://api.opentripmap.com/0.1";
 const OTM_PLACE_BY_NAME = (lat: number, lon: number, name: string) =>
@@ -82,16 +87,14 @@ const OTM_PLACE_BY_NAME = (lat: number, lon: number, name: string) =>
 const OTM_DETAILS = (xid: string) =>
     `${OTM_BASE}/en/places/xid/${encodeURIComponent(xid)}?apikey=${OTM_KEY}`;
 
-// Overpass (OSM profundo)
+// —— Overpass (OSM profundo)
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 const overpassQL = (q: string) => `${OVERPASS}?data=${encodeURIComponent(q)}`;
 
 /* ===========================
    Utils
    =========================== */
-function uniq<T>(arr: T[]): T[] {
-    return Array.from(new Set(arr));
-}
+function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
 
 function firstNonEmpty<T>(...vals: (T | null | undefined)[]): T | undefined {
     for (const v of vals) {
@@ -128,7 +131,7 @@ async function safeJson(url: string) {
 }
 
 /* ===========================
-   Normalização de imagens (Commons)
+   Imagens (Commons)
    =========================== */
 function normalizeCommonsUrl(u: string): string {
     try {
@@ -188,10 +191,13 @@ function mergeRatings(a?: Ratings[] | null, b?: Ratings[] | null): Ratings[] | u
     const all = [...(a ?? []), ...(b ?? [])];
     if (all.length === 0) return undefined;
     const bySource = new Map<string, Ratings>();
-    for (const r of all) {
-        if (!bySource.has(r.source)) bySource.set(r.source, r);
-    }
+    for (const r of all) if (!bySource.has(r.source)) bySource.set(r.source, r);
     return Array.from(bySource.values());
+}
+
+function mergeStringArrays(a?: string[] | null, b?: string[] | null): string[] | undefined {
+    const out = uniq([...(a ?? []), ...(b ?? [])].filter(Boolean));
+    return out.length ? out : undefined;
 }
 
 /** Merge não-destrutivo: b complementa a */
@@ -208,22 +214,24 @@ function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiIn
 
     // arrays dedupe
     const imgs = normalizeImageUrls([...(a.images ?? []), ...(b.images ?? [])]);
-    if (imgs && imgs.length) out.images = imgs;
+    if (imgs?.length) out.images = imgs;
 
     out.coords     = firstNonEmpty(a.coords,     b.coords)     ?? out.coords;
     out.website    = firstNonEmpty(a.website,    b.website)    ?? out.website;
 
-    const inst = uniq([...(a.instanceOf ?? []), ...(b.instanceOf ?? [])]);
-    if (inst.length) out.instanceOf = inst;
-    const loc  = uniq([...(a.locatedIn ?? []), ...(b.locatedIn ?? [])]);
-    if (loc.length) out.locatedIn = loc;
-    const her  = uniq([...(a.heritage ?? []), ...(b.heritage ?? [])]);
-    if (her.length) out.heritage = her;
+    out.instanceOf = mergeStringArrays(a.instanceOf, b.instanceOf) ?? out.instanceOf;
+    out.locatedIn  = mergeStringArrays(a.locatedIn,  b.locatedIn)  ?? out.locatedIn;
+    out.heritage   = mergeStringArrays(a.heritage,   b.heritage)   ?? out.heritage;
+
+    // NOVO
+    out.architectureStyles = mergeStringArrays(a.architectureStyles, b.architectureStyles) ?? out.architectureStyles;
+    out.architects         = mergeStringArrays(a.architects,         b.architects)         ?? out.architects;
+    out.materials          = mergeStringArrays(a.materials,          b.materials)          ?? out.materials;
 
     out.contacts      = mergeContacts(a.contacts, b.contacts) ?? out.contacts;
     out.openingHours  = mergeOpeningHours(a.openingHours, b.openingHours) ?? out.openingHours;
     const rat         = mergeRatings(a.ratings, b.ratings);
-    if (rat && rat.length) out.ratings = rat;
+    if (rat?.length) out.ratings = rat;
 
     out.historyText       = firstNonEmpty(a.historyText,       b.historyText)       ?? out.historyText;
     out.architectureText  = firstNonEmpty(a.architectureText,  b.architectureText)  ?? out.architectureText;
@@ -301,7 +309,11 @@ async function fetchLabels(qids: string[]): Promise<Record<string, string>> {
     const ents = r?.entities ?? {};
     const out: Record<string, string> = {};
     for (const [qid, e] of Object.entries<any>(ents)) {
-        out[qid] = e?.labels?.pt?.value ?? e?.labels?.en?.value ?? qid;
+        out[qid] =
+            e?.labels?.pt?.value ??
+            e?.labels?.en?.value ??
+            e?.labels?.es?.value ??
+            qid;
     }
     return out;
 }
@@ -316,17 +328,27 @@ async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
     const coords = coord ? { lat: coord.latitude, lon: coord.longitude } : null;
     const website = claimString(entity, "P856");
 
+    // já tínhamos
     const p31   = claimEntityIds(entity, "P31");    // instance of
     const p131  = claimEntityIds(entity, "P131");   // located in
     const p1435 = claimEntityIds(entity, "P1435");  // heritage designation
 
-    const labels = await fetchLabels([...p31, ...p131, ...p1435]);
+    // NOVO (fase 2)
+    const p149  = claimEntityIds(entity, "P149");   // architectural style
+    const p84   = claimEntityIds(entity, "P84");    // architect
+    const p186  = claimEntityIds(entity, "P186");   // material
+
+    const labels = await fetchLabels([...p31, ...p131, ...p1435, ...p149, ...p84, ...p186]);
+
     return {
         coords,
         website,
         instanceOf: p31.map(q => labels[q] || q),
         locatedIn:  p131.map(q => labels[q] || q),
         heritage:   p1435.map(q => labels[q] || q),
+        architectureStyles: p149.map(q => labels[q] || q),
+        architects:         p84.map(q => labels[q] || q),
+        materials:          p186.map(q => labels[q] || q),
     };
 }
 
@@ -338,11 +360,13 @@ export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & 
     const label =
         entity?.labels?.pt?.value ??
         entity?.labels?.en?.value ??
+        entity?.labels?.es?.value ??
         null;
 
     const description =
         entity?.descriptions?.pt?.value ??
         entity?.descriptions?.en?.value ??
+        entity?.descriptions?.es?.value ??
         null;
 
     const imageName =
@@ -397,7 +421,6 @@ export async function fetchFromOSMDeep(opts: {
     } else if (opts.coords && opts.name) {
         const { lat, lon } = opts.coords;
         const name = opts.name.replace(/"/g, '\\"');
-        // name / official_name / alt_name num raio 350m
         q = `
       [out:json][timeout:25];
       (
@@ -415,13 +438,11 @@ export async function fetchFromOSMDeep(opts: {
         const jd = await safeJson(overpassQL(q));
         const el = jd?.elements?.[0];
         const tags = el?.tags ?? {};
-
         const contacts: Contacts = {
             phone: tags["phone"] || tags["contact:phone"] || null,
             email: tags["email"] || tags["contact:email"] || null,
             website: tags["website"] || tags["contact:website"] || null,
         };
-
         const openingHours: OpeningHours | null = tags["opening_hours"]
             ? { raw: tags["opening_hours"] }
             : null;
@@ -448,12 +469,9 @@ export async function fetchFromOpenTripMap(name: string, lat: number, lon: numbe
         if (!xid) return {};
 
         const det = await safeJson(OTM_DETAILS(xid));
-        // rating (0..5)
         const ratingVal = Number(det?.rate ?? 0);
         const images: string[] = (det?.preview?.source ? [det.preview.source] : [])
-            .concat(
-                (det?.images ?? []).map((im: any) => im?.preview || im?.source).filter(Boolean)
-            );
+            .concat((det?.images ?? []).map((im: any) => im?.preview || im?.source).filter(Boolean));
 
         const ratings: Ratings[] =
             isFinite(ratingVal) && ratingVal > 0
@@ -463,26 +481,11 @@ export async function fetchFromOpenTripMap(name: string, lat: number, lon: numbe
         return {
             ratings,
             images,
-            // OTM às vezes devolve um “wikipedia_extracts”
             description: det?.wikipedia_extracts?.text || undefined,
         };
     } catch {
         return {};
     }
-}
-
-/* ===========================
-   DGPC / SIPA (placeholder)
-   =========================== */
-export async function fetchFromPortugueseHeritage(_opts: {
-    sipaId?: string | null;
-    monumentosUrl?: string | null;
-}): Promise<Partial<PoiInfo>> {
-    // TODO: implementar scraping/API quando disponível (história/arquitetura)
-    return {
-        historyText: null,
-        architectureText: null,
-    };
 }
 
 /* ===========================
@@ -495,9 +498,9 @@ export async function fetchPoiInfo(opts: {
     approx?: { name?: string | null; lat?: number | null; lon?: number | null } | null;
 }): Promise<PoiInfo | null> {
     let merged: Partial<PoiInfo> = { images: [] };
+    let wdEntity: any = null;
 
     // 1) Wikidata
-    let wdEntity: any = null;
     if (opts.wikidata) {
         try {
             const wd = await fetchFromWikidata(opts.wikidata);
@@ -507,32 +510,21 @@ export async function fetchPoiInfo(opts: {
         } catch {}
     }
 
-    // 2) Wikipedia (+ media-list)
+    // 2) Wikipedia (+ fallback PT→EN→ES) e media-list
+    const tryLangs: string[] = [];
     const wpTag = parseWikipediaTag(opts.wikipedia ?? null);
     if (wpTag) {
-        try {
-            const wp = await safeJson(WIKIPEDIA_SUMMARY(wpTag.lang, wpTag.title));
-            const wpPiece: Partial<PoiInfo> = {
-                label: wp?.title ?? null,
-                description: wp?.extract ?? null,
-                image: wp?.originalimage?.source ?? wp?.thumbnail?.source ?? null,
-                wikipediaUrl: wp?.content_urls?.desktop?.page ?? null,
-            };
-            const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
-            merged = mergePoiPieces(merged, { ...wpPiece, images: mediaImgs });
-        } catch {
-            if (wpTag.lang !== "en") {
-                try {
-                    const wp = await safeJson(WIKIPEDIA_SUMMARY("en", wpTag.title));
-                    const wpPiece: Partial<PoiInfo> = {
-                        label: wp?.title ?? null,
-                        description: wp?.extract ?? null,
-                        image: wp?.originalimage?.source ?? wp?.thumbnail?.source ?? null,
-                        wikipediaUrl: wp?.content_urls?.desktop?.page ?? null,
-                    };
-                    const mediaImgsEn = await fetchImagesFromWikipediaMediaList("en", wpTag.title);
-                    merged = mergePoiPieces(merged, { ...wpPiece, images: mediaImgsEn });
-                } catch {}
+        // tenta na ordem pedida: tag.lang → pt → en → es (sem duplicar)
+        [wpTag.lang, "pt", "en", "es"].forEach(l => { if (l && !tryLangs.includes(l)) tryLangs.push(l); });
+        for (const lang of tryLangs) {
+            try {
+                const wp = await fetchFromWikipedia(lang, wpTag.title);
+                const mediaImgs = await fetchImagesFromWikipediaMediaList(lang, wpTag.title);
+                merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
+                // se já conseguimos um summary, não precisamos tentar mais línguas
+                if (wp?.description || wp?.image) break;
+            } catch {
+                // tenta próxima língua
             }
         }
     }
@@ -546,7 +538,7 @@ export async function fetchPoiInfo(opts: {
         }
     }
 
-    // 4) OSM profundo (contacts/opening_hours/website)
+    // 4) OSM profundo (opening hours/contacts/website)
     try {
         const osmExtra = await fetchFromOSMDeep({
             osmId: opts.osmId ?? null,
@@ -575,9 +567,6 @@ export async function fetchPoiInfo(opts: {
         }
     } catch {}
 
-    // 6) DGPC/SIPA (no futuro)
-    // if (ids) merged = mergePoiPieces(merged, await fetchFromPortugueseHeritage(...));
-
     // Normalização final
     merged.images = normalizeImageUrls(merged.images) ?? [];
     if (merged.image) merged.image = normalizeCommonsUrl(merged.image);
@@ -591,9 +580,10 @@ export async function fetchPoiInfo(opts: {
         merged.website ||
         merged.contacts ||
         merged.openingHours ||
-        (merged.ratings && merged.ratings.length > 0);
+        (merged.ratings && merged.ratings.length > 0) ||
+        (merged.architectureStyles && merged.architectureStyles.length > 0) ||
+        (merged.architects && merged.architects.length > 0);
 
     if (!hasAny) return merged.wikidataId ? (merged as PoiInfo) : null;
-
     return merged as PoiInfo;
 }
