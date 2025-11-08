@@ -216,7 +216,9 @@ export default function Home() {
     // =========================
     return (
         <>
-            {showOverlay && <LoadingOverlay />}
+            {showOverlay && (
+                <LoadingOverlay message="A carregar os seus dados" />
+            )}
 
             {!isModalOpen && (
                 <div className="top-district-filter">
