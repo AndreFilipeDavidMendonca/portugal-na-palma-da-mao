@@ -21,29 +21,13 @@ export default function Home() {
     const [districtsGeo, setDistrictsGeo] = useState<AnyGeo>(null);
 
     // Mundo visível sem repetição
-    const WORLD_BOUNDS = L.latLngBounds(
-        [-85.05112878, -180],
-        [ 85.05112878,  180],
-    );
+    const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
 
     // ----- Filtros POI -----
     const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(new Set());
 
     // ----- POIs (Overpass, scope: PT) -----
     const [poiAllPT, setPoiAllPT] = useState<AnyGeo | null>(null);
-
-    // ----- Loading + overlay mínimo -----
-    const [isGeoLoading, setIsGeoLoading] = useState(true);
-    const [isOverpassLoading, setIsOverpassLoading] = useState(false);
-    const [overlayMinElapsed, setOverlayMinElapsed] = useState(false);
-    const overlayStartRef = useRef<number>(0);
-
-    useEffect(() => {
-        const MIN_OVERLAY_MS = 1000;
-        const t = setTimeout(() => setOverlayMinElapsed(true), MIN_OVERLAY_MS);
-        return () => clearTimeout(t);
-    }, []);
-    const showOverlay = (isGeoLoading || isOverpassLoading) || !overlayMinElapsed;
 
     // ----- Modal de Distrito -----
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,7 +44,6 @@ export default function Home() {
     // =========================
     useEffect(() => {
         let aborted = false;
-        setIsGeoLoading(true);
 
         Promise.all([
             loadGeo("/geo/portugal.geojson"),
@@ -71,10 +54,11 @@ export default function Home() {
                 setPtGeo(ptData);
                 setDistrictsGeo(distData);
             })
-            .catch((e) => console.error("[geo] Falha ao carregar PT/distritos:", e))
-            .finally(() => !aborted && setIsGeoLoading(false));
+            .catch((e) => console.error("[geo] Falha ao carregar PT/distritos:", e));
 
-        return () => { aborted = true; };
+        return () => {
+            aborted = true;
+        };
     }, []);
 
     useEffect(() => {
@@ -89,20 +73,11 @@ export default function Home() {
         const q = buildCulturalPointsQuery(poly);
         const controller = new AbortController();
 
-        overlayStartRef.current = performance.now();
-        setIsOverpassLoading(true);
-
         overpassQueryToGeoJSON(q, 2, controller.signal)
             .then((gj) => setPoiAllPT(gj))
             .catch((e) => {
                 if (e?.name !== "AbortError") console.error("[overpass] falhou:", e);
                 setPoiAllPT(null);
-            })
-            .finally(() => {
-                const MIN_SPINNER_MS = 900;
-                const elapsed = performance.now() - overlayStartRef.current;
-                const waitMore = Math.max(0, MIN_SPINNER_MS - elapsed);
-                window.setTimeout(() => setIsOverpassLoading(false), waitMore);
             });
 
         return () => controller.abort();
@@ -140,8 +115,10 @@ export default function Home() {
     }, [districtsGeo]);
 
     const districtNames = useMemo(
-        () => Array.from(featureByName.keys()).sort((a, b) =>
-            a.localeCompare(b, "pt-PT", { sensitivity: "base" })),
+        () =>
+            Array.from(featureByName.keys()).sort((a, b) =>
+                a.localeCompare(b, "pt-PT", { sensitivity: "base" })
+            ),
         [featureByName]
     );
 
@@ -153,7 +130,7 @@ export default function Home() {
         openDistrictModal(f);
     }
 
-    // Fechar modal: (mantive recenter para PT; se quiseres remover, comenta a linha do fit)
+    // Fechar modal: recenter
     function handleCloseModal() {
         setIsModalOpen(false);
         setActiveDistrict(null);
@@ -180,8 +157,9 @@ export default function Home() {
     // =========================
     //         Map utils
     // =========================
-    function onMapReady(map: L.Map) {
-        mapRef.current = map;
+    function onMapReadyNoArg() {
+        const map = mapRef.current;
+        if (!map) return;
         // Fit inicial apenas UMA vez
         if (ptGeo) fitGeoJSONBoundsTight(map, ptGeo, false);
     }
@@ -199,11 +177,11 @@ export default function Home() {
             if (currentZoom > 6) map.setZoom(4);
 
             const topbar = document.querySelector<HTMLElement>(".top-district-filter");
-            const topH   = topbar?.offsetHeight ?? 0;
+            const topH = topbar?.offsetHeight ?? 0;
 
-            const SIDE_PAD = 10;        // px
-            const TOP_PAD  = topH + 50; // px
-            const BOT_PAD  = 10;        // px
+            const SIDE_PAD = 10; // px
+            const TOP_PAD = topH + 50; // px
+            const BOT_PAD = 10; // px
 
             map.fitBounds(bounds, {
                 animate,
@@ -228,6 +206,12 @@ export default function Home() {
     }
 
     // =========================
+    //    Loading / Overlay
+    // =========================
+    const dataReady = Boolean(ptGeo && districtsGeo && poiAllPT);
+    const showOverlay = !dataReady;
+
+    // =========================
     //          Render
     // =========================
     return (
@@ -237,64 +221,62 @@ export default function Home() {
             {!isModalOpen && (
                 <div className="top-district-filter">
                     <div className="tdf-inner">
-                        <TopDistrictFilter
-                            allNames={districtNames}
-                            onPick={handlePickFromTop}
-                        />
+                        <TopDistrictFilter allNames={districtNames} onPick={handlePickFromTop} />
                     </div>
                 </div>
             )}
 
-                <div className="map-shell">
-                    <MapContainer
-                        center={[30, 0]}
-                        zoom={3}
-                        whenReady={(e) => onMapReady(e.target)}
-                        scrollWheelZoom
-                        dragging
-                        doubleClickZoom
-                        attributionControl
-                        preferCanvas
-                        maxBounds={WORLD_BOUNDS}
-                        maxBoundsViscosity={1.0}
-                        minZoom={2}
-                        style={{ height: "100vh", width: "100vw" }}
-                    >
-                        <Pane name="worldBase" style={{ zIndex: 200, pointerEvents: "none" }}>
-                            <TileLayer
-                                url={WORLD_BASE}
-                                attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                noWrap
-                            />
-                        </Pane>
+            <div className="map-shell">
+                <MapContainer
+                    ref={mapRef as any}
+                    center={[30, 0]}
+                    zoom={3}
+                    whenReady={onMapReadyNoArg}  // <-- sem argumentos
+                    scrollWheelZoom
+                    dragging
+                    doubleClickZoom
+                    attributionControl
+                    preferCanvas
+                    maxBounds={WORLD_BOUNDS}
+                    maxBoundsViscosity={1.0}
+                    minZoom={2}
+                    style={{ height: "100vh", width: "100vw" }}
+                >
+                    <Pane name="worldBase" style={{ zIndex: 200, pointerEvents: "none" }}>
+                        <TileLayer
+                            url={WORLD_BASE}
+                            attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            noWrap
+                        />
+                    </Pane>
 
-                        <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                            <TileLayer
-                                url={WORLD_LABELS}
-                                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                noWrap
-                            />
-                        </Pane>
+                    <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
+                        <TileLayer
+                            url={WORLD_LABELS}
+                            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            noWrap
+                        />
+                    </Pane>
 
-                        {districtsGeo && (
-                            <DistrictsHoverLayer
-                                data={districtsGeo as any}
-                                onClickDistrict={(_name, feature) => feature && openDistrictModal(feature)}
-                            />
-                        )}
-                    </MapContainer>
-                </div>
+                    {districtsGeo && (
+                        <DistrictsHoverLayer
+                            data={districtsGeo as any}
+                            onClickDistrict={(_name, feature) => feature && openDistrictModal(feature)}
+                        />
+                    )}
+                </MapContainer>
+            </div>
 
-                <DistrictModal
-                    open={isModalOpen}
-                    onClose={handleCloseModal}
-                    districtFeature={activeDistrict}
-                    selectedTypes={selectedPoiTypes}
-                    onToggleType={togglePoiType}
-                    onClearTypes={clearPoiTypes}
-                    poiPoints={poiForActive}
-                    population={null}
-                />
+            <DistrictModal
+                open={isModalOpen}
+                onClose={handleCloseModal}
+                districtFeature={activeDistrict}
+                selectedTypes={selectedPoiTypes}
+                onToggleType={togglePoiType}
+                onClearTypes={clearPoiTypes}
+                poiPoints={poiForActive}
+                population={null}
+            />
         </>
     );
 }

@@ -1,30 +1,38 @@
-import React, { useEffect, useState } from "react";
-import spinnerVideo from "@/assets/video/spinner-logo.mp4";
+import React from "react";
+import "./LoadingOverlay.scss";
+import logoPt from "@/assets/logo.png";
 
-export default function LoadingOverlay() {
-    const [visible, setVisible] = useState(true);
+type LoadingOverlayProps = {
+    message?: string;
+    compact?: boolean;
+};
 
-    useEffect(() => {
-        // duração total: 12 segundos
-        const timer = setTimeout(() => setVisible(false), 12000);
-        return () => clearTimeout(timer);
-    }, []);
-
-    if (!visible) return null;
-
+export default function LoadingOverlay({
+                                           message = "Estamos a carregar os dados",
+                                           compact = false,
+                                       }: LoadingOverlayProps) {
     return (
-        <div className="loading-overlay" aria-busy="true" aria-live="polite">
-            <div className="loading-frame">
-                <video
-                    className="loading-video"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    /* src como já tens (public/ ou import) */
-                >
-                    <source src={spinnerVideo} type="video/mp4" />
-                </video>
+        <div className="loading-overlay" role="status" aria-live="polite" aria-busy="true">
+            <div className={`loading-card ${compact ? "compact" : ""}`}>
+                {!compact && (
+                    <img
+                        src={logoPt}
+                        alt=".PT"
+                        className="loading-logo-img"
+                        draggable={false}
+                    />
+                )}
+
+                <div className="loading-spinner" aria-hidden="true" />
+
+                <p className="loading-message">
+                    {message}
+                    <span className="ellipsis" aria-hidden="true">
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+                </p>
             </div>
         </div>
     );
