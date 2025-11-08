@@ -160,15 +160,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     <>
                                         <button className="nav prev" onClick={prev}>‹</button>
                                         <button className="nav next" onClick={next}>›</button>
-                                        <div className="dots">
-                                            {gallery.map((_, i) => (
-                                                <button
-                                                    key={i}
-                                                    className={`dot ${i === active ? "on" : ""}`}
-                                                    onClick={() => setActive(i)}
-                                                />
-                                            ))}
-                                        </div>
                                     </>
                                 )}
                             </div>

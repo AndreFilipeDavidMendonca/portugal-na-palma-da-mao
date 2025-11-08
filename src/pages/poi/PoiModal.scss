@@ -1,85 +1,100 @@
 /* =========================
-   PoiModal.scss — tamanho estável
+   PoiModal.scss — versão larga e alta
    ========================= */
 
 /* Variáveis locais do componente */
-.poi-card{
-  /* altura fixa do modal e altura fixa do carrossel */
-  --modal-h: min(88vh, 980px);
-  --carousel-h: clamp(340px, 46vh, 560px); /* <- controla a altura do slideshow */
+.poi-card {
+  --modal-h: min(92vh, 1080px);
+  --carousel-h: clamp(480px, 62vh, 780px); /* controla a altura do slideshow */
 }
 
 /* Backdrop e centragem */
-.poi-overlay{
-  position: fixed; inset: 0; z-index: 99999;
-  background: rgba(0,0,0,.35);
-  display: grid; place-items: center;
-  padding: 16px;
+.poi-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0, 0, 0, .35);
+  display: grid;
+  place-items: center;
+  padding: 20px;
 }
 
-/* Cartão central: largura e ALTURA fixas (não cresce com a imagem) */
-.poi-card{
-  width: min(1100px, calc(100vw - 40px));
-  height: var(--modal-h);                  /* <<< altura fixa do modal */
+/* Cartão central */
+.poi-card {
+  width: min(1280px, calc(100vw - 60px)); /* modal mais largo */
+  height: var(--modal-h);
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0,0,0,.4);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .4);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 /* Header fixo */
-.poi-header{
-  position: sticky; top: 0; z-index: 2;
+.poi-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
-  padding: 18px 22px;
-  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
-  h2{
+  h2 {
     margin: 0;
     font-family: var(--font-title);
     color: var(--gold-strong);
     font-size: clamp(26px, 3vw, 36px);
     font-weight: 800;
     letter-spacing: .3px;
-    text-shadow: 0 0 6px rgba(215,178,90,.3);
+    text-shadow: 0 0 6px rgba(215, 178, 90, .3);
   }
 
-  .poi-close{
+  .poi-close {
     appearance: none;
     border: 1px solid var(--border);
     background: var(--bg-panel-2);
     color: var(--gold);
-    width: 38px; height: 38px;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
-    font-size: 26px; line-height: 30px;
-    cursor: pointer; transition: all .2s ease;
-    &:hover{ background: var(--bg-panel); color: var(--gold-strong); transform: scale(1.05); }
+    font-size: 26px;
+    line-height: 30px;
+    cursor: pointer;
+    transition: all .2s ease;
+
+    &:hover {
+      background: var(--bg-panel);
+      color: var(--gold-strong);
+      transform: scale(1.05);
+    }
   }
 }
 
-/* Sub-linha (ex: link Wikipedia) */
-.poi-subline{
+/* Sub-linha (Wikipedia, etc.) */
+.poi-subline {
   font-size: 1rem;
   color: var(--muted);
-  padding: 5px;
-}
-.poi-subline a{
-  color: var(--gold);
-  text-decoration: none; font-weight: 600;
-  transition: color .25s ease, text-shadow .25s ease;
-  &:hover{ color: var(--gold-strong); text-shadow: 0 0 6px rgba(241,210,122,.6); }
-  &:active{ color: var(--gold); text-shadow: none; }
+  padding: 5px 26px;
 }
 
-/* Corpo ocupa o resto da altura do modal */
+.poi-subline a {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color .25s ease, text-shadow .25s ease;
+  &:hover { color: var(--gold-strong); text-shadow: 0 0 6px rgba(241,210,122,.6); }
+  &:active { color: var(--gold); text-shadow: none; }
+}
+
 /* ===== Corpo ===== */
 .poi-body {
   display: grid;
-  grid-template-columns: 1.65fr 1fr;  /* imagem ligeiramente maior */
+  grid-template-columns: 1.8fr 1fr; /* imagem domina mais */
   gap: 0;
   height: calc(var(--modal-h) - 80px);
   overflow: hidden;
@@ -91,22 +106,19 @@
   position: relative;
   border-right: 1px solid var(--border);
   background: var(--bg-deep);
-
-  /* aumenta a altura interna do slideshow sem afetar o modal */
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 8px 0;
+  padding: 8px 0 16px;
 }
 
 .slideshow {
   position: relative;
   width: 100%;
   height: 100%;
-  max-height: 480px;
-  min-height: 400px;
-  padding: 18px;
+  max-height: var(--carousel-h);
+  padding: 18px 22px 28px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -117,6 +129,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center;
   border-radius: 12px;
   background: var(--bg-panel-2);
   padding: 12px;
@@ -125,27 +138,25 @@
 }
 
 /* Controles do slideshow */
-.nav{
-  position: absolute; top: 50%; transform: translateY(-50%);
-  font-size: 2.4rem; background: rgba(0,0,0,.3);
-  border: none; color: #fff; cursor: pointer;
-  padding: 0 10px; border-radius: 6px; transition: background .2s;
-  &:hover{ background: rgba(0,0,0,.5); }
+.nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 2.4rem;
+  background: rgba(0, 0, 0, .3);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0 10px;
+  border-radius: 6px;
+  transition: background .2s;
+  &:hover { background: rgba(0, 0, 0, .5); }
 }
-.nav.prev{ left: 8px; }
-.nav.next{ right: 8px; }
+.nav.prev { left: 8px; }
+.nav.next { right: 8px; }
 
-.dots{
-  position: absolute; bottom: 10px; left: 0; right: 0;
-  display: flex; justify-content: center; gap: 6px;
-}
-.dot{
-  width: 10px; height: 10px; border-radius: 50%;
-  border: 1px solid var(--gold); background: transparent; cursor: pointer;
-  &.on{ background: var(--gold); }
-}
-
-.no-photo{
+/* Sem fotografias */
+.no-photo {
   color: var(--muted);
   font-family: var(--font-title);
   font-size: clamp(14px, 1.4vw, 18px);
@@ -153,126 +164,122 @@
 }
 
 /* ===== Coluna info ===== */
-.poi-side{
-  padding: 16px 18px;
-  overflow: auto;                      /* scroll só na coluna, não no modal */
+.poi-side {
+  padding: 20px 26px 18px;
+  overflow: auto;
 }
-.poi-desc{
+
+.poi-desc {
   color: var(--muted);
   margin: 15px 0 12px 0;
   text-transform: capitalize;
 }
 
-.poi-meta-grid{
+.poi-meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-/* Link dourado — usado em telefone e contactos */
+/* Link dourado — contactos */
 .gold-link {
   color: var(--gold);
   font-weight: 500;
   text-decoration: none;
   transition: color 0.2s ease, text-shadow 0.2s ease;
-
-  &:hover {
-    color: #fff4ce; /* tom mais claro */
-    text-shadow: 0 0 6px rgba(215, 178, 90, 0.45);
-  }
+  &:hover { color: #fff4ce; text-shadow: 0 0 6px rgba(215, 178, 90, 0.45); }
 }
 
-.chip{
+.chip {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   border: 1px solid var(--border);
   background: var(--bg-panel);
   color: var(--gold);
-  padding: 12px 10px; border-radius: 999px;
-  text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  &:hover{ border-color: var(--gold); background: var(--bg-panel-2); }
+  padding: 12px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &:hover { border-color: var(--gold); background: var(--bg-panel-2); }
 }
 
-/* Botão Direções */
-.btn-directions{
-  display: inline-flex; align-items: center; justify-content: center;
-  gap: 6px; padding: 8px 16px;
+/* Botões principais */
+.btn-directions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
   background: var(--bg-panel-2);
   color: var(--gold);
   border: 1.5px solid var(--gold);
   border-radius: 999px;
-  font-weight: 600; font-size: 15px;
-  text-decoration: none; cursor: pointer;
-  transition: all .25s ease; box-shadow: 0 0 8px rgba(0,0,0,.15);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all .25s ease;
+  box-shadow: 0 0 8px rgba(0, 0, 0, .15);
   margin-top: 4px;
-  &:hover{ background: var(--bg-panel); color: var(--gold-strong); transform: translateY(-1px); box-shadow: 0 0 12px rgba(215,178,90,.3); }
-  &:active{ transform: translateY(0); box-shadow: 0 0 6px rgba(215,178,90,.2); }
+
+  &:hover {
+    background: var(--bg-panel);
+    color: var(--gold-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 0 12px rgba(215, 178, 90, .3);
+  }
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 0 6px rgba(215, 178, 90, .2);
+  }
+
+  position: relative;
+  overflow: hidden;
+  &:before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(215, 178, 90, 0.25), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  &:hover::before { opacity: 1; }
 }
 
-/* Tags (se usares) */
-.poi-side .poi-subtitle{
+/* Títulos/meta */
+.poi-side .poi-subtitle {
   margin: 0 0 8px 0;
   font-family: var(--font-title);
   color: var(--gold);
   font-size: clamp(14px, 1.6vw, 18px);
   font-weight: 700;
 }
-.poi-tags{
-  display: grid; grid-template-columns: 1fr 2fr;
-  gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--border);
+
+.poi-tags {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
 }
-.poi-tag-row dt{ opacity: .9; }
-.poi-tag-row dd{ margin: 0; color: var(--gold); word-break: break-word; }
+.poi-tag-row dt { opacity: .9; }
+.poi-tag-row dd { margin: 0; color: var(--gold); word-break: break-word; }
 
-/* --- Divisor suave entre botões e meta-info --- */
-.poi-side {
-  .meta-divider {
-    width: 100%;
-    height: 1px;
-    background: linear-gradient(
-                    to right,
-                    transparent,
-                    rgba(215, 178, 90, 0.25),
-                    transparent
-    );
-    margin: 12px 0 10px 0;
-  }
-}
-
-/* --- Hover refinado para os botões principais --- */
-.btn-directions {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.25s ease;
-
-  &:before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-                    circle at center,
-                    rgba(215, 178, 90, 0.25),
-                    transparent 70%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 10px rgba(215, 178, 90, 0.4);
-  }
-
-  &:hover::before {
-    opacity: 1;
-  }
+/* Divisor */
+.poi-side .meta-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(215, 178, 90, 0.25), transparent);
+  margin: 12px 0 10px 0;
 }
 
 /* ===== Responsivo ===== */
-@media (max-width: 980px){
-  .poi-body{
-    grid-template-columns: 1fr;          /* empilha: carrossel em cima, info em baixo */
+@media (max-width: 980px) {
+  .poi-body {
+    grid-template-columns: 1fr;
     height: calc(var(--modal-h) - 72px);
   }
 }
