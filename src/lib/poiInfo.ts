@@ -299,18 +299,6 @@ function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiIn
 /* ===========================
    Wikipedia (summary + media)
    =========================== */
-async function fetchFromWikipedia(lang: string, title: string): Promise<Partial<PoiInfo>> {
-    const jd = await safeJson(WIKIPEDIA_SUMMARY(lang, title));
-    const image = jd?.originalimage?.source ?? jd?.thumbnail?.source ?? null;
-    return {
-        label: jd?.title ?? null,
-        description: jd?.extract ?? null,
-        image,
-        wikipediaUrl: jd?.content_urls?.desktop?.page ?? null,
-    };
-}
-
-/** Versão strict: rejeita artigos da Wikipédia longe do POI (se tivermos coords). */
 async function fetchFromWikipediaStrict(
     lang: string,
     title: string,
@@ -419,16 +407,99 @@ async function searchWikipediaTitleByName(name: string) {
         return (await tryLang("pt")) || (await tryLang("en"));
     } catch { return null; }
 }
-async function geosearchWikipediaTitle(lat: number, lon: number) {
+async function geosearchWikipediaTitleSmart(
+    lat: number,
+    lon: number,
+    approxName?: string | null,
+    hint?: ReturnType<typeof typeHintFromName>
+) {
+    const radius = hint === "viewpoint" ? 400 : 800; // miradouros: mais estrito
     const tryLang = async (lang: string) => {
         try {
-            const jd = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon));
-            const hit = jd?.query?.geosearch?.[0];
-            if (!hit?.title) return null;
-            return { lang, title: hit.title as string };
-        } catch { return null; }
+            const jd = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, radius));
+            const items: any[] = jd?.query?.geosearch ?? [];
+            if (!items.length) return null;
+
+            // helpers p/ scoring
+            const norm = (s: string) =>
+                s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ")
+                    .trim().toLowerCase();
+
+            const toks = (s: string) => norm(s).split(" ").filter(Boolean);
+            const kwVP = /(^|[\s-])(miradouro|viewpoint|mirador)([\s-]|$)/i;
+            const badType = /(igreja|sé|catedral|mosteiro|convento|museu|pante[aã]o|pal[aá]cio)/i;
+
+            const nameTokens = approxName ? new Set(toks(approxName)) : new Set<string>();
+
+            const score = (title: string, dist: number) => {
+                let s = 0;
+                const tNorm = norm(title);
+
+                // 1) bónus por palavras-chave certas
+                if (hint === "viewpoint" && kwVP.test(title)) s += 6;
+
+                // 2) overlap de tokens com o nome da tooltip
+                if (nameTokens.size) {
+                    const tks = new Set(toks(title));
+                    let overlap = 0;
+                    nameTokens.forEach(tt => { if (tks.has(tt)) overlap++; });
+                    s += Math.min(5, overlap); // até +5
+                    if (tNorm === norm(approxName!)) s += 4; // match quase perfeito
+                    if (tNorm.includes(norm(approxName!))) s += 2; // contém
+                }
+
+                // 3) penalizações por tipo provável “errado” para viewpoint
+                if (hint === "viewpoint" && badType.test(title)) s -= 4;
+
+                // 4) distância (quanto mais perto melhor)
+                if (Number.isFinite(dist)) {
+                    // 0 m → +4, 400 m → +0 (clamped)
+                    const closeness = Math.max(0, 1 - dist / 400);
+                    s += Math.round(closeness * 4);
+                }
+                return s;
+            };
+
+            // escolher melhor por score
+            let best: { title: string; score: number } | null = null;
+            for (const it of items) {
+                const sc = score(it?.title || "", it?.dist ?? 99999);
+                if (!best || sc > best.score) best = { title: it.title, score: sc };
+            }
+
+            // limiar mínimo para evitar “pegar o que houver”
+            if (!best || best.score < (hint === "viewpoint" ? 6 : 3)) return null;
+            return { lang, title: best.title as string };
+        } catch {
+            return null;
+        }
     };
     return (await tryLang("pt")) || (await tryLang("en"));
+}
+
+/* ===========================
+   Wikivoyage (fallback bom para miradouros)
+   =========================== */
+async function fetchFromWikivoyage(lat: number, lon: number): Promise<Partial<PoiInfo>> {
+    try {
+        const url = `https://pt.wikivoyage.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=2000&gslimit=15&format=json&origin=*`;
+        const jd = await safeJson(url);
+        const hit = (jd?.query?.geosearch ?? []).find((g: any) =>
+            /miradouro|viewpoint|mirador/i.test(g?.title || "")
+        );
+        if (!hit?.title) return {};
+        const title = hit.title as string;
+        const sum = await safeJson(`https://pt.wikivoyage.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+        return {
+            label: title,
+            description: sum?.extract ?? null,
+            image: sum?.originalimage?.source ?? null,
+            wikipediaUrl: sum?.content_urls?.desktop?.page ?? null,
+        };
+    } catch {
+        return {};
+    }
 }
 
 /* ===========================
@@ -734,14 +805,25 @@ export async function fetchPoiInfo(opts: {
         ? { lat: approxLat!, lon: approxLon! }
         : null;
 
+    const typeHint = typeHintFromName(approxName);
+
+    // --- Wikidata por nome: evitar para miradouros (muitos falsos positivos) ---
     if (!wdId && approxName) {
-        wdId = await searchWikidataIdByName(approxName);
-        if (wdId) dlog("Wikidata resolved by name:", wdId);
+        if (typeHint !== "viewpoint") {
+            wdId = await searchWikidataIdByName(approxName);
+            if (wdId) dlog("Wikidata resolved by name:", wdId);
+        } else {
+            dlog("Skip Wikidata-by-name for viewpoint:", approxName);
+        }
     }
+
+    // --- Wikipedia title: para miradouros, preferir geosearch; senão, nome→geo ---
     if (!opts.wikipedia && approxName) {
-        wpResolved = await searchWikipediaTitleByName(approxName);
-        if (!wpResolved && approxLat != null && approxLon != null) {
-            wpResolved = await geosearchWikipediaTitle(approxLat!, approxLon!);
+        if (approxCoords) {
+            wpResolved = await geosearchWikipediaTitleSmart(approxCoords.lat, approxCoords.lon, approxName, typeHint);
+        }
+        if (!wpResolved && typeHint !== "viewpoint") {
+            wpResolved = await searchWikipediaTitleByName(approxName);
         }
         if (wpResolved) dlog("Wikipedia resolved:", wpResolved);
     }
@@ -773,7 +855,8 @@ export async function fetchPoiInfo(opts: {
     let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || wpResolved || null;
     if (wpTag) {
         try {
-            const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, 60);
+            const strictKm = typeHint === "viewpoint" ? 0.6 : 60; // miradouros: 600 m
+            const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, strictKm);
             if (Object.keys(wp).length) {
                 const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
                 merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
@@ -853,6 +936,18 @@ export async function fetchPoiInfo(opts: {
             merged = mergePoiPieces(merged, otm);
         }
     } catch (e) { dlog("OpenTripMap error:", e); }
+
+    // 6) Fallback dedicado a MIRADOUROS (Wikivoyage por geosearch)
+    if (typeHint === "viewpoint") {
+        const coords = merged.coords ?? approxCoords;
+        const descTooShort = !merged.description || merged.description.trim().length < 30;
+        if (coords && descTooShort) {
+            const wvoy = await fetchFromWikivoyage(coords.lat, coords.lon);
+            if (Object.keys(wvoy).length) {
+                merged = mergePoiPieces(merged, wvoy);
+            }
+        }
+    }
 
     // Normalização final
     merged.images = normalizeImageUrls(merged.images) ?? [];

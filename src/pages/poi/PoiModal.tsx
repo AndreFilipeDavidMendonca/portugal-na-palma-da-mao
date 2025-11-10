@@ -86,7 +86,7 @@ export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): stri
         const T = t.charAt(0).toUpperCase() + t.slice(1);
         if (/^(Mo|Tu|We|Th|Fr|Sa|Su)$/i.test(T)) {
             collected.push(T.slice(0,2) === "Mo" ? "Mo" : T.slice(0,2));
-        } else if (/^[A-Z][a-z]?\-[A-Z][a-z]?$/i.test(T)) {
+        } else if (/^[A-Z][a-z]?-[A-Z][a-z]?$/i.test(T)) {
             const [a, b] = T.split("-");
             collected.push(...expandDayToken(a + "-" + b));
         }
@@ -335,7 +335,13 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
                             {contacts.email && (
                                 <div>
                                     <strong>Email:</strong>{" "}
-                                    <a href={`mailto:${contacts.email}`}>{contacts.email}</a>
+                                    <a
+                                        className="gold-link"
+                                        href={`mailto:${contacts.email.replace(/\s+/g, "")}`}
+                                        target="_self"
+                                    >
+                                        {contacts.email}
+                                    </a>
                                 </div>
                             )}
                             {ohText && (

@@ -46,7 +46,7 @@
 
   h2 {
     margin: 0;
-    font-family: var(--font-title);
+    font-family: var(--font-title), serif;
     color: var(--gold-strong);
     font-size: clamp(26px, 3vw, 36px);
     font-weight: 800;
@@ -158,7 +158,7 @@
 /* Sem fotografias */
 .no-photo {
   color: var(--muted);
-  font-family: var(--font-title);
+  font-family: var(--font-title), serif;
   font-size: clamp(14px, 1.4vw, 18px);
   opacity: .9;
 }
@@ -259,7 +259,7 @@
 /* Títulos/meta */
 .poi-side .poi-subtitle {
   margin: 0 0 8px 0;
-  font-family: var(--font-title);
+  font-family: var(--font-title), serif;
   color: var(--gold);
   font-size: clamp(14px, 1.6vw, 18px);
   font-weight: 700;
