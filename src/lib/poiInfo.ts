@@ -7,7 +7,9 @@ const DEBUG_POI = (() => {
     try {
         if (import.meta.env?.VITE_DEBUG_POI === "true") return true;
         return new URLSearchParams(window.location.search).get("debug") === "poi";
-    } catch { return false; }
+    } catch {
+        return false;
+    }
 })();
 const dlog = (...args: any[]) => { if (DEBUG_POI) console.log("[POI]", ...args); };
 const dgrp = (title: string) => { if (DEBUG_POI) console.groupCollapsed(title); };
@@ -31,6 +33,11 @@ export type Ratings = {
     value: number; // 0..5
     votes?: number | null;
 };
+export type BuiltPeriod = {
+    start?: string | null;   // yyyy or yyyy-mm-dd
+    end?: string | null;     // yyyy or yyyy-mm-dd
+    opened?: string | null;  // yyyy or yyyy-mm-dd
+};
 export type PoiInfo = {
     label?: string | null;
     description?: string | null;
@@ -39,6 +46,7 @@ export type PoiInfo = {
     inception?: string | null;
     wikipediaUrl?: string | null;
     wikidataId?: string | null;
+    oldNames?: string[];
 
     coords?: { lat: number; lon: number } | null;
     website?: string | null;
@@ -52,10 +60,13 @@ export type PoiInfo = {
     historyText?: string | null;
     architectureText?: string | null;
 
-    // campos de arquitetura (quando existir em WD/DGPC)
     architects?: string[];
     architectureStyles?: string[];
     materials?: string[];
+
+    // NOVO
+    builders?: string[];        // fundador/criador/empreiteiro/mecenas + arquitetos
+    builtPeriod?: BuiltPeriod;  // janelas temporais mais ricas
 };
 
 /* ===========================
@@ -63,22 +74,33 @@ export type PoiInfo = {
    =========================== */
 const WIKIDATA_ENTITY = (id: string) =>
     `https://www.wikidata.org/wiki/Special:EntityData/${encodeURIComponent(id)}.json`;
+const WIKIDATA_SEARCH = (term: string, lang = "pt") =>
+    `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(term)}&language=${lang}&format=json&origin=*`;
+
 const WIKIPEDIA_SUMMARY = (lang: string, title: string) =>
     `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
 const WIKIPEDIA_MEDIA_LIST = (lang: string, title: string) =>
     `https://${lang}.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent(title)}`;
+const WIKIPEDIA_SEARCH = (lang: string, q: string) =>
+    `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*`;
+const WIKIPEDIA_GEOSEARCH = (lang: string, lat: number, lon: number, radius = 800) =>
+    `https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=20&format=json&origin=*`;
+// sections (HTML) via action=parse
+const WIKIPEDIA_PARSE = (lang: string, title: string) =>
+    `https://${lang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=sections|text&format=json&origin=*`;
+
 const COMMONS_FILE = (fileName: string) =>
     `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
-
 const COMMONS_API = `https://commons.wikimedia.org/w/api.php?origin=*&format=json`;
 const commonsCategoryMembers = (category: string, limit = 60) =>
     `${COMMONS_API}&action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(category)}&cmnamespace=6&cmtype=file&cmlimit=${limit}`;
+const COMMONS_GEOSEARCH = (lat: number, lon: number, radius = 800) =>
+    `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=50&format=json&origin=*`;
 
 const WD_WBGETENTITIES = (ids: string[]) =>
-    `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(
-        ids.join("|")
-    )}&props=labels|claims|sitelinks&languages=pt|en&format=json&origin=*`;
+    `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(ids.join("|"))}&props=labels|claims|sitelinks&languages=pt|en&format=json&origin=*`;
 
+// OpenTripMap
 const OTM_KEY = import.meta.env.VITE_OPENTRIPMAP_KEY as string | undefined;
 const OTM_BASE = "https://api.opentripmap.com/0.1";
 const OTM_PLACE_BY_NAME = (lat: number, lon: number, name: string) =>
@@ -86,6 +108,7 @@ const OTM_PLACE_BY_NAME = (lat: number, lon: number, name: string) =>
 const OTM_DETAILS = (xid: string) =>
     `${OTM_BASE}/en/places/xid/${encodeURIComponent(xid)}?apikey=${OTM_KEY}`;
 
+// Overpass
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 const overpassQL = (q: string) => `${OVERPASS}?data=${encodeURIComponent(q)}`;
 
@@ -96,7 +119,7 @@ function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
 function firstNonEmpty<T>(...vals: (T | null | undefined)[]): T | undefined {
     for (const v of vals) {
         if (v === 0 || v === false) return v as any;
-        if (v != null && v !== "" && !(Array.isArray(v) && v.length === 0)) return v as T;
+        if (v != null && v !== "" && !(Array.isArray(v) && (v as any).length === 0)) return v as T;
     }
     return undefined;
 }
@@ -119,6 +142,57 @@ async function safeJson(url: string) {
     const r = await fetch(url, { referrerPolicy: "no-referrer" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
+}
+function htmlToText(html: string): string {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    // junta parágrafos visíveis
+    const ps = Array.from(doc.querySelectorAll("p"));
+    return ps.map(p => p.textContent?.trim() || "").filter(Boolean).join("\n\n");
+}
+function normalizeDateISO(iso?: string | null): string | null {
+    if (!iso) return null;
+    return iso.replace(/^\+/, "").slice(0, 10); // +1160-00-00 → 1160-00-00 → 1160-00-00
+}
+
+/* Heurística de tipo pelo nome (ajuda no ranking de pesquisas) */
+function typeHintFromName(name?: string | null): "viewpoint" | "church" | "ruins" | null {
+    if (!name) return null;
+    const n = name.toLowerCase();
+    if (/miradouro|viewpoint|mirador/.test(n)) return "viewpoint";
+    if (/igreja|church|sé|catedral|mosteiro|convento|capela/.test(n)) return "church";
+    if (/ru[ií]nas?|castro/.test(n)) return "ruins";
+    return null;
+}
+function scoreByNameAndType(
+    label: string, desc: string | undefined, name: string,
+    hint: ReturnType<typeof typeHintFromName>
+) {
+    let s = 0;
+    const lab = (label || "").toLowerCase();
+    const d = (desc || "").toLowerCase();
+    const q = name.toLowerCase();
+    if (lab === q) s += 6; else if (lab.includes(q)) s += 3;
+    if (d.includes("portugal")) s += 2;
+    if (hint === "viewpoint" && /viewpoint|miradouro/.test(lab + " " + d)) s += 2;
+    if (hint === "church" && /church|igreja|cathedral|sé|monastery|convent|chapel/.test(lab + " " + d)) s += 2;
+    if (hint === "ruins" && /ruins|ru[ií]nas|castro/.test(lab + " " + d)) s += 2;
+    return s;
+}
+
+/* ===========================
+   Geodistance helpers
+   =========================== */
+function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+}
+function isFar(a?: { lat: number; lon: number } | null, b?: { lat: number; lon: number } | null, maxKm = 60) {
+    if (!a || !b) return false;
+    return haversineKm(a, b) > maxKm;
 }
 
 /* ===========================
@@ -195,14 +269,13 @@ function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiIn
     const her = uniq([...(a.heritage ?? []), ...(b.heritage ?? [])]);
     if (her.length) out.heritage = her;
 
-    out.contacts     = mergeContacts(a.contacts, a.contacts ? b.contacts : b.contacts) ?? out.contacts;
+    out.contacts     = mergeContacts(a.contacts, b.contacts) ?? out.contacts;
     out.openingHours = mergeOpeningHours(a.openingHours, b.openingHours) ?? out.openingHours;
     const rat = mergeRatings(a.ratings, b.ratings); if (rat && rat.length) out.ratings = rat;
 
     out.historyText       = firstNonEmpty(a.historyText,       b.historyText)       ?? out.historyText;
     out.architectureText  = firstNonEmpty(a.architectureText,  b.architectureText)  ?? out.architectureText;
 
-    // Extras de arquitetura, quando existirem
     const archs = uniq([...(a.architects ?? []), ...(b.architects ?? [])]);
     if (archs.length) out.architects = archs;
     const styles = uniq([...(a.architectureStyles ?? []), ...(b.architectureStyles ?? [])]);
@@ -210,22 +283,51 @@ function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiIn
     const mats = uniq([...(a.materials ?? []), ...(b.materials ?? [])]);
     if (mats.length) out.materials = mats;
 
+    // NOVO: builders e builtPeriod
+    const builders = uniq([...(a.builders ?? []), ...(b.builders ?? [])]);
+    if (builders.length) out.builders = builders;
+
+    out.builtPeriod = {
+        start:  firstNonEmpty(a.builtPeriod?.start,  b.builtPeriod?.start)  ?? out.builtPeriod?.start,
+        end:    firstNonEmpty(a.builtPeriod?.end,    b.builtPeriod?.end)    ?? out.builtPeriod?.end,
+        opened: firstNonEmpty(a.builtPeriod?.opened, b.builtPeriod?.opened) ?? out.builtPeriod?.opened,
+    };
+
     return out;
 }
 
 /* ===========================
-   Wikipedia
+   Wikipedia (summary + media)
    =========================== */
-async function fetchFromWikipedia(lang: string, title: string): Promise<Partial<PoiInfo>> {
+async function fetchFromWikipediaStrict(
+    lang: string,
+    title: string,
+    approx?: { lat: number; lon: number } | null,
+    maxKm = 60
+): Promise<Partial<PoiInfo>> {
     const jd = await safeJson(WIKIPEDIA_SUMMARY(lang, title));
+    const wlat = jd?.coordinates?.lat;
+    const wlon = jd?.coordinates?.lon;
+    const wpCoords = (typeof wlat === "number" && typeof wlon === "number")
+        ? { lat: wlat, lon: wlon }
+        : null;
+
+    if (approx && wpCoords && isFar(approx, wpCoords, maxKm)) {
+        dlog("Wikipedia strict: descartado por distância", { approx, wpCoords });
+        return {};
+    }
+
     const image = jd?.originalimage?.source ?? jd?.thumbnail?.source ?? null;
-    return {
+    const out: Partial<PoiInfo> = {
         label: jd?.title ?? null,
         description: jd?.extract ?? null,
         image,
         wikipediaUrl: jd?.content_urls?.desktop?.page ?? null,
     };
+    if (wpCoords) out.coords = out.coords ?? wpCoords;
+    return out;
 }
+
 async function fetchImagesFromWikipediaMediaList(lang: string, title: string): Promise<string[]> {
     try {
         const jd = await safeJson(WIKIPEDIA_MEDIA_LIST(lang, title));
@@ -237,6 +339,169 @@ async function fetchImagesFromWikipediaMediaList(lang: string, title: string): P
     } catch { return []; }
 }
 
+/* Wikipedia: secções História/Arquitetura (PT→EN fallback) */
+async function fetchWikipediaSections(
+    lang: string,
+    title: string
+): Promise<{ history?: string | null; architecture?: string | null }> {
+    const tryLang = async (lng: string) => {
+        try {
+            const jd = await safeJson(WIKIPEDIA_PARSE(lng, title));
+            const html = jd?.parse?.text?.["*"];
+            if (!html) return { history: null, architecture: null };
+
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            // recolher heading -> content
+            const sections: Record<string, string> = {};
+            let current = "";
+            const nodes = Array.from(doc.body.childNodes);
+            const push = (k: string, v: string) => {
+                sections[k] = (sections[k] || "") + v;
+            };
+
+            for (const n of nodes) {
+                if (n.nodeType === 1) {
+                    const el = n as HTMLElement;
+                    if (/^H[2-4]$/.test(el.tagName)) {
+                        current = (el.textContent || "").trim().toLowerCase();
+                        continue;
+                    }
+                    if (current && (el.tagName === "P" || el.tagName === "UL" || el.tagName === "OL")) {
+                        push(current, el.outerHTML);
+                    }
+                }
+            }
+
+            const getFirstParas = (keyList: string[]) => {
+                for (const k of keyList) {
+                    const hit = Object.entries(sections).find(([hdr]) => hdr.includes(k));
+                    if (hit) {
+                        const text = htmlToText(hit[1]).trim();
+                        if (text) return text;
+                    }
+                }
+                return null;
+            };
+
+            const history = getFirstParas(["história", "history"]);
+            const architecture = getFirstParas(["arquitetura", "architecture"]);
+            return { history, architecture };
+        } catch { return { history: null, architecture: null }; }
+    };
+
+    const pt = await tryLang(lang);
+    if (pt.history || pt.architecture) return pt;
+    const en = await tryLang("en");
+    return en;
+}
+
+/* Wikipedia: title search & geo */
+async function searchWikipediaTitleByName(name: string) {
+    try {
+        const tryLang = async (lang: string) => {
+            const jd = await safeJson(WIKIPEDIA_SEARCH(lang, name));
+            const hit = jd?.query?.search?.[0];
+            if (!hit?.title) return null;
+            return { lang, title: hit.title as string };
+        };
+        return (await tryLang("pt")) || (await tryLang("en"));
+    } catch { return null; }
+}
+async function geosearchWikipediaTitleSmart(
+    lat: number,
+    lon: number,
+    approxName?: string | null,
+    hint?: ReturnType<typeof typeHintFromName>
+) {
+    const radius = hint === "viewpoint" ? 400 : 800; // miradouros: mais estrito
+    const tryLang = async (lang: string) => {
+        try {
+            const jd = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, radius));
+            const items: any[] = jd?.query?.geosearch ?? [];
+            if (!items.length) return null;
+
+            // helpers p/ scoring
+            const norm = (s: string) =>
+                s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ")
+                    .trim().toLowerCase();
+
+            const toks = (s: string) => norm(s).split(" ").filter(Boolean);
+            const kwVP = /(^|[\s-])(miradouro|viewpoint|mirador)([\s-]|$)/i;
+            const badType = /(igreja|sé|catedral|mosteiro|convento|museu|pante[aã]o|pal[aá]cio)/i;
+
+            const nameTokens = approxName ? new Set(toks(approxName)) : new Set<string>();
+
+            const score = (title: string, dist: number) => {
+                let s = 0;
+                const tNorm = norm(title);
+
+                // 1) bónus por palavras-chave certas
+                if (hint === "viewpoint" && kwVP.test(title)) s += 6;
+
+                // 2) overlap de tokens com o nome da tooltip
+                if (nameTokens.size) {
+                    const tks = new Set(toks(title));
+                    let overlap = 0;
+                    nameTokens.forEach(tt => { if (tks.has(tt)) overlap++; });
+                    s += Math.min(5, overlap); // até +5
+                    if (tNorm === norm(approxName!)) s += 4; // match quase perfeito
+                    if (tNorm.includes(norm(approxName!))) s += 2; // contém
+                }
+
+                // 3) penalizações por tipo provável “errado” para viewpoint
+                if (hint === "viewpoint" && badType.test(title)) s -= 4;
+
+                // 4) distância (quanto mais perto melhor)
+                if (Number.isFinite(dist)) {
+                    // 0 m → +4, 400 m → +0 (clamped)
+                    const closeness = Math.max(0, 1 - dist / 400);
+                    s += Math.round(closeness * 4);
+                }
+                return s;
+            };
+
+            // escolher melhor por score
+            let best: { title: string; score: number } | null = null;
+            for (const it of items) {
+                const sc = score(it?.title || "", it?.dist ?? 99999);
+                if (!best || sc > best.score) best = { title: it.title, score: sc };
+            }
+
+            // limiar mínimo para evitar “pegar o que houver”
+            if (!best || best.score < (hint === "viewpoint" ? 6 : 3)) return null;
+            return { lang, title: best.title as string };
+        } catch {
+            return null;
+        }
+    };
+    return (await tryLang("pt")) || (await tryLang("en"));
+}
+
+/* ===========================
+   Wikivoyage (fallback bom para miradouros)
+   =========================== */
+async function fetchFromWikivoyage(lat: number, lon: number): Promise<Partial<PoiInfo>> {
+    try {
+        const url = `https://pt.wikivoyage.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=2000&gslimit=15&format=json&origin=*`;
+        const jd = await safeJson(url);
+        const hit = (jd?.query?.geosearch ?? []).find((g: any) =>
+            /miradouro|viewpoint|mirador/i.test(g?.title || "")
+        );
+        if (!hit?.title) return {};
+        const title = hit.title as string;
+        const sum = await safeJson(`https://pt.wikivoyage.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+        return {
+            label: title,
+            description: sum?.extract ?? null,
+            image: sum?.originalimage?.source ?? null,
+            wikipediaUrl: sum?.content_urls?.desktop?.page ?? null,
+        };
+    } catch {
+        return {};
+    }
+}
+
 /* ===========================
    Commons
    =========================== */
@@ -245,6 +510,17 @@ async function fetchImagesFromCommonsCategory(category: string): Promise<string[
         const jd = await safeJson(commonsCategoryMembers(category, 60));
         const files = jd?.query?.categorymembers ?? [];
         return files.map((f: any) => f?.title?.replace(/^File:/i, "")).filter(Boolean).map((fn: string) => COMMONS_FILE(fn));
+    } catch { return []; }
+}
+async function geosearchCommonsImages(lat: number, lon: number): Promise<string[]> {
+    try {
+        const jd = await safeJson(COMMONS_GEOSEARCH(lat, lon));
+        const items = jd?.query?.geosearch ?? [];
+        return items
+            .map((it: any) => it?.title as string)
+            .filter(Boolean)
+            .map((t: any) => t.replace(/^File:/i, ""))
+            .map((fn: any) => COMMONS_FILE(fn));
     } catch { return []; }
 }
 
@@ -277,6 +553,7 @@ function commonsCategoryFromWikidata(entity: any): string | null {
     const p373 = claimString(entity, "P373");
     return p373 || null;
 }
+
 async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
     const coord = entity?.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
     const coords = coord ? { lat: coord.latitude, lon: coord.longitude } : null;
@@ -285,12 +562,35 @@ async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
     const p31   = claimEntityIds(entity, "P31");   // instance of
     const p131  = claimEntityIds(entity, "P131");  // located in
     const p1435 = claimEntityIds(entity, "P1435"); // heritage
-    // (se existir no WD) arquitetos P84, estilos P149, materiais P186
-    const p84   = claimEntityIds(entity, "P84");
-    const p149  = claimEntityIds(entity, "P149");
-    const p186  = claimEntityIds(entity, "P186");
 
-    const labels = await fetchLabels([...p31, ...p131, ...p1435, ...p84, ...p149, ...p186]);
+    // Arquitetura / autores / construtores
+    const p84   = claimEntityIds(entity, "P84");   // architect
+    const p112  = claimEntityIds(entity, "P112");  // founder
+    const p170  = claimEntityIds(entity, "P170");  // creator
+    const p193  = claimEntityIds(entity, "P193");  // main building contractor
+    const p859  = claimEntityIds(entity, "P859");  // sponsor/patron
+
+    // Datas
+    const inceptionRaw = pick<string>(entity, ["claims","P571",0,"mainsnak","datavalue","value","time"]); // inception
+    const openedRaw    = pick<string>(entity, ["claims","P1619",0,"mainsnak","datavalue","value","time"]); // official opening
+    const earliestRaw  = pick<string>(entity, ["claims","P1319",0,"mainsnak","datavalue","value","time"]); // earliest date
+    const latestRaw    = pick<string>(entity, ["claims","P1326",0,"mainsnak","datavalue","value","time"]); // latest date
+
+    const labels = await fetchLabels([...p31, ...p131, ...p1435, ...p84, ...p112, ...p170, ...p193, ...p859]);
+
+    const architects = p84.map(q => labels[q] || q);
+    const buildersExtra = [
+        ...p112.map(q => labels[q] || q),
+        ...p170.map(q => labels[q] || q),
+        ...p193.map(q => labels[q] || q),
+        ...p859.map(q => labels[q] || q),
+    ];
+
+    const builtPeriod: BuiltPeriod = {
+        start:  normalizeDateISO(earliestRaw || inceptionRaw || null),
+        end:    normalizeDateISO(latestRaw || null),
+        opened: normalizeDateISO(openedRaw || null),
+    };
 
     return {
         coords,
@@ -298,11 +598,16 @@ async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
         instanceOf: p31.map(q => labels[q] || q),
         locatedIn:  p131.map(q => labels[q] || q),
         heritage:   p1435.map(q => labels[q] || q),
-        architects: p84.map(q => labels[q] || q),
-        architectureStyles: p149.map(q => labels[q] || q),
-        materials:  p186.map(q => labels[q] || q),
+        architects,
+        architectureStyles: claimEntityIds(entity, "P149").map(q => labels[q] || q),
+        materials:  claimEntityIds(entity, "P186").map(q => labels[q] || q),
+        builders:   uniq([...architects, ...buildersExtra]),
+        builtPeriod,
+        // manter também inception old-style para compat (string yyyy-mm-dd)
+        inception: normalizeDateISO(inceptionRaw || null),
     };
 }
+
 export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & Partial<PoiInfo>> {
     const jd = await safeJson(WIKIDATA_ENTITY(id));
     const entity = jd?.entities?.[id];
@@ -316,8 +621,6 @@ export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & 
         entity?.descriptions?.en?.value ?? null;
 
     const imageName = pick<string>(entity, ["claims", "P18", 0, "mainsnak", "datavalue", "value"]) ?? null;
-    const inceptionRaw = pick<string>(entity, ["claims", "P571", 0, "mainsnak", "datavalue", "value", "time"]) ?? null;
-    const inception = inceptionRaw ? inceptionRaw.replace(/^\+/, "").slice(0, 10) : null;
 
     const extra = await fetchExtraFromWikidata(entity);
 
@@ -326,9 +629,25 @@ export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & 
         wikidataId: id,
         label, description,
         image: imageName ? COMMONS_FILE(imageName) : null,
-        inception,
         ...extra,
     };
+}
+
+/* Wikidata: resolver QID por nome */
+async function searchWikidataIdByName(name: string) {
+    try {
+        const pt = await safeJson(WIKIDATA_SEARCH(name, "pt"));
+        const en = await safeJson(WIKIDATA_SEARCH(name, "en"));
+        const all: any[] = [...(pt?.search ?? []), ...(en?.search ?? [])];
+        if (!all.length) return null;
+        const hint = typeHintFromName(name);
+        all.sort((a, b) => {
+            const sa = scoreByNameAndType(a?.label || "", a?.description, name, hint);
+            const sb = scoreByNameAndType(b?.label || "", b?.description, name, hint);
+            return sb - sa;
+        });
+        return all[0]?.id ?? null;
+    } catch { return null; }
 }
 
 /* ===========================
@@ -384,14 +703,46 @@ out tags center;`;
         };
         const openingHours: OpeningHours | null = tags["opening_hours"] ? { raw: tags["opening_hours"] } : null;
 
+        // NOVO: descrição direta do OSM (se existir)
+        const description: string | undefined = tags["description"] || undefined;
+
+        // NOVO: builtPeriod a partir de start_date
+        let builtPeriod: PoiInfo["builtPeriod"] | undefined;
+        const sd = tags["start_date"] || null;
+        if (sd) {
+            const s = String(sd).trim();
+
+            // intervalo YYYY-YYYY (tolerando YYYY-MM(-DD))
+            const mRange = s.match(/^(\d{3,4})(?:-\d{2})?-(\d{3,4})(?:-\d{2})?(?:-\d{2})?$/);
+            if (mRange) {
+                builtPeriod = { start: mRange[1], end: mRange[2] };
+            } else {
+                const mPlus = s.match(/^(\d{3,4})\+$/);
+                if (mPlus) {
+                    builtPeriod = { start: mPlus[1] };
+                } else {
+                    const mDate = s.match(/^(\d{3,4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
+                    if (mDate) {
+                        const [_, y, m, d] = mDate;
+                        builtPeriod = {
+                            start: y && m && d ? `${y}-${m}-${d}` : y && m ? `${y}-${m}` : y || undefined,
+                        };
+                    }
+                }
+            }
+        }
+
         return {
             contacts: (contacts.phone || contacts.email || contacts.website) ? contacts : undefined,
             openingHours: openingHours ?? undefined,
             website: contacts.website ?? undefined,
+            description,   // ← agora devolvemos a descrição do OSM
+            builtPeriod,   // ← e a janela temporal derivada do start_date
         };
-    } catch { return {}; }
+    } catch {
+        return {};
+    }
 }
-
 /* ===========================
    OpenTripMap
    =========================== */
@@ -430,7 +781,7 @@ export async function fetchFromPortugueseHeritage(_opts: { sipaId?: string | nul
 }
 
 /* ===========================
-   Orquestrador (com logs)
+   Orquestrador
    =========================== */
 export async function fetchPoiInfo(opts: {
     wikidata?: string | null;
@@ -443,43 +794,99 @@ export async function fetchPoiInfo(opts: {
     dgrp("fetchPoiInfo()");
     dlog("opts:", opts);
 
+    // Resolver por nome/coords (antes de tudo)
+    let wdId = opts.wikidata ?? null;
+    let wpResolved: { lang: string; title: string } | null = null;
+
+    const approxName = opts.approx?.name ?? null;
+    const approxLat = opts.approx?.lat ?? null;
+    const approxLon = opts.approx?.lon ?? null;
+    const approxCoords = (approxLat != null && approxLon != null)
+        ? { lat: approxLat!, lon: approxLon! }
+        : null;
+
+    const typeHint = typeHintFromName(approxName);
+
+    // --- Wikidata por nome: evitar para miradouros (muitos falsos positivos) ---
+    if (!wdId && approxName) {
+        if (typeHint !== "viewpoint") {
+            wdId = await searchWikidataIdByName(approxName);
+            if (wdId) dlog("Wikidata resolved by name:", wdId);
+        } else {
+            dlog("Skip Wikidata-by-name for viewpoint:", approxName);
+        }
+    }
+
+    // --- Wikipedia title: para miradouros, preferir geosearch; senão, nome→geo ---
+    if (!opts.wikipedia && approxName) {
+        if (approxCoords) {
+            wpResolved = await geosearchWikipediaTitleSmart(approxCoords.lat, approxCoords.lon, approxName, typeHint);
+        }
+        if (!wpResolved && typeHint !== "viewpoint") {
+            wpResolved = await searchWikipediaTitleByName(approxName);
+        }
+        if (wpResolved) dlog("Wikipedia resolved:", wpResolved);
+    }
+
     // 1) Wikidata
     let wdEntity: any = null;
-    if (opts.wikidata) {
+    if (wdId) {
         try {
-            const wd = await fetchFromWikidata(opts.wikidata);
+            const wd = await fetchFromWikidata(wdId);
             wdEntity = wd.entity ?? null;
             dgrp("Wikidata result");
-            dlog("has claims P84/P149/P186:", !!wdEntity?.claims?.P84, !!wdEntity?.claims?.P149, !!wdEntity?.claims?.P186);
             dlog(wd);
             dgrpEnd();
             delete (wd as any).entity;
             merged = mergePoiPieces(merged, wd);
+
+            // Filtro de distância para WD (se WD tiver coords e forem longe)
+            if (approxCoords && merged.coords && isFar(approxCoords, merged.coords, 60)) {
+                dlog("Wikidata descartado por distância → limpar campos sensíveis");
+                merged.coords = undefined;
+                merged.instanceOf = undefined;
+                merged.locatedIn = undefined;
+                merged.heritage = undefined;
+            }
         } catch (e) { dlog("Wikidata error:", e); }
     }
 
-    // 2) Wikipedia
-    const wpTag = parseWikipediaTag(opts.wikipedia ?? null);
+    // 2) Wikipedia (summary + media) — strict geográfico
+    let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || wpResolved || null;
     if (wpTag) {
         try {
-            const wp = await fetchFromWikipedia(wpTag.lang, wpTag.title);
-            const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
-            dgrp(`Wikipedia ${wpTag.lang}:${wpTag.title}`);
-            dlog("summary:", wp);
-            dlog("media imgs:", mediaImgs?.length);
-            dgrpEnd();
-            merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
+            const strictKm = typeHint === "viewpoint" ? 0.6 : 60; // miradouros: 600 m
+            const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, strictKm);
+            if (Object.keys(wp).length) {
+                const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
+                merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
+
+                // 2.1) Secções História/Arquitetura
+                const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
+                merged = mergePoiPieces(merged, {
+                    historyText: sections.history ?? undefined,
+                    architectureText: sections.architecture ?? undefined,
+                });
+            } else {
+                dlog("Wikipedia strict descartado por distância");
+            }
         } catch (e) {
             dlog("Wikipedia primary failed:", e);
             if (wpTag.lang !== "en") {
                 try {
-                    const wp = await fetchFromWikipedia("en", wpTag.title);
-                    const mediaImgsEn = await fetchImagesFromWikipediaMediaList("en", wpTag.title);
-                    dgrp(`Wikipedia en:${wpTag.title}`);
-                    dlog("summary:", wp);
-                    dlog("media imgs:", mediaImgsEn?.length);
-                    dgrpEnd();
-                    merged = mergePoiPieces(merged, { ...wp, images: mediaImgsEn });
+                    const wp = await fetchFromWikipediaStrict("en", wpTag.title, approxCoords, 60);
+                    if (Object.keys(wp).length) {
+                        const mediaImgsEn = await fetchImagesFromWikipediaMediaList("en", wpTag.title);
+                        merged = mergePoiPieces(merged, { ...wp, images: mediaImgsEn });
+
+                        const sectionsEn = await fetchWikipediaSections("en", wpTag.title);
+                        merged = mergePoiPieces(merged, {
+                            historyText: sectionsEn.history ?? undefined,
+                            architectureText: sectionsEn.architecture ?? undefined,
+                        });
+                    } else {
+                        dlog("Wikipedia EN strict descartado por distância");
+                    }
                 } catch (e2) { dlog("Wikipedia EN fallback error:", e2); }
             }
         }
@@ -488,11 +895,20 @@ export async function fetchPoiInfo(opts: {
     // 3) Commons via WD
     if (wdEntity) {
         const cat = commonsCategoryFromWikidata(wdEntity);
-        dlog("Commons category:", cat);
         if (cat) {
             const commonsImgs = await fetchImagesFromCommonsCategory(cat);
-            dlog("Commons images fetched:", commonsImgs?.length);
             if (commonsImgs.length) merged = mergePoiPieces(merged, { images: commonsImgs });
+        }
+    }
+
+    // 3.1) Commons geosearch (caso haja poucas imagens)
+    if ((merged.images?.length ?? 0) < 3) {
+        const baseCoords =
+            merged.coords ??
+            (approxLat != null && approxLon != null ? { lat: approxLat!, lon: approxLon! } : null);
+        if (baseCoords) {
+            const nearImgs = await geosearchCommonsImages(baseCoords.lat, baseCoords.lon);
+            if (nearImgs.length) merged = mergePoiPieces(merged, { images: nearImgs });
         }
     }
 
@@ -500,42 +916,43 @@ export async function fetchPoiInfo(opts: {
     try {
         const osmExtra = await fetchFromOSMDeep({
             osmId: opts.osmId ?? null,
-            wikidata: opts.wikidata ?? null,
+            wikidata: wdId ?? null,
             coords:
-                (opts.approx?.lat != null && opts.approx?.lon != null)
-                    ? { lat: opts.approx.lat!, lon: opts.approx.lon! }
-                    : (merged.coords ?? null),
-            name: opts.approx?.name ?? merged.label ?? null,
+                merged.coords ??
+                (approxLat != null && approxLon != null ? { lat: approxLat!, lon: approxLon! } : null),
+            name: approxName ?? merged.label ?? null,
         });
-        dgrp("Overpass (OSM deep)"); dlog(osmExtra); dgrpEnd();
         merged = mergePoiPieces(merged, osmExtra);
     } catch (e) { dlog("Overpass error:", e); }
 
     // 5) OpenTripMap
     try {
-        const baseName = opts.approx?.name ?? merged.label ?? null;
+        const baseName = approxName ?? merged.label ?? null;
         const baseCoords =
             merged.coords ??
-            (opts.approx?.lat != null && opts.approx?.lon != null
-                ? { lat: opts.approx.lat!, lon: opts.approx.lon! }
-                : null);
+            (approxLat != null && approxLon != null ? { lat: approxLat!, lon: approxLon! } : null);
         if (OTM_KEY && baseName && baseCoords) {
             const otm = await fetchFromOpenTripMap(baseName, baseCoords.lat, baseCoords.lon);
-            dgrp("OpenTripMap"); dlog(otm); dgrpEnd();
             merged = mergePoiPieces(merged, otm);
-        } else {
-            dlog("OpenTripMap skipped", { hasKey: !!OTM_KEY, baseName, baseCoords });
         }
     } catch (e) { dlog("OpenTripMap error:", e); }
 
-    // Snapshots
-    dgrp("Merged BEFORE normalize"); dlog(merged); dgrpEnd();
+    // 6) Fallback dedicado a MIRADOUROS (Wikivoyage por geosearch)
+    if (typeHint === "viewpoint") {
+        const coords = merged.coords ?? approxCoords;
+        const descTooShort = !merged.description || merged.description.trim().length < 30;
+        if (coords && descTooShort) {
+            const wvoy = await fetchFromWikivoyage(coords.lat, coords.lon);
+            if (Object.keys(wvoy).length) {
+                merged = mergePoiPieces(merged, wvoy);
+            }
+        }
+    }
 
+    // Normalização final
     merged.images = normalizeImageUrls(merged.images) ?? [];
     if (merged.image) merged.image = normalizeCommonsUrl(merged.image);
     if (merged.images.length > 48) merged.images = merged.images.slice(0, 48);
-
-    dgrp("Merged FINAL"); dlog(merged); dgrpEnd();
 
     const hasAny =
         merged.label || merged.description || merged.image ||
@@ -544,7 +961,9 @@ export async function fetchPoiInfo(opts: {
         (merged.ratings && merged.ratings.length > 0) ||
         (merged.architects && merged.architects.length > 0) ||
         (merged.architectureStyles && merged.architectureStyles.length > 0) ||
-        (merged.materials && merged.materials.length > 0);
+        (merged.materials && merged.materials.length > 0) ||
+        (merged.builders && merged.builders.length > 0) ||
+        merged.builtPeriod;
 
     if (!hasAny) return merged.wikidataId ? (merged as PoiInfo) : null;
     return merged as PoiInfo;

@@ -260,7 +260,7 @@ export default function DistrictModal(props: Props) {
                 // 1) sem nome -> descarta
                 if (!name || typeof name !== "string" || name.trim() === "") return null;
 
-                // 2) só nome sem refs/tipo -> descarta (TODO: remover quando enriquecermos automaticamente)
+                // 2) só nome sem refs/tipo -> descarta
                 const hasRefs =
                     mergedProps.wikipedia ||
                     mergedProps["wikipedia:pt"] ||
@@ -391,10 +391,71 @@ export default function DistrictModal(props: Props) {
 
                 const finalInfo: PoiInfo = { ...(info ?? {}), image, images };
 
+
+                // ---- FUSÃO: completar info com campos vindos do próprio feature OSM ----
+                const p = selectedPoi.properties || {};
+                const osmDesc    = p.description || p["description:pt"] || null;
+                const osmOH      = p.opening_hours || null;
+                const osmPhone   = p.phone || p["contact:phone"] || null;
+                const osmEmail   = p.email || p["contact:email"] || null;
+                const osmWebsite = p.website || p["contact:website"] || null;
+                const startDate  = p.start_date || null; // "1442+", "1875-1890", "1160-00-00"...
+
+                // descrição (só preenche se o enriquecido não trouxe nada melhor)
+                if (osmDesc && osmDesc.trim().length > 0) {
+                    finalInfo.description = osmDesc.trim();
+                }
+
+                // opening_hours (mantém o que já existir)
+                if (osmOH && !finalInfo.openingHours?.raw) {
+                    finalInfo.openingHours = { ...(finalInfo.openingHours || {}), raw: osmOH };
+                }
+
+                // contactos/website (merge não destrutivo)
+                finalInfo.contacts = {
+                    phone:   finalInfo.contacts?.phone   ?? osmPhone   ?? undefined,
+                    email:   finalInfo.contacts?.email   ?? osmEmail   ?? undefined,
+                    website: finalInfo.contacts?.website ?? osmWebsite ?? undefined,
+                };
+                finalInfo.website = finalInfo.website ?? osmWebsite ?? undefined;
+
+                // datas: usa start_date como "builtPeriod.start" e também inception se estiver vazio
+                if (startDate) {
+                    const norm = String(startDate).replace(/^\+/, "");
+                    const looksISO = /^\d{4}(-\d{2})?(-\d{2})?$/.test(norm);
+                    if (looksISO) {
+                        finalInfo.builtPeriod = finalInfo.builtPeriod || {};
+                        if (!finalInfo.builtPeriod.start) finalInfo.builtPeriod.start = norm;
+                        if (!finalInfo.inception) finalInfo.inception = norm;
+                    }
+                }
+
                 // fallback para título do próprio feature (se faltar label)
                 if (!finalInfo.label) {
                     const fallbackName = getFeatureName(selectedPoi);
                     if (fallbackName) finalInfo.label = fallbackName;
+                }
+
+                const norm = (s?: string | null) =>
+                    (s || "")
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[^\w\s]/g, "")
+                        .replace(/\s+/g, " ")
+                        .trim()
+                        .toLowerCase();
+
+// Nome vindo da tooltip (OSM)
+                const tooltipName = getFeatureName(selectedPoi);
+
+// Se houver tooltipName, usamos sempre como título.
+// Se for diferente do nome do 2º endpoint, guardamos esse como "nome anterior".
+                if (tooltipName) {
+                    const oldLabel = finalInfo.label; // nome do 2º endpoint
+                    if (oldLabel && norm(tooltipName) !== norm(oldLabel)) {
+                        finalInfo.oldNames = Array.from(new Set([...(finalInfo.oldNames ?? []), oldLabel]));
+                    }
+                    finalInfo.label = tooltipName; // força título = tooltip
                 }
 
                 setSelectedPoiInfo(finalInfo);
