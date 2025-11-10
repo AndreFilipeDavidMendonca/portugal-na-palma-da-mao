@@ -169,10 +169,17 @@
   overflow: auto;
 }
 
-.poi-desc {
+.poi-desc{
   color: var(--muted);
-  margin: 15px 0 12px 0;
-  text-transform: capitalize;
+  margin: 12px 0 10px 0;
+  text-transform: none;
+  line-height: 1.6;
+  font-size: 0.98rem;
+  letter-spacing: 0.1px;
+  max-width: 70ch;           /* limita a largura óptima de leitura */
+  text-wrap: pretty;         /* quebras mais naturais (Chrome/Edge/Safari modernos) */
+  hyphens: auto;             /* hifenização automática quando lang="pt" */
+  word-break: normal;
 }
 
 .poi-meta-grid {

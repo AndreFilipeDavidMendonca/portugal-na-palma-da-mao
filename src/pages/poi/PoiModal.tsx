@@ -1,4 +1,3 @@
-// src/pages/poi/PoiModal.tsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
@@ -21,6 +20,15 @@ const DAY_PT: Record<string, string> = {
     Sa: "Sábado",
     Su: "Domingo",
 };
+const DAY_SHORT_PT: Record<string, string> = {
+    Mo: "Seg",
+    Tu: "Ter",
+    We: "Qua",
+    Th: "Qui",
+    Fr: "Sex",
+    Sa: "Sáb",
+    Su: "Dom",
+};
 const DAY_ORDER = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 function expandDayToken(tok: string): string[] {
@@ -28,50 +36,142 @@ function expandDayToken(tok: string): string[] {
         const [a, b] = tok.split("-");
         const i = DAY_ORDER.indexOf(a);
         const j = DAY_ORDER.indexOf(b);
-        if (i >= 0 && j >= 0 && i <= j) return DAY_ORDER.slice(i, j + 1);
+        if (i >= 0 && j >= 0) {
+            if (i <= j) return DAY_ORDER.slice(i, j + 1);
+            return [...DAY_ORDER.slice(i), ...DAY_ORDER.slice(0, j + 1)];
+        }
     }
     return DAY_ORDER.includes(tok) ? [tok] : [];
 }
-function daysLabel(days: string[]): string {
-    if (days.length === 0) return "";
-    const first = days[0], last = days[days.length - 1];
-    if (days.join() === ["Mo","Tu","We","Th","Fr"].join()) return "Segunda a sexta";
-    if (days.join() === DAY_ORDER.join()) return "Segunda a domingo";
-    if (days.join() === ["Sa","Su"].join()) return "Sábado e domingo";
-    if (days.length > 1 && DAY_ORDER.indexOf(last) - DAY_ORDER.indexOf(first) === days.length - 1) {
-        return `${DAY_PT[first]} a ${DAY_PT[last]}`;
+function isContiguousRange(days: string[]): boolean {
+    if (days.length <= 1) return false;
+    const idxs = days.map(d => DAY_ORDER.indexOf(d)).filter(i => i >= 0);
+    if (idxs.length !== days.length) return false;
+    for (let k = 1; k < idxs.length; k++) {
+        if (idxs[k] !== idxs[k - 1] + 1) return false;
     }
-    return days.map(d => DAY_PT[d]).join(", ");
+    return true;
+}
+function uniqueInOrder<T>(arr: T[]): T[] {
+    const seen = new Set<T>();
+    const out: T[] = [];
+    for (const x of arr) if (!seen.has(x)) { seen.add(x); out.push(x); }
+    return out;
 }
 
-/** Formata strings simples do opening_hours em PT legível. */
-function formatOpeningHours(raw?: string | null): string | null {
+/** Formata strings simples do opening_hours em PT legível.
+ * Agora coloca “h” no fim das horas: 10:00h–20:00h
+ */
+export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): string | null {
     if (!raw) return null;
-    try {
-        const rules = raw.split(";").map(s => s.trim()).filter(Boolean);
-        const parts: string[] = [];
-        for (const r of rules) {
-            const [daysPart, timesPart] = r.split(/\s+/, 2);
-            if (!daysPart) continue;
-            const dayGroups = daysPart.split(",").flatMap(expandDayToken);
-            const label = daysLabel(dayGroups);
-            if (!timesPart || /off|closed/i.test(timesPart)) {
-                parts.push(`${label}: fechado`);
-            } else {
-                const hours = timesPart
-                    .split(",")
-                    .map(s => s.trim().replace("-", "–"))
-                    .join(" · ");
-                parts.push(`${label}: ${hours}`);
-            }
+
+    // helper: acrescenta "h" no fim da hora capturada (ex.: "10:00" -> "10:00h")
+    const withH = (t: string) => `${t}h`;
+
+    // tenta extrair intervalo de horas
+    const timeMatch = raw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+    const timeText = timeMatch ? `${withH(timeMatch[1])}–${withH(timeMatch[2])}` : null;
+
+    // parte de dias (remove o pedaço de horas extraído)
+    const daysPart = timeMatch ? raw.replace(timeMatch[0], "").trim() : raw.trim();
+
+    // tokenizar por espaços e vírgulas
+    const tokens = daysPart.split(/[,\s]+/).filter(Boolean);
+
+    const hasPH = tokens.some(t => t.toUpperCase() === "PH");
+
+    // recolhe dias, expandindo ranges
+    let collected: string[] = [];
+    for (const t of tokens) {
+        const T = t.charAt(0).toUpperCase() + t.slice(1);
+        if (/^(Mo|Tu|We|Th|Fr|Sa|Su)$/i.test(T)) {
+            collected.push(T.slice(0,2) === "Mo" ? "Mo" : T.slice(0,2));
+        } else if (/^[A-Z][a-z]?\-[A-Z][a-z]?$/i.test(T)) {
+            const [a, b] = T.split("-");
+            collected.push(...expandDayToken(a + "-" + b));
         }
-        return parts.join(" · ");
-    } catch {
-        return raw;
     }
+
+    collected = uniqueInOrder(collected);
+
+    let daysText = "";
+    if (collected.length === 7) {
+        daysText = `de ${DAY_PT["Mo"]} a ${DAY_PT["Su"]}`;
+    } else if (isContiguousRange(collected)) {
+        const first = collected[0];
+        const last = collected[collected.length - 1];
+        daysText = `de ${DAY_PT[first]} a ${DAY_PT[last]}`;
+    } else if (collected.length > 0) {
+        daysText = collected.map(d => DAY_SHORT_PT[d]).join(", ");
+    }
+
+    if (hasPH) {
+        daysText = daysText ? `${daysText}, Feriados` : "Feriados";
+    }
+
+    if (!daysText && timeText) return timeText;
+    if (daysText && timeText) return `${daysText} - ${timeText}`;
+    return daysText || raw; // fallback
 }
 
-export default function PoiModal({ open, onClose, info }: Props) {
+/* ----- Datas: formatação simpática ----- */
+function trimISOToNice(iso?: string | null): string | null {
+    if (!iso) return null;
+    const s = iso.replace(/^\+/, "");
+    const [y, m, d] = s.split("-");
+    if (!y) return null;
+    if (!m || m === "00") return y;
+    if (!d || d === "00") return `${y}-${m}`;
+    return `${y}-${m}-${d}`;
+}
+
+function prettifyPtInlineText(s?: string | null): string {
+    if (!s) return "";
+    let out = s;
+    out = out.replace(/([.,;:!?])(?=\S)/g, "$1 ");
+    out = out.replace(/(?<!\b[A-Za-zÀ-ÿ])\.(?=\S)/g, ". ");
+    out = out.replace(/\s+([.,;:!?])/g, "$1").replace(/\s{2,}/g, " ");
+    return out.trim();
+}
+
+function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string | null): string | null {
+    if (period) {
+        const start = trimISOToNice(period.start);
+        const end = trimISOToNice(period.end);
+        const opened = trimISOToNice(period.opened);
+        if (start && end && start !== end) return `${start} – ${end}`;
+        if (start && !end) return `c. ${start}`;
+        if (!start && end) return `a ${end}`;
+        if (opened) return `inaugurado em ${opened}`;
+    }
+    const inc = trimISOToNice(inception);
+    return inc ? `c. ${inc}` : null;
+}
+
+/* ----- ReadMore: expande/contrai textos longos ----- */
+function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
+    const [open, setOpen] = useState(false);
+    if (!text) return null;
+    const isLong = text.length > clamp;
+    const shown = !isLong || open ? text : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
+    return (
+        <p className="poi-desc">
+            {shown}{" "}
+            {isLong && (
+                <button
+                    type="button"
+                    className="gold-link"
+                    style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
+                    onClick={() => setOpen(v => !v)}
+                >
+                    {open ? "ver menos" : "ver mais"}
+                </button>
+            )}
+        </p>
+    );
+}
+
+export default function PoiModal({ open, onClose, info, poi }: Props) {
     if (!open || !info) return null;
 
     // Galeria
@@ -85,6 +185,8 @@ export default function PoiModal({ open, onClose, info }: Props) {
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const descPretty = useMemo(() => prettifyPtInlineText(info.description), [info.description]);
+    const histPretty = useMemo(() => prettifyPtInlineText(info.historyText), [info.historyText]);
 
     useEffect(() => {
         if (paused || gallery.length <= 1) return;
@@ -109,13 +211,19 @@ export default function PoiModal({ open, onClose, info }: Props) {
         const half = v - full >= 0.5;
         return (
             <span aria-label={`Rating ${v} em 5`}>
-        {"★".repeat(full)}
+                {"★".repeat(full)}
                 {half ? "☆" : ""}
                 {"☆".repeat(5 - full - (half ? 1 : 0))}
-      </span>
+            </span>
         );
     };
-    console.log(info);
+
+    // Cronologia (sub-linha do título)
+    const builtLabel = formatBuiltPeriod(info.builtPeriod, info.inception);
+
+    // Links institucionais vindos do feature
+    const dgpcUrl = poi?.properties?.["heritage:website"] || null;
+    const sipaUrl = poi?.properties?.["heritage:website:sipa"] || null;
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
@@ -134,7 +242,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     Página Wikipedia
                                 </a>
                             ) : null}
-                            {info.inception ? <> · <span className="muted">c.</span> {info.inception}</> : null}
+                            {builtLabel ? <> · {builtLabel}</> : null}
                         </div>
                     </div>
                     <button className="poi-close" onClick={onClose} aria-label="Fechar">×</button>
@@ -170,8 +278,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                     {/* INFO */}
                     <aside className="poi-side">
-                        {/* Botões: Site oficial + Direções */}
-                        {(website || info.coords) && (
+                        {(website || info.coords || dgpcUrl || sipaUrl) && (
                             <div
                                 style={{
                                     display: "flex",
@@ -182,12 +289,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                 }}
                             >
                                 {website && (
-                                    <a
-                                        className="btn-directions"
-                                        href={website}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
+                                    <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
                                         Site oficial
                                     </a>
                                 )}
@@ -204,20 +306,23 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             </div>
                         )}
 
-                        {/* Divisor */}
                         <div className="meta-divider" />
 
-                        {/* Rating (discreto) */}
+                        {info.oldNames?.length ? (
+                            <>
+                                <strong>Nome anterior:</strong> {info.oldNames[0]}
+                            </>
+                        ) : null}
+
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
                                 {renderStars(rating.value)}{" "}
                                 <span style={{ opacity: 0.85, marginLeft: 6 }}>
-                  {rating.value.toFixed(1)}
-                </span>
+                                    {rating.value.toFixed(1)}
+                                </span>
                             </p>
                         )}
 
-                        {/* Contactos + Horário */}
                         <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
                             {contacts.phone && (
                                 <div>
@@ -238,48 +343,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             )}
                         </div>
 
-                        {/* Descrição */}
-                        {info.description ? (
-                            <p className="poi-desc" style={{ textTransform: "capitalize" }}>
-                                {info.description}
-                            </p>
-                        ) : null}
-
-                        {/* Histórico */}
-                        {info.historyText ? (
-                            <>
-                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Histórico</h4>
-                                <p className="poi-desc">{info.historyText}</p>
-                            </>
-                        ) : null}
-
-                        {/* Arquitetura: texto + estilos/arquitetos/materiais */}
-                        {(info.architectureText ||
-                            (info.architectureStyles?.length || info.architects?.length || info.materials?.length)) ? (
-                            <>
-                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Arquitetura</h4>
-
-                                {/* Texto livre (DGPC/SIPA — futuro) */}
-                                {info.architectureText ? (
-                                    <p className="poi-desc">{info.architectureText}</p>
-                                ) : null}
-
-                                {/* Listas curtas: estilos / arquitetos / materiais */}
-                                <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
-                                    {info.architectureStyles?.length ? (
-                                        <div><strong>Estilo:</strong> {info.architectureStyles.join(" · ")}</div>
-                                    ) : null}
-                                    {info.architects?.length ? (
-                                        <div><strong>Arquiteto(s):</strong> {info.architects.join(", ")}</div>
-                                    ) : null}
-                                    {info.materials?.length ? (
-                                        <div><strong>Materiais:</strong> {info.materials.join(", ")}</div>
-                                    ) : null}
-                                </div>
-                            </>
-                        ) : null}
-
-                        {/* Meta semântica */}
                         <div className="poi-info-list" style={{ display: "grid", gap: 6, marginTop: 8 }}>
                             {info.instanceOf?.length ? (
                                 <div><strong>Tipo:</strong> {info.instanceOf.join(" · ")}</div>
@@ -291,6 +354,50 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                 <div><strong>Classificação:</strong> {info.heritage.join(" · ")}</div>
                             ) : null}
                         </div>
+
+                        {(info.architectureText ||
+                            (info.architectureStyles?.length || info.architects?.length || info.materials?.length) ||
+                            (info.builders?.length) ||
+                            builtLabel) ? (
+                            <>
+                                {info.architectureText ? (
+                                    <p className="poi-desc">{info.architectureText}</p>
+                                ) : null}
+
+                                <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
+                                    {builtLabel ? (
+                                        <div><strong>Inicio de construção:</strong> {builtLabel}</div>
+                                    ) : null}
+                                    {info.architectureStyles?.length ? (
+                                        <div><strong>Estilo:</strong> {info.architectureStyles.join(" · ")}</div>
+                                    ) : null}
+                                    {info.architects?.length ? (
+                                        <div><strong>Arquiteto(s):</strong> {info.architects.join(", ")}</div>
+                                    ) : null}
+                                    {info.builders?.length ? (
+                                        <div><strong>Construtor/Autor:</strong> {info.builders.join(", ")}</div>
+                                    ) : null}
+                                    {info.materials?.length ? (
+                                        <div><strong>Materiais:</strong> {info.materials.join(", ")}</div>
+                                    ) : null}
+                                </div>
+
+                                <div className="meta-divider" />
+                            </>
+                        ) : null}
+
+                        {info.description ? (
+                            <>
+                                <ReadMore text={descPretty} />
+                            </>
+                        ) : null}
+
+                        {info.historyText ? (
+                            <>
+                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Histórico</h4>
+                                <ReadMore text={histPretty} />
+                            </>
+                        ) : null}
                     </aside>
                 </div>
             </div>
