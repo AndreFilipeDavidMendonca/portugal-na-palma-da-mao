@@ -283,11 +283,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     marginBottom: 8,
                                 }}
                             >
-                                {website && (
-                                    <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
-                                        Site oficial
-                                    </a>
-                                )}
                                 <div
                                     style={{
                                         display: "flex",

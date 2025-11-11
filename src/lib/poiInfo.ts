@@ -53,6 +53,7 @@ export type PoiInfo = {
     instanceOf?: string[];
     locatedIn?: string[];
     heritage?: string[];
+    kinds?: string | null;
 
     openingHours?: OpeningHours | null;
     contacts?: Contacts | null;
@@ -256,7 +257,9 @@ function startsWithDifferentPOI(targetName?: string | null, text?: string | null
     return !pal && startsPalacio;
 
 }
-
+const isViewpointy = (s?: string | null) =>
+    /\b(miradouro|view[_\s-]?points?|mirador|belvedere|mirante|panor[âa]mic[oa]|overlook)\b/i
+        .test(normalize(s));
 /* ===========================
    Merge helpers
    =========================== */
@@ -496,25 +499,120 @@ async function geosearchWikipediaTitleSmart(
 /* ===========================
    Wikivoyage (fallback bom para miradouros)
    =========================== */
-async function fetchFromWikivoyage(lat: number, lon: number): Promise<Partial<PoiInfo>> {
+// ===== Wikivoyage (fallback bom para miradouros) – versão smart =====
+async function fetchFromWikivoyage(
+    lat: number,
+    lon: number,
+    byName?: string | null
+): Promise<Partial<PoiInfo>> {
+    const RADIUS = 3500; // ↑ mais largo, centros urbanos
+    const vpRx = /\b(miradouro|view[_\s-]?points?|mirador|belvedere|mirante|overlook)\b/i;
+
+    const norm = (s?: string | null) =>
+        (s || "")
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ")
+            .trim().toLowerCase();
+
+    const overlap = (a?: string | null, b?: string | null) => {
+        const A = new Set(norm(a).split(" ").filter(Boolean));
+        const B = new Set(norm(b).split(" ").filter(Boolean));
+        if (!A.size || !B.size) return 0;
+        let hit = 0; A.forEach(t => { if (B.has(t)) hit++; });
+        return hit / Math.min(A.size, B.size);
+    };
+
+    const summaryUrl = (lng: string, title: string) =>
+        `https://${lng}.wikivoyage.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+
+    const tryGeo = async (lng: string) => {
+        try {
+            const url = `https://${lng}.wikivoyage.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${RADIUS}&gslimit=30&format=json&origin=*`;
+            const jd = await safeJson(url);
+            const items: Array<{ title?: string; dist?: number }> = jd?.query?.geosearch ?? [];
+            if (!items.length) return null;
+
+            // pontuar por viewpointy + proximidade + semelhança ao nome (se houver)
+            let best: { title: string; score: number } | null = null;
+            for (const it of items) {
+                const title = it?.title || "";
+                const isVP = vpRx.test(title);
+                let s = 0;
+                if (isVP) s += 10;
+                if (Number.isFinite(it?.dist)) {
+                    const c = Math.max(0, 1 - (it!.dist! / RADIUS));
+                    s += Math.round(c * 6);
+                }
+                if (byName) {
+                    const ov = overlap(byName, title);
+                    s += Math.round(ov * 8);
+                    if (norm(byName) === norm(title)) s += 6;
+                }
+                if (!best || s > best.score) best = { title, score: s };
+            }
+            if (best && (vpRx.test(best.title) || (byName && overlap(byName, best.title) >= 0.35))) {
+                return { lang: lng, title: best.title };
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    };
+
+    const trySearchByName = async (lng: string, name: string) => {
+        try {
+            const url = `https://${lng}.wikivoyage.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&origin=*`;
+            const jd = await safeJson(url);
+            const items: Array<{ title?: string; snippet?: string }> = jd?.query?.search ?? [];
+            if (!items.length) return null;
+
+            // preferir títulos "viewpointy" e com boa sobreposição
+            let best: { title: string; score: number } | null = null;
+            for (const it of items) {
+                const title = it?.title || "";
+                const isVP = vpRx.test(title) || vpRx.test(it?.snippet || "");
+                let s = 0;
+                if (isVP) s += 10;
+                const ov = overlap(name, title);
+                s += Math.round(ov * 10);
+                if (norm(name) === norm(title)) s += 6;
+                if (!best || s > best.score) best = { title, score: s };
+            }
+            if (best && (vpRx.test(best.title) || overlap(name, best.title) >= 0.35)) {
+                return { lang: lng, title: best.title };
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    };
+
+    // 1) Geo PT → EN
+    const hitGeo = (await tryGeo("pt")) || (await tryGeo("en"));
+
+    // 2) Se falhar geo, tentar por nome (se houver) PT → EN
+    const hitName =
+        (!hitGeo && byName)
+            ? (await trySearchByName("pt", byName)) || (await trySearchByName("en", byName))
+            : null;
+
+    const hit = hitGeo || hitName;
+    if (!hit) {
+        dlog("Wikivoyage SMART: nada encontrado", { lat, lon, byName });
+        return {};
+    }
+
     try {
-        const url = `https://pt.wikivoyage.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=2000&gslimit=15&format=json&origin=*`;
-        const jd = await safeJson(url);
-        const hit = (jd?.query?.geosearch ?? []).find((g: any) =>
-            /miradouro|viewpoint|mirador/i.test(g?.title || "")
-        );
-        if (!hit?.title) return {};
-        const title = hit.title as string;
-        const sum = await safeJson(`https://pt.wikivoyage.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
-        dlog("Wikivoyage summary OK", { title, descLen: sum?.extract?.length || 0 });
+        const sum = await safeJson(summaryUrl(hit.lang, hit.title));
+        dlog("Wikivoyage SMART summary OK", { ...hit, descLen: sum?.extract?.length || 0 });
         return {
-            label: title,
+            label: sum?.title ?? hit.title,
             description: sum?.extract ?? null,
             image: sum?.originalimage?.source ?? null,
             wikipediaUrl: sum?.content_urls?.desktop?.page ?? null,
         };
     } catch {
-        dlog("Wikivoyage FAIL", { lat, lon });
+        dlog("Wikivoyage SMART: summary FAIL", hit);
         return {};
     }
 }
@@ -784,6 +882,7 @@ export async function fetchFromOpenTripMap(name: string, lat: number, lon: numbe
         const xid = place?.properties?.xid;
         if (!xid) return {};
         const det = await safeJson(OTM_DETAILS(xid));
+        const kinds: string | undefined = det?.kinds;
 
         const ratingVal = Number(det?.rate ?? 0);
         const images: string[] = (det?.preview?.source ? [det.preview.source] : [])
@@ -805,6 +904,7 @@ export async function fetchFromOpenTripMap(name: string, lat: number, lon: numbe
             images,
             description: desc,
             label,
+            kinds
         };
     } catch (e) {
         dlog("OpenTripMap FAIL", { name, lat, lon, err: String(e) });
@@ -895,15 +995,23 @@ export async function fetchPoiInfo(opts: {
         }
     }
 
-    // Wikipedia title: geosearch preferida p/ miradouros
+    // Wikipedia title: geo → name (com gate para miradouros)
     if (!opts.wikipedia && approxName) {
         if (approxCoords) {
             wpResolved = await geosearchWikipediaTitleSmart(
                 approxCoords.lat, approxCoords.lon, approxName, typeHint
             );
         }
-        if (!wpResolved && typeHint !== "viewpoint") {
-            wpResolved = await searchWikipediaTitleByName(approxName);
+        if (!wpResolved) {
+            const byName = await searchWikipediaTitleByName(approxName);
+            // para viewpoint, só aceitamos se o título “cheirar” a miradouro
+            if (!byName) {
+                // nada
+            } else if (typeHint !== "viewpoint" || isViewpointy(byName.title)) {
+                wpResolved = byName;
+            } else {
+                dlog("Wikipedia by-name skipped (not viewpointy)", byName);
+            }
         }
         if (wpResolved) dlog("Wikipedia resolved:", wpResolved);
     }
@@ -935,7 +1043,7 @@ export async function fetchPoiInfo(opts: {
     let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || wpResolved || null;
     if (wpTag) {
         try {
-            const strictKm = typeHint === "viewpoint" ? 0.6 : 60;
+            const strictKm = typeHint === "viewpoint" ? 3 : 60;
             const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, strictKm);
             if (Object.keys(wp).length) {
                 const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
@@ -1015,17 +1123,56 @@ export async function fetchPoiInfo(opts: {
         const baseCoords = merged.coords ?? approxCoords ?? null;
         if (OTM_KEY && baseName && baseCoords) {
             const otm = await fetchFromOpenTripMap(baseName, baseCoords.lat, baseCoords.lon);
-            merged = mergePoiPieces(merged, otm);
-            pushDesc(otm.description, "opentripmap", { title: (otm as any).label ?? baseName, coords: baseCoords });
+
+            // sempre podemos aproveitar ratings/imagens
+            const { ratings, images } = otm;
+            if ((ratings && ratings.length) || (images && images.length)) {
+                merged = mergePoiPieces(merged, { ratings, images });
+            }
+
+            // descrição do OTM só entra se não for miradouro OU se "cheirar" a miradouro
+            const otmKinds: string | undefined = (otm as any).kinds;
+            const otmIsVP = /\bview[_\s-]?points?\b/i.test(otmKinds || "");
+            const otmDescOk =
+                typeHint !== "viewpoint" ||
+                otmIsVP ||
+                isViewpointy((otm as any).label) ||
+                isViewpointy(otm.description);
+
+            if (otmDescOk && otm.description) {
+                pushDesc(otm.description, "opentripmap", {
+                    title: (otm as any).label ?? baseName,
+                    coords: baseCoords,
+                });
+            }
+
+            // não deixamos o OTM substituir o label quando é miradouro
+            if (typeHint !== "viewpoint" && (otm as any).label) {
+                merged = mergePoiPieces(merged, { label: (otm as any).label });
+            }
+
+            dlog("OpenTripMap merged (safe for viewpoint)", {
+                usedDesc: !!(otmDescOk && otm.description),
+                usedLabel: typeHint !== "viewpoint" && !!(otm as any).label,
+                imgCount: images?.length ?? 0,
+            });
         }
     } catch (e) { dlog("OpenTripMap error:", e); }
 
     // 6) Fallback miradouros (Wikivoyage)
+    console.log("fallback miradouros", typeHint);
     if (typeHint === "viewpoint") {
         const coords = merged.coords ?? approxCoords ?? null;
-        const descTooShort = !merged.description || merged.description.trim().length < 30;
-        if (coords && descTooShort) {
-            const wvoy = await fetchFromWikivoyage(coords.lat, coords.lon);
+        const noGoodViewpointDesc =
+            !merged.description || !isViewpointy(merged.description);
+        console.log("fallback miradouros", coords, noGoodViewpointDesc, merged);
+        if (coords && noGoodViewpointDesc) {
+            const wvoy = await fetchFromWikivoyage(
+                coords.lat,
+                coords.lon,
+                approxName ?? merged.label ?? null
+            );
+            console.log("fallback miradouros", wvoy);
             if (Object.keys(wvoy).length) {
                 merged = mergePoiPieces(merged, wvoy);
                 pushDesc(wvoy.description, "wikivoyage", { title: wvoy.label ?? null, coords });
@@ -1071,19 +1218,36 @@ export async function fetchPoiInfo(opts: {
 
     // 8) Escolher a melhor descrição (com gate por aderência nome/tipo)
     {
-        const srcWeight: Record<DescSrc, number> = {
+        const srcWeightBase: Record<DescSrc, number> = {
             wikipedia: 1000, opentripmap: 800, wikivoyage: 700, osm: 500, wikidata: 200,
         };
+
+        // se for miradouro, favorece Wikivoyage e exige “viewpointy”
+        const srcWeight =
+            typeHint === "viewpoint"
+                ? { ...srcWeightBase, wikivoyage: 1200, opentripmap: 500 }
+                : srcWeightBase;
 
         const targetName = approxName ?? merged.label ?? null;
 
         // garantir que a atual entra no leilão
         if (merged.description && !descCands.some(d => d.text === merged.description)) {
             const inferredSrc: DescSrc = merged.wikipediaUrl ? "wikipedia" : merged.wikidataId ? "wikidata" : "osm";
-            descCands.push({ text: merged.description, src: inferredSrc, title: merged.label ?? targetName ?? null, coords: merged.coords ?? null });
+            descCands.push({
+                text: merged.description,
+                src: inferredSrc,
+                title: merged.label ?? targetName ?? null,
+                coords: merged.coords ?? null
+            });
         }
 
+        // GATE extra para viewpoint: tem de “cheirar” a miradouro, excepto se vier do Wikivoyage
         const gated = descCands.filter(c => {
+            if (typeHint === "viewpoint") {
+                const vpOK =
+                    isViewpointy(c.title) || isViewpointy(c.text) || c.src === "wikivoyage";
+                if (!vpOK) return false;
+            }
             const ov = tokenOverlap(targetName, c.title ?? targetName);
             const pen = typePenalty(targetName, c.title || c.text);
             const eq = normalize(targetName) && normalize(targetName) === normalize(c.title);
@@ -1096,9 +1260,15 @@ export async function fetchPoiInfo(opts: {
             const ov = tokenOverlap(targetName, c.title ?? targetName);
             const eq = normalize(targetName) && normalize(targetName) === normalize(c.title);
             const nameBoost = (eq ? 10 : 0) + Math.round(ov * 8);
+
+            // boost extra se “cheirar” a miradouro
+            const vpBoost =
+                typeHint === "viewpoint" &&
+                (isViewpointy(c.title) || isViewpointy(c.text)) ? 12 : 0;
+
             const pen = Math.round(typePenalty(targetName, c.title || c.text) * 10);
             const lengthBoost = Math.min(600, c.text.length);
-            const score = (srcWeight[c.src] || 0) + lengthBoost + nameBoost * 20 + pen * 20;
+            const score = (srcWeight[c.src] || 0) + lengthBoost + (nameBoost + vpBoost) * 20 + pen * 20;
             return { ...c, score, ov: +ov.toFixed(2), eq, pen };
         }).sort((a, b) => b.score - a.score);
 
@@ -1108,6 +1278,7 @@ export async function fetchPoiInfo(opts: {
         if (best && !startsWithDifferentPOI(targetName, best.text)) {
             merged.description = best.text;
             dlog("Description decision(v2)", {
+                typeHint,
                 targetName,
                 chosen: { src: best.src, len: best.text.length, title: best.title ?? null, ov: best.ov, pen: best.pen, score: best.score },
                 totalCands: descCands.length,
@@ -1115,8 +1286,8 @@ export async function fetchPoiInfo(opts: {
                 changed: before !== best.text
             });
         } else {
-            dlog("Description decision(v2): fallback keep existing (sanity fail ou sem candidatos)", {
-                targetName, hasDesc: !!merged.description, totalCands: descCands.length
+            dlog("Description decision(v2): fallback keep existing", {
+                typeHint, targetName, hasDesc: !!merged.description, totalCands: descCands.length
             });
         }
     }
