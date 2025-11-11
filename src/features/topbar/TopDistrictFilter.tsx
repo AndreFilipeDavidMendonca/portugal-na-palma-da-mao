@@ -67,6 +67,79 @@ function isUsefulPoiFeature(props: any): boolean {
     return Boolean(hasRefs || hasType);
 }
 
+/* === NOVO: fuzzy match por tokens e subsequência === */
+const STOPWORDS = new Set([
+    "o","a","os","as","um","uma","uns","umas",
+    "de","do","da","dos","das","d","e",
+    "no","na","nos","nas",
+    "ao","aos","à","às",
+    "para","por","em",
+    "the","of","and",
+    "nacional" // palavra intermédia comum que não deve “estragar” o match
+]);
+
+function tokenize(s: string): string[] {
+    return norm(s).split(" ").filter(t => t && !STOPWORDS.has(t));
+}
+
+function isSubsequenceChars(query: string, target: string): boolean {
+    // remove espaços e compara como subsequência de letras
+    const q = norm(query).replace(/\s+/g, "");
+    const t = norm(target).replace(/\s+/g, "");
+    let i = 0;
+    for (let j = 0; j < t.length && i < q.length; j++) {
+        if (t[j] === q[i]) i++;
+    }
+    return i === q.length;
+}
+
+/** devolve uma pontuação; 0 = não relevante */
+function scoreNameFlexible(name: string, query: string): number {
+    const n = norm(name);
+    const q = norm(query);
+    if (!q) return 0;
+
+    const nameTokens = tokenize(name);
+    const queryTokens = tokenize(query);
+
+    if (!nameTokens.length || !queryTokens.length) return 0;
+
+    // 1) Cobertura de tokens: requer que TODOS os tokens do query apareçam no nome (em qualquer ordem)
+    let hits = 0, prefixHits = 0;
+    for (const tq of queryTokens) {
+        const hit = nameTokens.find(nt => nt.includes(tq));
+        if (hit) {
+            hits++;
+            if (hit.startsWith(tq)) prefixHits++;
+        }
+    }
+    if (hits < queryTokens.length) {
+        // 1b) fallback: se falhou por tokens, aceita subsequência de letras (permite “palaci odap ena” etc.)
+        return isSubsequenceChars(q, n) ? 35 : 0;
+    }
+
+    // 2) Bónus por começar igual / incluir literal
+    let score = 0;
+    if (n.startsWith(q)) score += 120;
+    if (n.includes(q)) score += 60;
+
+    // 3) Bónus por cobertura de tokens e prefixos
+    score += hits * 25 + prefixHits * 10;
+
+    // 4) Bónus pequeno por proximidade da ordem (tokens em ordem)
+    let inOrder = 0, idx = 0;
+    for (const tq of queryTokens) {
+        const pos = nameTokens.findIndex((nt, i) => i >= idx && nt.includes(tq));
+        if (pos >= idx && pos !== -1) { inOrder++; idx = pos + 1; }
+    }
+    score += inOrder * 6;
+
+    // 5) Penalização leve por distância de tamanho (evita nomes muito longos vs query curtinha)
+    score -= Math.max(0, nameTokens.length - queryTokens.length) * 2;
+
+    return Math.max(1, score); // garante >0 se passou
+}
+
 type SearchItem =
     | { kind: "district"; name: string }
     | { kind: "poi"; name: string; feature: any };
@@ -124,19 +197,16 @@ export default function TopDistrictFilter({
         return out;
     }, [allNames, poiAllPT]);
 
-    // ---------- resultados ----------
+    // ---------- resultados (USAR NOVO SCORING) ----------
     const filtered = useMemo(() => {
-        const q = norm(typedQuery);
+        const qRaw = typedQuery;
+        const q = norm(qRaw);
         if (!q) return [] as SearchItem[];
 
         return searchIndex
             .map((it) => {
-                const n = norm(it.name);
-                let score = 0;
-                if (n.startsWith(q)) score += 100;
-                if (n.includes(q)) score += 40;
-                if (it.kind === "poi") score += 5;
-                return {it, score};
+                const score = scoreNameFlexible(it.name, qRaw) + (it.kind === "poi" ? 5 : 0);
+                return { it, score };
             })
             .filter((x) => x.score > 0)
             .sort((a, b) => b.score - a.score)
@@ -209,16 +279,14 @@ export default function TopDistrictFilter({
         try {
             const wp: string | null =
                 f.properties.wikipedia ?? f.properties["wikipedia:pt"] ?? f.properties["wikipedia:en"] ?? null;
-            const wd: string | null = f.properties.wikidata ?? null;
             const approxName = featureName(f);
             const approxLat = f.geometry?.coordinates?.[1];
             const approxLon = f.geometry?.coordinates?.[0];
 
             const info = await fetchPoiInfo({
-                wikidata: wd,
                 wikipedia: wp,
                 approx: { name: approxName, lat: approxLat, lon: approxLon },
-                sourceFeature: f, // ← idem: merge + override + imagens validadas
+                sourceFeature: f,
             });
             if (reqId !== poiReqRef.current) return;
 
