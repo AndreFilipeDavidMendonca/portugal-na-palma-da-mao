@@ -253,8 +253,8 @@ function startsWithDifferentPOI(targetName?: string | null, text?: string | null
     const startsIgreja = /^a\s+(igreja|sé|catedral)\b/.test(t);
     const startsPalacio = /^o\s+pal[aá]cio\b/.test(t);
     if (pal && startsIgreja) return true;
-    if (!pal && startsPalacio) return true;
-    return false;
+    return !pal && startsPalacio;
+
 }
 
 /* ===========================
@@ -421,8 +421,7 @@ async function fetchWikipediaSections(
 
     const pt = await tryLang(lang);
     if (pt.history || pt.architecture) return pt;
-    const en = await tryLang("en");
-    return en;
+    return await tryLang("en");
 }
 
 /* Wikipedia: title search & geo */

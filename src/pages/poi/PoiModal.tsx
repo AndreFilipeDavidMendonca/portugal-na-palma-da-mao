@@ -171,7 +171,7 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     );
 }
 
-export default function PoiModal({ open, onClose, info, poi }: Props) {
+export default function PoiModal({ open, onClose, info }: Props) {
     if (!open || !info) return null;
 
     // Galeria
