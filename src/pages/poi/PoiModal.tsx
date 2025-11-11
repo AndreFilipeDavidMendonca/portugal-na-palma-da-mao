@@ -43,6 +43,19 @@ function expandDayToken(tok: string): string[] {
     }
     return DAY_ORDER.includes(tok) ? [tok] : [];
 }
+
+function parseOpeningHoursRaw(raw?: string | null): { str?: string; arr?: string[] } {
+    if (!raw) return {};
+    // se for JSON de array (guardar vindo do compactOpeningHours)
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return { arr: parsed as string[] };
+    } catch {
+        // não é JSON — segue
+    }
+    return { str: raw };
+}
+
 function isContiguousRange(days: string[]): boolean {
     if (days.length <= 1) return false;
     const idxs = days.map(d => DAY_ORDER.indexOf(d)).filter(i => i >= 0);
@@ -202,10 +215,11 @@ export default function PoiModal({ open, onClose, info }: Props) {
     // Dados
     const hasAnyPhoto = gallery.length > 0;
     const rating = (info.ratings ?? [])[0];
-    const ohText = formatOpeningHours(info.openingHours?.raw ?? null);
+    const ohParsed = parseOpeningHoursRaw(info.openingHours?.raw ?? null);
+    const ohFallback = formatOpeningHours(ohParsed.str ?? null);
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
-
+    const addHToTimes = (s: string) => s.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h");
     const renderStars = (v: number) => {
         const full = Math.floor(v);
         const half = v - full >= 0.5;
@@ -350,8 +364,24 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     </a>
                                 </div>
                             )}
-                            {ohText && (
-                                <div><strong>Horário:</strong> {ohText}</div>
+                            {(ohParsed.arr?.length || ohParsed.str || ohFallback) && (
+                                <div>
+                                    <strong>Horário:</strong>{" "}
+                                    {ohParsed.str ? (
+                                        // caso “Todos os dias - das … às …”
+                                        <span>{addHToTimes(ohParsed.str)}</span>
+                                    ) : ohParsed.arr?.length ? (
+                                        // caso array vindo do Google (weekday_text)
+                                        <ul className="hours-list">
+                                            {ohParsed.arr.map((line, i) => (
+                                                <li key={i}>{addHToTimes(line)}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        // fallback (ex.: OSM Mo-Fr 10:00-18:00 → “de Segunda a Sexta - 10:00h–18:00h”)
+                                        <span>{addHToTimes(ohFallback ?? "")}</span>
+                                    )}
+                                </div>
                             )}
                         </div>
 

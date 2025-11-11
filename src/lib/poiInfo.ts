@@ -1,19 +1,6 @@
 // src/lib/poiInfo.ts
-
-/* ===========================
-   Debug helpers
-   =========================== */
-const DEBUG_POI = (() => {
-    try {
-        if (import.meta.env?.VITE_DEBUG_POI === "true") return true;
-        return new URLSearchParams(window.location.search).get("debug") === "poi";
-    } catch {
-        return false;
-    }
-})();
-const dlog = (...args: any[]) => { if (DEBUG_POI) console.log("[POI]", ...args); };
-const dgrp = (title: string) => { if (DEBUG_POI) console.groupCollapsed(title); };
-const dgrpEnd = () => { if (DEBUG_POI) console.groupEnd(); };
+import { nearbyViewpointsByCoords, getPlaceDetailsById, photoUrlsFromPlace } from "@/lib/gplaces";
+import {compactOpeningHours} from "@/utils/openingHours";
 
 /* ===========================
    Tipos
@@ -29,8 +16,8 @@ export type Contacts = {
     website?: string | null;
 };
 export type Ratings = {
-    source: "opentripmap";
-    value: number; // 0..5
+    source: "opentripmap" | "google";
+    value: number;        // 0..5
     votes?: number | null;
 };
 export type BuiltPeriod = {
@@ -70,13 +57,10 @@ export type PoiInfo = {
 };
 
 /* ===========================
-   Endpoints
+   Endpoints (não usados em viewpoint, mas mantidos para os restantes)
    =========================== */
-const WIKIDATA_ENTITY = (id: string) =>
-    `https://www.wikidata.org/wiki/Special:EntityData/${encodeURIComponent(id)}.json`;
 const WIKIDATA_SEARCH = (term: string, lang = "pt") =>
     `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(term)}&language=${lang}&format=json&origin=*`;
-
 const WIKIPEDIA_SUMMARY = (lang: string, title: string) =>
     `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
 const WIKIPEDIA_MEDIA_LIST = (lang: string, title: string) =>
@@ -85,7 +69,6 @@ const WIKIPEDIA_SEARCH = (lang: string, q: string) =>
     `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*`;
 const WIKIPEDIA_GEOSEARCH = (lang: string, lat: number, lon: number, radius = 800) =>
     `https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=20&format=json&origin=*`;
-// sections (HTML) via action=parse
 const WIKIPEDIA_PARSE = (lang: string, title: string) =>
     `https://${lang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=sections|text&format=json&origin=*`;
 
@@ -94,21 +77,14 @@ const COMMONS_FILE = (fileName: string) =>
 const COMMONS_API = `https://commons.wikimedia.org/w/api.php?origin=*&format=json`;
 const commonsCategoryMembers = (category: string, limit = 60) =>
     `${COMMONS_API}&action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(category)}&cmnamespace=6&cmtype=file&cmlimit=${limit}`;
-const COMMONS_GEOSEARCH = (lat: number, lon: number, radius = 800) =>
-    `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=50&format=json&origin=*`;
 
-const WD_WBGETENTITIES = (ids: string[]) =>
-    `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(ids.join("|"))}&props=labels|claims|sitelinks&languages=pt|en&format=json&origin=*`;
-
-// OpenTripMap
-const OTM_KEY = import.meta.env.VITE_OPENTRIPMAP_KEY as string | undefined;
+const OTM_KEY = (import.meta as any).env?.VITE_OPENTRIPMAP_KEY as string | undefined;
 const OTM_BASE = "https://api.opentripmap.com/0.1";
 const OTM_PLACE_BY_NAME = (lat: number, lon: number, name: string) =>
     `${OTM_BASE}/en/places/radius?radius=300&lon=${lon}&lat=${lat}&name=${encodeURIComponent(name)}&apikey=${OTM_KEY}`;
 const OTM_DETAILS = (xid: string) =>
     `${OTM_BASE}/en/places/xid/${encodeURIComponent(xid)}?apikey=${OTM_KEY}`;
 
-// Overpass
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 const overpassQL = (q: string) => `${OVERPASS}?data=${encodeURIComponent(q)}`;
 
@@ -123,21 +99,6 @@ function firstNonEmpty<T>(...vals: (T | null | undefined)[]): T | undefined {
     }
     return undefined;
 }
-function pick<T = string>(obj: any, path: Array<string | number>): T | null {
-    let cur: any = obj;
-    for (const k of path) { cur = cur?.[k as any]; if (cur == null) return null; }
-    return cur as T;
-}
-function parseWikipediaTag(raw?: string | null): { lang: string; title: string } | null {
-    if (!raw) return null;
-    const parts = raw.split(":");
-    if (parts.length >= 2) {
-        const lang = parts.shift()!.trim().toLowerCase();
-        const title = parts.join(":").trim();
-        if (lang && title) return { lang, title };
-    }
-    return { lang: "pt", title: raw.trim() };
-}
 async function safeJson(url: string) {
     const r = await fetch(url, { referrerPolicy: "no-referrer" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -148,55 +109,19 @@ function htmlToText(html: string): string {
     const ps = Array.from(doc.querySelectorAll("p"));
     return ps.map(p => p.textContent?.trim() || "").filter(Boolean).join("\n\n");
 }
-function normalizeDateISO(iso?: string | null): string | null {
-    if (!iso) return null;
-    return iso.replace(/^\+/, "").slice(0, 10);
+
+const normalize = (s?: string | null) =>
+    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+
+function tokenOverlap(a?: string | null, b?: string | null) {
+    const A = new Set(normalize(a).split(" ").filter(Boolean));
+    const B = new Set(normalize(b).split(" ").filter(Boolean));
+    if (!A.size || !B.size) return 0;
+    let hit = 0; A.forEach(t => { if (B.has(t)) hit++; });
+    return hit / Math.min(A.size, B.size);
 }
 
-/* Heurística de tipo pelo nome (ajuda no ranking de pesquisas) */
-function typeHintFromName(name?: string | null): "viewpoint" | "church" | "ruins" | null {
-    if (!name) return null;
-    const n = name.toLowerCase();
-    if (/miradouro|viewpoint|mirador/.test(n)) return "viewpoint";
-    if (/igreja|church|sé|catedral|mosteiro|convento|capela/.test(n)) return "church";
-    if (/ru[ií]nas?|castro/.test(n)) return "ruins";
-    return null;
-}
-function scoreByNameAndType(
-    label: string, desc: string | undefined, name: string,
-    hint: ReturnType<typeof typeHintFromName>
-) {
-    let s = 0;
-    const lab = (label || "").toLowerCase();
-    const d = (desc || "").toLowerCase();
-    const q = name.toLowerCase();
-    if (lab === q) s += 6; else if (lab.includes(q)) s += 3;
-    if (d.includes("portugal")) s += 2;
-    if (hint === "viewpoint" && /viewpoint|miradouro/.test(lab + " " + d)) s += 2;
-    if (hint === "church" && /church|igreja|cathedral|sé|monastery|convent|chapel/.test(lab + " " + d)) s += 2;
-    if (hint === "ruins" && /ruins|ru[ií]nas|castro/.test(lab + " " + d)) s += 2;
-    return s;
-}
-
-/* ===========================
-   Geodistance helpers
-   =========================== */
-function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
-    const R = 6371;
-    const dLat = (b.lat - a.lat) * Math.PI / 180;
-    const dLon = (b.lon - a.lon) * Math.PI / 180;
-    const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
-    const x = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(x));
-}
-function isFar(a?: { lat: number; lon: number } | null, b?: { lat: number; lon: number } | null, maxKm = 60) {
-    if (!a || !b) return false;
-    return haversineKm(a, b) > maxKm;
-}
-
-/* ===========================
-   Commons normalization
-   =========================== */
 function normalizeCommonsUrl(u: string): string {
     try {
         const url = new URL(u);
@@ -221,48 +146,51 @@ function normalizeImageUrls(imgs?: string[] | null): string[] | undefined {
 }
 
 /* ===========================
-   Nome/tipo matching helpers (novos)
-   =========================== */
-const normalize = (s?: string | null) =>
-    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-
-function tokenOverlap(a?: string | null, b?: string | null) {
-    const A = new Set(normalize(a).split(" ").filter(Boolean));
-    const B = new Set(normalize(b).split(" ").filter(Boolean));
-    if (!A.size || !B.size) return 0;
-    let hit = 0; A.forEach(t => { if (B.has(t)) hit++; });
-    return hit / Math.min(A.size, B.size);
-}
-
-function typePenalty(targetName?: string | null, candTitleOrText?: string | null) {
-    const t = normalize(targetName);
-    const c = normalize(candTitleOrText);
-    const isPal = /\bpalac|pal[aá]cio\b/.test(t);
-    const isIgr = /\bigrej|sé|catedral|mosteir|convent|capela\b/.test(t);
-    const candIgr = /\bigrej|sé|catedral|mosteir|convent|capela\b/.test(c);
-    const candPal = /\bpalac|pal[aá]cio\b/.test(c);
-    let pen = 0;
-    if (isPal && candIgr) pen -= 0.6;
-    if (isIgr && candPal) pen -= 0.6;
-    return pen;
-}
-
-function startsWithDifferentPOI(targetName?: string | null, text?: string | null) {
-    const t = normalize(text).slice(0, 80);
-    const pal = /\bpalac|pal[aá]cio\b/.test(normalize(targetName));
-    const startsIgreja = /^a\s+(igreja|sé|catedral)\b/.test(t);
-    const startsPalacio = /^o\s+pal[aá]cio\b/.test(t);
-    if (pal && startsIgreja) return true;
-    return !pal && startsPalacio;
-
-}
-const isViewpointy = (s?: string | null) =>
-    /\b(miradouro|view[_\s-]?points?|mirador|belvedere|mirante|panor[âa]mic[oa]|overlook)\b/i
-        .test(normalize(s));
-/* ===========================
    Merge helpers
    =========================== */
+
+function filterBadImages(urls: string[]): string[] {
+    const badRx = /(sprite|icon|logo|map|pin|marker|favicon)/i;
+    return urls.filter(u => {
+        if (!u) return false;
+        const ext = u.split("?")[0].split(".").pop()?.toLowerCase() || "";
+        if (/(svg|gif|ico|webp)$/.test(ext)) return false; // podes ajustar
+        if (badRx.test(u)) return false;
+        return true;
+    });
+}
+
+/** Escolhe o conjunto que “traz mais” (com desempate por prioridade) */
+function pickBestImageSet(
+    candidates: Record<"wikipedia" | "commons" | "opentripmap" | "existing", string[]>,
+    priority: Array<keyof typeof candidates> = ["wikipedia", "commons", "opentripmap", "existing"],
+    maxKeep = 20
+): { primary: string | undefined; gallery: string[] } {
+    // normaliza & filtra
+    const norm: Record<string, string[]> = {};
+    (Object.keys(candidates) as Array<keyof typeof candidates>).forEach(k => {
+        const arr = normalizeImageUrls(filterBadImages(candidates[k] ?? [])) ?? [];
+        norm[k] = Array.from(new Set(arr));
+    });
+
+    // escolhe pela contagem; se empatar, usa prioridade
+    const bestKey = (Object.keys(norm) as Array<keyof typeof norm>)
+        .sort((a, b) => {
+            const da = norm[a].length, db = norm[b].length;
+            if (db !== da) return db - da;
+            return priority.indexOf(a as any) - priority.indexOf(b as any);
+        })[0];
+
+    const chosen = norm[bestKey] ?? [];
+    if (chosen.length === 0) return { primary: undefined, gallery: [] };
+
+    // primary + galeria
+    const primary = chosen[0];
+    const rest = chosen.slice(1, maxKeep);
+
+    return { primary, gallery: rest };
+}
+
 function mergeContacts(a?: Contacts | null, b?: Contacts | null): Contacts | undefined {
     if (!a && !b) return undefined;
     return {
@@ -335,8 +263,54 @@ function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiIn
 }
 
 /* ===========================
-   Wikipedia (summary + media)
+   Helpers diversos
    =========================== */
+function featurePrimaryName(f?: any | null): string | null {
+    if (!f) return null;
+    const p = f?.properties ?? {};
+    const tags = p.tags ?? {};
+    return (
+        p["name:pt"] ||
+        p.name ||
+        p["name:en"] ||
+        tags["name:pt"] ||
+        tags.name ||
+        tags["name:en"] ||
+        null
+    );
+}
+const normStr = (s?: string | null) =>
+    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
+        .trim().toLowerCase();
+
+/* ===========================
+   Wikidata / Wikipedia / OTM / OSM (apenas para não-viewpoints)
+   =========================== */
+async function searchWikidataIdByName(name: string): Promise<string | null> {
+    try {
+        const url = WIKIDATA_SEARCH(name, "pt");
+        const jd = await safeJson(url);
+        const hit = jd?.search?.[0];
+        if (hit?.id) {
+            console.log("🧠 Wikidata search hit:", { name, id: hit.id, label: hit.label });
+            return hit.id as string;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+function parseWikipediaTag(raw?: string | null): { lang: string; title: string } | null {
+    if (!raw) return null;
+    const parts = raw.split(":");
+    if (parts.length >= 2) {
+        const lang = parts.shift()!.trim().toLowerCase();
+        const title = parts.join(":").trim();
+        if (lang && title) return { lang, title };
+    }
+    return { lang: "pt", title: raw.trim() };
+}
 async function fetchFromWikipediaStrict(
     lang: string,
     title: string,
@@ -350,23 +324,26 @@ async function fetchFromWikipediaStrict(
         ? { lat: wlat, lon: wlon }
         : null;
 
-    if (approx && wpCoords && isFar(approx, wpCoords, maxKm)) {
-        dlog("Wikipedia strict: descartado por distância", { approx, wpCoords });
-        return {};
+    if (approx && wpCoords) {
+        const R = 6371;
+        const dLat = (approx.lat - wpCoords.lat) * Math.PI / 180;
+        const dLon = (approx.lon - wpCoords.lon) * Math.PI / 180;
+        const la1 = approx.lat * Math.PI / 180, la2 = wpCoords.lat * Math.PI / 180;
+        const x = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+        const dist = 2 * R * Math.asin(Math.sqrt(x));
+        if (dist > maxKm) return {};
     }
 
+    console.log('fetchFromWikipediaStrict' , jd)
     const image = jd?.originalimage?.source ?? jd?.thumbnail?.source ?? null;
-    const out: Partial<PoiInfo> = {
+    return {
         label: jd?.title ?? null,
         description: jd?.extract ?? null,
         image,
         wikipediaUrl: jd?.content_urls?.desktop?.page ?? null,
+        coords: wpCoords ?? null
     };
-    dlog("Wikipedia summary OK", { lang, title, descLen: out.description?.length || 0, hasImg: !!out.image });
-    if (wpCoords) out.coords = out.coords ?? wpCoords;
-    return out;
 }
-
 async function fetchImagesFromWikipediaMediaList(lang: string, title: string): Promise<string[]> {
     try {
         const jd = await safeJson(WIKIPEDIA_MEDIA_LIST(lang, title));
@@ -374,12 +351,11 @@ async function fetchImagesFromWikipediaMediaList(lang: string, title: string): P
         for (const item of jd?.items ?? []) {
             if (item?.type === "image" && item?.title) xs.push(COMMONS_FILE(item.title.replace(/^File:/i, "")));
         }
-        dlog("Wikipedia media-list OK", { lang, title, count: xs.length });
-        return xs;
-    } catch { dlog("Wikipedia media-list FAIL", { lang, title }); return []; }
-}
+        console.log('fetchImagesFromWikipediaMediaList' , jd)
 
-/* Wikipedia: secções História/Arquitetura (PT→EN fallback) */
+        return xs;
+    } catch { return []; }
+}
 async function fetchWikipediaSections(
     lang: string,
     title: string
@@ -397,7 +373,7 @@ async function fetchWikipediaSections(
             const push = (k: string, v: string) => { sections[k] = (sections[k] || "") + v; };
 
             for (const n of nodes) {
-                if (n.nodeType === 1) {
+                if ((n as HTMLElement).nodeType === 1) {
                     const el = n as HTMLElement;
                     if (/^H[2-4]$/.test(el.tagName)) { current = (el.textContent || "").trim().toLowerCase(); continue; }
                     if (current && (el.tagName === "P" || el.tagName === "UL" || el.tagName === "OL")) push(current, el.outerHTML);
@@ -417,17 +393,14 @@ async function fetchWikipediaSections(
 
             const history = getFirstParas(["história", "history"]);
             const architecture = getFirstParas(["arquitetura", "architecture"]);
-            dlog("Wikipedia sections OK", { lang: lng, title, hasHistory: !!history, hasArch: !!architecture });
             return { history, architecture };
-        } catch { dlog("Wikipedia sections FAIL", { lang: lng, title }); return { history: null, architecture: null }; }
+        } catch { return { history: null, architecture: null }; }
     };
 
     const pt = await tryLang(lang);
     if (pt.history || pt.architecture) return pt;
     return await tryLang("en");
 }
-
-/* Wikipedia: title search & geo */
 async function searchWikipediaTitleByName(name: string) {
     try {
         const tryLang = async (lang: string) => {
@@ -436,348 +409,42 @@ async function searchWikipediaTitleByName(name: string) {
             if (!hit?.title) return null;
             return { lang, title: hit.title as string };
         };
-        const res = (await tryLang("pt")) || (await tryLang("en"));
-        if (res) dlog("Wikipedia title by name OK", { name, ...res });
-        return res;
-    } catch { dlog("Wikipedia title by name FAIL", { name }); return null; }
+        return (await tryLang("pt")) || (await tryLang("en"));
+    } catch { return null; }
 }
 async function geosearchWikipediaTitleSmart(
     lat: number,
     lon: number,
-    approxName?: string | null,
-    hint?: ReturnType<typeof typeHintFromName>
+    approxName?: string | null
 ) {
-    const radius = hint === "viewpoint" ? 400 : 800;
+    const vpRx = /\b(miradouro|view[_\s-]?point|mirador|belvedere|mirante|overlook)\b/i;
+
     const tryLang = async (lang: string) => {
         try {
-            const jd = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, radius));
-            const items: any[] = jd?.query?.geosearch ?? [];
-            if (!items.length) return null;
-
-            const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-            const toks = (s: string) => norm(s).split(" ").filter(Boolean);
-            const kwVP = /(^|[\s-])(miradouro|viewpoint|mirador)([\s-]|$)/i;
-            const badType = /(igreja|sé|catedral|mosteiro|convento|museu|pante[aã]o|pal[aá]cio)/i;
-
-            const nameTokens = approxName ? new Set(toks(approxName)) : new Set<string>();
-
-            const score = (title: string, dist: number) => {
-                let s = 0;
-                const tNorm = norm(title);
-                if (hint === "viewpoint" && kwVP.test(title)) s += 6;
-                if (nameTokens.size) {
-                    const tks = new Set(toks(title));
-                    let overlap = 0;
-                    nameTokens.forEach(tt => { if (tks.has(tt)) overlap++; });
-                    s += Math.min(5, overlap);
-                    if (approxName && tNorm === norm(approxName)) s += 4;
-                    if (approxName && tNorm.includes(norm(approxName))) s += 2;
-                }
-                if (hint === "viewpoint" && badType.test(title)) s -= 4;
-                if (Number.isFinite(dist)) {
-                    const closeness = Math.max(0, 1 - dist / 400);
-                    s += Math.round(closeness * 4);
-                }
-                return s;
-            };
-
-            let best: { title: string; score: number } | null = null;
-            for (const it of items) {
-                const sc = score(it?.title || "", it?.dist ?? 99999);
-                if (!best || sc > best.score) best = { title: it.title, score: sc };
-            }
-            if (!best || best.score < (hint === "viewpoint" ? 6 : 3)) return null;
-            return { lang, title: best.title as string };
-        } catch { return null; }
-    };
-    const res = (await tryLang("pt")) || (await tryLang("en"));
-    if (res) dlog("Wikipedia geosearch OK", { approxName, ...res });
-    return res;
-}
-
-/* ===========================
-   Wikivoyage (fallback bom para miradouros)
-   =========================== */
-// ===== Wikivoyage (fallback bom para miradouros) – versão smart =====
-async function fetchFromWikivoyage(
-    lat: number,
-    lon: number,
-    byName?: string | null
-): Promise<Partial<PoiInfo>> {
-    const RADIUS = 3500; // ↑ mais largo, centros urbanos
-    const vpRx = /\b(miradouro|view[_\s-]?points?|mirador|belvedere|mirante|overlook)\b/i;
-
-    const norm = (s?: string | null) =>
-        (s || "")
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ")
-            .trim().toLowerCase();
-
-    const overlap = (a?: string | null, b?: string | null) => {
-        const A = new Set(norm(a).split(" ").filter(Boolean));
-        const B = new Set(norm(b).split(" ").filter(Boolean));
-        if (!A.size || !B.size) return 0;
-        let hit = 0; A.forEach(t => { if (B.has(t)) hit++; });
-        return hit / Math.min(A.size, B.size);
-    };
-
-    const summaryUrl = (lng: string, title: string) =>
-        `https://${lng}.wikivoyage.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
-
-    const tryGeo = async (lng: string) => {
-        try {
-            const url = `https://${lng}.wikivoyage.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${RADIUS}&gslimit=30&format=json&origin=*`;
-            const jd = await safeJson(url);
+            const jd = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, 800));
             const items: Array<{ title?: string; dist?: number }> = jd?.query?.geosearch ?? [];
             if (!items.length) return null;
 
-            // pontuar por viewpointy + proximidade + semelhança ao nome (se houver)
-            let best: { title: string; score: number } | null = null;
-            for (const it of items) {
-                const title = it?.title || "";
-                const isVP = vpRx.test(title);
-                let s = 0;
-                if (isVP) s += 10;
-                if (Number.isFinite(it?.dist)) {
-                    const c = Math.max(0, 1 - (it!.dist! / RADIUS));
-                    s += Math.round(c * 6);
-                }
-                if (byName) {
-                    const ov = overlap(byName, title);
-                    s += Math.round(ov * 8);
-                    if (norm(byName) === norm(title)) s += 6;
-                }
-                if (!best || s > best.score) best = { title, score: s };
-            }
-            if (best && (vpRx.test(best.title) || (byName && overlap(byName, best.title) >= 0.35))) {
-                return { lang: lng, title: best.title };
-            }
-            return null;
-        } catch {
-            return null;
-        }
+            const scored = items.map((it) => {
+                const title = it.title || "";
+                const ov = tokenOverlap(approxName, title);
+                const hasVP = vpRx.test(title);
+                const dist = Number(it.dist ?? 999999);
+                const proximity = Math.max(0, 1 - dist / 800);
+                const score = ov * 8 + proximity * 3 + (hasVP ? 5 : 0);
+                return { title, score, ov, hasVP, dist };
+            }).sort((a, b) => b.score - a.score);
+
+            const best = scored[0];
+            if (!best) return null;
+            if (!(best.hasVP || best.ov >= 0.35)) return null;
+
+            return { lang, title: best.title };
+        } catch { return null; }
     };
 
-    const trySearchByName = async (lng: string, name: string) => {
-        try {
-            const url = `https://${lng}.wikivoyage.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&origin=*`;
-            const jd = await safeJson(url);
-            const items: Array<{ title?: string; snippet?: string }> = jd?.query?.search ?? [];
-            if (!items.length) return null;
-
-            // preferir títulos "viewpointy" e com boa sobreposição
-            let best: { title: string; score: number } | null = null;
-            for (const it of items) {
-                const title = it?.title || "";
-                const isVP = vpRx.test(title) || vpRx.test(it?.snippet || "");
-                let s = 0;
-                if (isVP) s += 10;
-                const ov = overlap(name, title);
-                s += Math.round(ov * 10);
-                if (norm(name) === norm(title)) s += 6;
-                if (!best || s > best.score) best = { title, score: s };
-            }
-            if (best && (vpRx.test(best.title) || overlap(name, best.title) >= 0.35)) {
-                return { lang: lng, title: best.title };
-            }
-            return null;
-        } catch {
-            return null;
-        }
-    };
-
-    // 1) Geo PT → EN
-    const hitGeo = (await tryGeo("pt")) || (await tryGeo("en"));
-
-    // 2) Se falhar geo, tentar por nome (se houver) PT → EN
-    const hitName =
-        (!hitGeo && byName)
-            ? (await trySearchByName("pt", byName)) || (await trySearchByName("en", byName))
-            : null;
-
-    const hit = hitGeo || hitName;
-    if (!hit) {
-        dlog("Wikivoyage SMART: nada encontrado", { lat, lon, byName });
-        return {};
-    }
-
-    try {
-        const sum = await safeJson(summaryUrl(hit.lang, hit.title));
-        dlog("Wikivoyage SMART summary OK", { ...hit, descLen: sum?.extract?.length || 0 });
-        return {
-            label: sum?.title ?? hit.title,
-            description: sum?.extract ?? null,
-            image: sum?.originalimage?.source ?? null,
-            wikipediaUrl: sum?.content_urls?.desktop?.page ?? null,
-        };
-    } catch {
-        dlog("Wikivoyage SMART: summary FAIL", hit);
-        return {};
-    }
+    return (await tryLang("pt")) || (await tryLang("en"));
 }
-
-/* ===========================
-   Commons
-   =========================== */
-async function fetchImagesFromCommonsCategory(category: string): Promise<string[]> {
-    try {
-        const jd = await safeJson(commonsCategoryMembers(category, 60));
-        const files = jd?.query?.categorymembers ?? [];
-        const out = files.map((f: any) => f?.title?.replace(/^File:/i, "")).filter(Boolean).map((fn: string) => COMMONS_FILE(fn));
-        dlog("Commons by category OK", { category, count: out.length });
-        return out;
-    } catch { dlog("Commons by category FAIL", { category }); return []; }
-}
-async function geosearchCommonsImages(lat: number, lon: number): Promise<string[]> {
-    try {
-        const jd = await safeJson(COMMONS_GEOSEARCH(lat, lon));
-        const items = jd?.query?.geosearch ?? [];
-        const out = items
-            .map((it: any) => it?.title as string)
-            .filter(Boolean)
-            .map((t: any) => t.replace(/^File:/i, ""))
-            .map((fn: any) => COMMONS_FILE(fn));
-        dlog("Commons geosearch OK", { lat, lon, count: out.length });
-        return out;
-    } catch { dlog("Commons geosearch FAIL", { lat, lon }); return []; }
-}
-
-/* ===========================
-   Wikidata
-   =========================== */
-function claimEntityIds(entity: any, prop: string): string[] {
-    const arr = entity?.claims?.[prop] ?? [];
-    const ids: string[] = [];
-    for (const c of arr) {
-        const id = c?.mainsnak?.datavalue?.value?.id;
-        if (id) ids.push(id);
-    }
-    return ids;
-}
-function claimString(entity: any, prop: string): string | null {
-    return entity?.claims?.[prop]?.[0]?.mainsnak?.datavalue?.value ?? null;
-}
-async function fetchLabels(qids: string[]): Promise<Record<string, string>> {
-    if (!qids.length) return {};
-    const r = await safeJson(WD_WBGETENTITIES(qids));
-    const ents = r?.entities ?? {};
-    const out: Record<string, string> = {};
-    for (const [qid, e] of Object.entries<any>(ents)) {
-        out[qid] = e?.labels?.pt?.value ?? e?.labels?.en?.value ?? qid;
-    }
-    return out;
-}
-function commonsCategoryFromWikidata(entity: any): string | null {
-    const p373 = claimString(entity, "P373");
-    return p373 || null;
-}
-
-async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
-    const coord = entity?.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
-    const coords = coord ? { lat: coord.latitude, lon: coord.longitude } : null;
-    const website = claimString(entity, "P856");
-
-    const p31   = claimEntityIds(entity, "P31");
-    const p131  = claimEntityIds(entity, "P131");
-    const p1435 = claimEntityIds(entity, "P1435");
-
-    const p84   = claimEntityIds(entity, "P84");
-    const p112  = claimEntityIds(entity, "P112");
-    const p170  = claimEntityIds(entity, "P170");
-    const p193  = claimEntityIds(entity, "P193");
-    const p859  = claimEntityIds(entity, "P859");
-
-    const inceptionRaw = pick<string>(entity, ["claims","P571",0,"mainsnak","datavalue","value","time"]);
-    const openedRaw    = pick<string>(entity, ["claims","P1619",0,"mainsnak","datavalue","value","time"]);
-    const earliestRaw  = pick<string>(entity, ["claims","P1319",0,"mainsnak","datavalue","value","time"]);
-    const latestRaw    = pick<string>(entity, ["claims","P1326",0,"mainsnak","datavalue","value","time"]);
-
-    const labels = await fetchLabels([...p31, ...p131, ...p1435, ...p84, ...p112, ...p170, ...p193, ...p859]);
-
-    const architects = p84.map(q => labels[q] || q);
-    const buildersExtra = [
-        ...p112.map(q => labels[q] || q),
-        ...p170.map(q => labels[q] || q),
-        ...p193.map(q => labels[q] || q),
-        ...p859.map(q => labels[q] || q),
-    ];
-
-    const builtPeriod: BuiltPeriod = {
-        start:  normalizeDateISO(earliestRaw || inceptionRaw || null),
-        end:    normalizeDateISO(latestRaw || null),
-        opened: normalizeDateISO(openedRaw || null),
-    };
-
-    const extra: Partial<PoiInfo> = {
-        coords,
-        website,
-        instanceOf: p31.map(q => labels[q] || q),
-        locatedIn:  p131.map(q => labels[q] || q),
-        heritage:   p1435.map(q => labels[q] || q),
-        architects,
-        architectureStyles: claimEntityIds(entity, "P149").map(q => labels[q] || q),
-        materials:  claimEntityIds(entity, "P186").map(q => labels[q] || q),
-        builders:   uniq([...architects, ...buildersExtra]),
-        builtPeriod,
-        inception: normalizeDateISO(inceptionRaw || null),
-    };
-    dlog("Wikidata extra OK", {
-        hasCoords: !!coords, website: !!website,
-        p31: extra.instanceOf?.slice(0,5), architects: architects.slice(0,3)
-    });
-    return extra;
-}
-
-export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & Partial<PoiInfo>> {
-    const jd = await safeJson(WIKIDATA_ENTITY(id));
-    const entity = jd?.entities?.[id];
-    if (!entity) return {};
-
-    const label =
-        entity?.labels?.pt?.value ??
-        entity?.labels?.en?.value ?? null;
-    const description =
-        entity?.descriptions?.pt?.value ??
-        entity?.descriptions?.en?.value ?? null;
-
-    const imageName = pick<string>(entity, ["claims", "P18", 0, "mainsnak", "datavalue", "value"]) ?? null;
-
-    const extra = await fetchExtraFromWikidata(entity);
-
-    const out = {
-        entity,
-        wikidataId: id,
-        label, description,
-        image: imageName ? COMMONS_FILE(imageName) : null,
-        ...extra,
-    };
-    dlog("Wikidata entity OK", { id, label, descLen: description?.length || 0, hasImg: !!imageName });
-    return out;
-}
-
-/* Wikidata: resolver QID por nome */
-async function searchWikidataIdByName(name: string) {
-    try {
-        const pt = await safeJson(WIKIDATA_SEARCH(name, "pt"));
-        const en = await safeJson(WIKIDATA_SEARCH(name, "en"));
-        const all: any[] = [...(pt?.search ?? []), ...(en?.search ?? [])];
-        if (!all.length) return null;
-        const hint = typeHintFromName(name);
-        all.sort((a, b) => {
-            const sa = scoreByNameAndType(a?.label || "", a?.description, name, hint);
-            const sb = scoreByNameAndType(b?.label || "", b?.description, name, hint);
-            return sb - sa;
-        });
-        const id = all[0]?.id ?? null;
-        if (id) dlog("Wikidata by name OK", { name, id, topLabel: all[0]?.label });
-        return id;
-    } catch { dlog("Wikidata by name FAIL", { name }); return null; }
-}
-
-/* ===========================
-   OSM profundo via Overpass
-   =========================== */
 export async function fetchFromOSMDeep(opts: {
     osmId?: string | null;
     wikidata?: string | null;
@@ -812,14 +479,14 @@ out tags center;`;
   relation(around:350,${lat},${lon})[~"^(name|official_name|alt_name)$"~"${name}", i];
 );
 out tags center;`;
-    } else {
-        return {};
-    }
+    } else { return {}; }
 
     try {
         const jd = await safeJson(overpassQL(q));
         const el = jd?.elements?.[0];
         const tags = el?.tags ?? {};
+
+        console.log('fetchFromOSMDeep' , jd)
 
         const contacts: Contacts = {
             phone: tags["phone"] || tags["contact:phone"] || null,
@@ -835,28 +502,19 @@ out tags center;`;
         if (sd) {
             const s = String(sd).trim();
             const mRange = s.match(/^(\d{3,4})(?:-\d{2})?-(\d{3,4})(?:-\d{2})?(?:-\d{2})?$/);
-            if (mRange) {
-                builtPeriod = { start: mRange[1], end: mRange[2] };
-            } else {
+            if (mRange) builtPeriod = { start: mRange[1], end: mRange[2] };
+            else {
                 const mPlus = s.match(/^(\d{3,4})\+$/);
-                if (mPlus) {
-                    builtPeriod = { start: mPlus[1] };
-                } else {
+                if (mPlus) builtPeriod = { start: mPlus[1] };
+                else {
                     const mDate = s.match(/^(\d{3,4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
                     if (mDate) {
                         const [_, y, m, d] = mDate;
-                        builtPeriod = {
-                            start: y && m && d ? `${y}-${m}-${d}` : y && m ? `${y}-${m}` : y || undefined,
-                        };
+                        builtPeriod = { start: y && m && d ? `${y}-${m}-${d}` : y && m ? `${y}-${m}` : y || undefined };
                     }
                 }
             }
         }
-
-        dlog("OSM Deep OK", {
-            hasContacts: !!(contacts.phone || contacts.email || contacts.website),
-            hasOH: !!openingHours, descLen: description?.length || 0, builtPeriod
-        });
 
         return {
             contacts: (contacts.phone || contacts.email || contacts.website) ? contacts : undefined,
@@ -865,15 +523,8 @@ out tags center;`;
             description,
             builtPeriod,
         };
-    } catch {
-        dlog("OSM Deep FAIL", opts);
-        return {};
-    }
+    } catch { return {}; }
 }
-
-/* ===========================
-   OpenTripMap
-   =========================== */
 export async function fetchFromOpenTripMap(name: string, lat: number, lon: number): Promise<Partial<PoiInfo> & { label?: string | null }> {
     if (!OTM_KEY) return {};
     try {
@@ -882,64 +533,34 @@ export async function fetchFromOpenTripMap(name: string, lat: number, lon: numbe
         const xid = place?.properties?.xid;
         if (!xid) return {};
         const det = await safeJson(OTM_DETAILS(xid));
-        const kinds: string | undefined = det?.kinds;
 
         const ratingVal = Number(det?.rate ?? 0);
         const images: string[] = (det?.preview?.source ? [det.preview.source] : [])
             .concat((det?.images ?? []).map((im: any) => im?.preview || im?.source).filter(Boolean));
         const ratings: Ratings[] =
             isFinite(ratingVal) && ratingVal > 0
-                ? [{ source: "opentripmap", value: Math.min(5, Math.max(0, ratingVal)), votes: det?.wikidata ? null : null }]
+                ? [{ source: "opentripmap", value: Math.min(5, Math.max(0, ratingVal)), votes: null }]
                 : [];
 
         const desc = det?.wikipedia_extracts?.text || undefined;
         const label = det?.name || place?.properties?.name || name;
 
-        dlog("OpenTripMap OK", {
-            xid, label, descLen: desc?.length || 0, imgCount: images.length, rating: ratingVal
-        });
-
-        return {
-            ratings,
-            images,
-            description: desc,
-            label,
-            kinds
-        };
-    } catch (e) {
-        dlog("OpenTripMap FAIL", { name, lat, lon, err: String(e) });
-        return {};
-    }
+        console.log('fetchFromOpenTripMap', images)
+        return { ratings, images, description: desc, label, kinds: det?.kinds };
+    } catch { return {}; }
 }
 
 /* ===========================
-   DGPC / SIPA (placeholder)
+   Heurística de tipo (para decidir a rota)
    =========================== */
-export async function fetchFromPortugueseHeritage(_opts: { sipaId?: string | null; monumentosUrl?: string | null; }): Promise<Partial<PoiInfo>> {
-    return { historyText: null, architectureText: null };
+function typeHintFromName(name?: string | null): "viewpoint" | "church" | "ruins" | null {
+    if (!name) return null;
+    const n = name.toLowerCase();
+    if (/miradouro|viewpoint|mirador/.test(n)) return "viewpoint";
+    if (/igreja|church|sé|catedral|mosteiro|convento|capela/.test(n)) return "church";
+    if (/ru[ií]nas?|castro/.test(n)) return "ruins";
+    return null;
 }
-
-/* ===========================
-   Helpers diversos
-   =========================== */
-function featurePrimaryName(f?: any | null): string | null {
-    if (!f) return null;
-    const p = f?.properties ?? {};
-    const tags = p.tags ?? {};
-    return (
-        p["name:pt"] ||
-        p.name ||
-        p["name:en"] ||
-        tags["name:pt"] ||
-        tags.name ||
-        tags["name:en"] ||
-        null
-    );
-}
-const normStr = (s?: string | null) =>
-    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
-        .trim().toLowerCase();
 
 /* ===========================
    Orquestrador
@@ -954,18 +575,6 @@ export async function fetchPoiInfo(opts: {
 }): Promise<PoiInfo | null> {
     let merged: Partial<PoiInfo> = { images: [] };
 
-    dgrp("fetchPoiInfo()");
-    console.log("🔎 START fetchPoiInfo", {
-        approxName: opts.approx?.name,
-        coords: opts.approx,
-        typeHint: typeHintFromName(opts.approx?.name)
-    });
-    dlog("opts:", opts);
-
-    // Resolver por nome/coords
-    let wdId = opts.wikidata ?? null;
-    let wpResolved: { lang: string; title: string } | null = null;
-
     const approxName = opts.approx?.name ?? null;
     const approxLat = opts.approx?.lat ?? null;
     const approxLon = opts.approx?.lon ?? null;
@@ -975,14 +584,174 @@ export async function fetchPoiInfo(opts: {
 
     const typeHint = typeHintFromName(approxName);
 
-    // Agregador de descrições (com meta)
-    type DescSrc = "wikidata" | "wikipedia" | "opentripmap" | "osm" | "wikivoyage";
-    type DescCand = {
-        text: string;
-        src: DescSrc;
-        title?: string | null;
-        coords?: { lat: number; lon: number } | null;
-    };
+    // 🔹 Google Places (só quando é viewpoint) — JS SDK sem CORS
+    if (typeHint === "viewpoint" && approxCoords) {
+        console.log("🛰️ Google Places enrichment (JS SDK) for viewpoint");
+        try {
+            const results = await nearbyViewpointsByCoords(approxCoords.lat, approxCoords.lon, 3000);
+            if (results.length) {
+                // pick mais provável por overlap com o nome aproximado + rating
+                const picked = results
+                    .map(r => {
+                        const ov = tokenOverlap(approxName, r.name || "");
+                        const score = ov * 10 + (r.rating ?? 0);
+                        return { r, score };
+                    })
+                    .sort((a, b) => b.score - a.score)[0]?.r;
+
+                if (picked?.place_id) {
+                    const det = await getPlaceDetailsById(picked.place_id);
+                    const photos = photoUrlsFromPlace(det, 1600);
+
+                    const website =
+                        (det as any).websiteUri ?? det.website ?? undefined;
+
+                    const ratingVal =
+                        typeof det.rating === "number" ? det.rating : undefined;
+
+                    const ratingCount =
+                        typeof (det as any).userRatingCount === "number" ? (det as any).userRatingCount
+                            : typeof det.user_ratings_total === "number" ? det.user_ratings_total
+                                : null;
+
+                    const compact = det.opening_hours?.weekday_text
+                        ? compactOpeningHours(det.opening_hours.weekday_text)
+                        : undefined;
+
+                    const opening = det.opening_hours
+                        ? {
+                            raw: typeof compact === "string" ? compact : JSON.stringify(compact),
+                            isOpenNow:
+                                typeof det.opening_hours.isOpen === "function"
+                                    ? !!det.opening_hours.isOpen()
+                                    : undefined,
+                        }
+                        : undefined;
+
+                    const name = det.name || picked.name || approxName || null;
+
+                    const loc = det.geometry?.location
+                        ? { lat: det.geometry.location.lat(), lon: det.geometry.location.lng() }
+                        : approxCoords || null;
+
+                    // prepara patch e só depois faz o merge na variável 'merged' (NÃO usar merged2)
+                    const patch: Partial<PoiInfo> = {
+                        label: name,
+                        coords: loc || undefined,
+                        website,
+                        openingHours: opening,
+                        ratings:
+                            typeof ratingVal === "number"
+                                ? [{ source: "google", value: Math.max(0, Math.min(5, ratingVal)), votes: ratingCount }]
+                                : undefined,
+                        images: photos,
+                        image: photos[0],
+                    };
+
+                    merged = mergePoiPieces(merged, patch);
+                }
+            }
+        } catch (e) {
+            console.warn("❌ Google Places (viewpoint) falhou:", e);
+        }
+
+
+        // Merge do feature OSM (override de título/contacts) — mantemos
+        if (opts.sourceFeature?.properties) {
+            const p = opts.sourceFeature.properties || {};
+            const osmDesc    = p.description || p["description:pt"] || null;
+            const osmOH      = p.opening_hours || null;
+            const osmPhone   = p.phone || p["contact:phone"] || null;
+            const osmEmail   = p.email || p["contact:email"] || null;
+            const osmWebsite = p.website || p["contact:website"] || null;
+            const startDate  = p.start_date || null;
+
+            const tooltipName = featurePrimaryName(opts.sourceFeature);
+
+            if (osmOH) merged.openingHours = mergeOpeningHours(merged.openingHours, { raw: osmOH }) ?? merged.openingHours;
+            merged.contacts = mergeContacts(merged.contacts, { phone: osmPhone ?? undefined, email: osmEmail ?? undefined, website: osmWebsite ?? undefined }) ?? merged.contacts;
+            merged.website = merged.website ?? osmWebsite ?? undefined;
+
+            if (startDate && /^\+?\d{4}(-\d{2})?(-\d{2})?$/.test(String(startDate))) {
+                merged.builtPeriod = merged.builtPeriod || {};
+                if (!merged.builtPeriod.start) merged.builtPeriod.start = String(startDate).replace(/^\+/, "");
+                if (!merged.inception) merged.inception = String(startDate).replace(/^\+/, "");
+            }
+
+            if (tooltipName) {
+                const oldLabel = merged.label ?? null;
+                if (oldLabel && normStr(tooltipName) !== normStr(oldLabel)) {
+                    merged.oldNames = Array.from(new Set([...(merged.oldNames ?? []), oldLabel]));
+                }
+                merged.label = tooltipName;
+            }
+
+            // Não forçamos descrição: Google raramente tem editorial consistente
+            if (osmDesc && !merged.description) merged.description = osmDesc;
+        }
+
+        // Normalização final de imagens (top-3 válidas)
+        merged.images = normalizeImageUrls(merged.images) ?? [];
+        if (merged.image) merged.image = normalizeCommonsUrl(merged.image);
+        if (merged.images.length > 48) merged.images = merged.images.slice(0, 48);
+
+        const gallery = (() => {
+            const arr: string[] = [];
+            const push = (s?: string | null) => {
+                if (!s) return;
+                const n = normalizeCommonsUrl(s);
+                if (n && !arr.includes(n)) arr.push(n);
+            };
+            push(merged.image ?? null);
+            for (const u of merged.images ?? []) push(u);
+            return arr;
+        })();
+
+        const first3: string[] = [];
+        for (const u of gallery) {
+            // eslint-disable-next-line no-await-in-loop
+            const ok = await new Promise<boolean>((resolve) => {
+                const img = new Image();
+                const t = setTimeout(() => resolve(false), 8000);
+                img.onload = () => { clearTimeout(t); resolve(true); };
+                img.onerror = () => { clearTimeout(t); resolve(false); };
+                img.src = u;
+            });
+            if (ok) first3.push(u);
+            if (first3.length >= 3) break;
+        }
+        if (first3.length > 0) {
+            merged.image = first3[0];
+            merged.images = first3.slice(1);
+        } else {
+            merged.image = undefined;
+            merged.images = [];
+        }
+
+        const hasAny =
+            merged.label || merged.description || merged.image ||
+            (merged.images && merged.images.length > 0) ||
+            merged.website || merged.contacts || merged.openingHours ||
+            (merged.ratings && merged.ratings.length > 0) ||
+            merged.builtPeriod;
+
+        return (hasAny ? (merged as PoiInfo) : null);
+    }
+
+    /* ───────────── RESTO DOS TIPOS (pipeline antigo) ───────────── */
+    console.log("🔎 START fetchPoiInfo", {
+        approxName,
+        coords: opts.approx,
+        typeHint
+    });
+
+    // Resolver por nome/coords
+    let wdId = opts.wikidata ?? null;
+    let wpResolved: { lang: string; title: string } | null = null;
+
+    // Agregador de descrições
+    type DescSrc = "wikidata" | "wikipedia" | "opentripmap" | "osm";
+    type DescCand = { text: string; src: DescSrc; title?: string | null; coords?: { lat: number; lon: number } | null; };
     const descCands: DescCand[] = [];
     const pushDesc = (text?: string | null, src?: DescSrc, meta?: { title?: string | null; coords?: {lat:number;lon:number} | null }) => {
         const t = (text || "").trim();
@@ -990,144 +759,34 @@ export async function fetchPoiInfo(opts: {
         if (!descCands.some(d => d.text === t)) descCands.push({ text: t, src, title: meta?.title ?? null, coords: meta?.coords ?? null });
     };
 
-    // Wikidata por nome (evitar para miradouros)
-    if (!wdId && approxName) {
-        if (typeHint !== "viewpoint") {
-            wdId = await searchWikidataIdByName(approxName);
-            if (wdId) dlog("Wikidata resolved by name:", wdId);
-        } else {
-            dlog("Skip Wikidata-by-name for viewpoint:", approxName);
-        }
-    }
+    if (!wdId && approxName) wdId = await searchWikidataIdByName(approxName);
 
-    // Wikipedia title: geo → name (com gate para miradouros)
     if (!opts.wikipedia && approxName) {
-        if (approxCoords) {
-            wpResolved = await geosearchWikipediaTitleSmart(
-                approxCoords.lat, approxCoords.lon, approxName, typeHint
-            );
-        }
+        if (approxCoords) wpResolved = await geosearchWikipediaTitleSmart(approxCoords.lat, approxCoords.lon, approxName);
         if (!wpResolved) {
             const byName = await searchWikipediaTitleByName(approxName);
-            // para viewpoint, só aceitamos se o título “cheirar” a miradouro
-            if (!byName) {
-                // nada
-            } else if (typeHint !== "viewpoint" || isViewpointy(byName.title)) {
-                wpResolved = byName;
-            } else {
-                dlog("Wikipedia by-name skipped (not viewpointy)", byName);
-            }
+            if (byName) wpResolved = byName;
         }
-        if (wpResolved) dlog("Wikipedia resolved:", wpResolved);
     }
 
-    // 1) Wikidata
-    let wdEntity: any = null;
-    if (wdId) {
-        try {
-            const wd = await fetchFromWikidata(wdId);
-            console.log("📘 Wikidata result:", wd);
-            wdEntity = wd.entity ?? null;
-            dgrp("Wikidata result");
-            dlog(wd);
-            dgrpEnd();
-            delete (wd as any).entity;
-            merged = mergePoiPieces(merged, wd);
-            pushDesc(wd.description, "wikidata", { title: wd.label ?? null });
-
-            if (approxCoords && merged.coords && isFar(approxCoords, merged.coords, 60)) {
-                dlog("Wikidata descartado por distância → limpar coords/rel.");
-                merged.coords = undefined;
-                merged.instanceOf = undefined;
-                merged.locatedIn = undefined;
-                merged.heritage = undefined;
-            }
-        } catch (e) { dlog("Wikidata error:", e); }
-    }
-    if (!wpResolved && approxName) {
-        try {
-            const test = await fetchFromWikipediaStrict(
-                "pt",
-                approxName,
-                approxCoords,
-                typeHint === "viewpoint" ? 5 : 60
-            );
-            if (Object.keys(test).length) {
-                wpResolved = { lang: "pt", title: approxName };
-                dlog("Wikipedia exact-name fallback OK", wpResolved);
-            }
-        } catch {}
-    }
-    // 2) Wikipedia (strict geográfico)
     let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || wpResolved || null;
     if (wpTag) {
         try {
-            const strictKm = typeHint === "viewpoint" ? 1.5 : 60;
-            const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, strictKm);
-
+            const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, 60);
             if (Object.keys(wp).length) {
-                // 🔒 NOVO: travão a “falsos positivos” (ex: Sandro Rocha)
-                const targetName = approxName ?? merged.label ?? null;
-                const candTitle = wp.label ?? wpTag.title;
-                const ov = tokenOverlap(targetName, candTitle); // já tens esta função
+                const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
+                merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
+                pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: (wp as any).coords ?? null });
 
-                const titleLooksPerson =
-                    /\b[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+ [A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+\b/.test(candTitle || "") &&
-                    !/\b(igreja|mosteiro|convento|catedral|sé|castelo|forte|ponte|pal[aá]cio|torre|praça|parque|museu|miradouro|viewpoint|ruínas?)\b/i
-                        .test(candTitle || "");
-
-                const wpHasCoords = !!(wp as any).coords;
-
-                // Regras:
-                // - Se não tem coords E overlap < 0.6 → descartar
-                // - Ou se o título parece ser pessoa → descartar
-                if ((!wpHasCoords && ov < 0.6) || titleLooksPerson) {
-                    dlog("Wikipedia strict descartada (low-ov ou bio-like)", { candTitle, ov, wpHasCoords, titleLooksPerson });
-                } else {
-                    const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
-                    merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
-                    pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: (wp as any).coords ?? null });
-
-                    const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
-                    merged = mergePoiPieces(merged, {
-                        historyText: sections.history ?? undefined,
-                        architectureText: sections.architecture ?? undefined,
-                    });
-                }
-            } else {
-                dlog("Wikipedia strict descartado por distância");
+                const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
+                merged = mergePoiPieces(merged, {
+                    historyText: sections.history ?? undefined,
+                    architectureText: sections.architecture ?? undefined,
+                });
             }
-        } catch (e) {
-            // ...
-        }
+        } catch { /* ignore */ }
     }
 
-    // 3) Commons via WD
-    if (wdEntity) {
-        const cat = commonsCategoryFromWikidata(wdEntity);
-        if (cat) {
-            const commonsImgs = await fetchImagesFromCommonsCategory(cat);
-            console.log("🖼️ Commons images:", commonsImgs.slice(0, 5));
-            if (commonsImgs.length) {
-                merged = mergePoiPieces(merged, { images: commonsImgs });
-                dlog("Merged Commons from WD category", { count: commonsImgs.length });
-            }
-        }
-    }
-
-    // 3.1) Commons geosearch (se poucas imagens)
-    if ((merged.images?.length ?? 0) < 3) {
-        const baseCoords = merged.coords ?? approxCoords ?? null;
-        if (baseCoords) {
-            const nearImgs = await geosearchCommonsImages(baseCoords.lat, baseCoords.lon);
-            if (nearImgs.length) {
-                merged = mergePoiPieces(merged, { images: nearImgs });
-                dlog("Merged Commons geosearch", { count: nearImgs.length });
-            }
-        }
-    }
-
-    // 4) OSM Deep
     try {
         const osmExtra = await fetchFromOSMDeep({
             osmId: opts.osmId ?? null,
@@ -1135,75 +794,28 @@ export async function fetchPoiInfo(opts: {
             coords: merged.coords ?? approxCoords ?? null,
             name: approxName ?? merged.label ?? null,
         });
-        console.log("🗺️ OSM Deep result:", osmExtra);
         merged = mergePoiPieces(merged, osmExtra);
         pushDesc(osmExtra.description, "osm", { title: approxName ?? merged.label ?? null });
-    } catch (e) { dlog("Overpass error:", e); }
+    } catch { /* ignore */ }
 
-    // 5) OpenTripMap
     try {
         const baseName = approxName ?? merged.label ?? null;
         const baseCoords = merged.coords ?? approxCoords ?? null;
         if (OTM_KEY && baseName && baseCoords) {
             const otm = await fetchFromOpenTripMap(baseName, baseCoords.lat, baseCoords.lon);
-            console.log("🧭 OpenTripMap result:", otm);
-            // sempre podemos aproveitar ratings/imagens
             const { ratings, images } = otm;
             if ((ratings && ratings.length) || (images && images.length)) {
                 merged = mergePoiPieces(merged, { ratings, images });
             }
-
-            // descrição do OTM só entra se não for miradouro OU se "cheirar" a miradouro
-            const otmKinds: string | undefined = (otm as any).kinds;
-            const otmIsVP = /\bview[_\s-]?points?\b/i.test(otmKinds || "");
-            const otmDescOk =
-                typeHint !== "viewpoint" ||
-                otmIsVP ||
-                isViewpointy((otm as any).label) ||
-                isViewpointy(otm.description);
-
-            if (otmDescOk && otm.description) {
-                pushDesc(otm.description, "opentripmap", {
-                    title: (otm as any).label ?? baseName,
-                    coords: baseCoords,
-                });
+            if (otm.description) {
+                pushDesc(otm.description, "opentripmap", { title: (otm as any).label ?? baseName, coords: baseCoords });
             }
-
-            // não deixamos o OTM substituir o label quando é miradouro
-            if (typeHint !== "viewpoint" && (otm as any).label) {
+            if (!merged.label && (otm as any).label) {
                 merged = mergePoiPieces(merged, { label: (otm as any).label });
             }
-
-            dlog("OpenTripMap merged (safe for viewpoint)", {
-                usedDesc: !!(otmDescOk && otm.description),
-                usedLabel: typeHint !== "viewpoint" && !!(otm as any).label,
-                imgCount: images?.length ?? 0,
-            });
         }
-    } catch (e) { dlog("OpenTripMap error:", e); }
+    } catch { /* ignore */ }
 
-    // 6) Fallback miradouros (Wikivoyage)
-    console.log("fallback miradouros", typeHint);
-    if (typeHint === "viewpoint") {
-        const coords = merged.coords ?? approxCoords ?? null;
-        const noGoodViewpointDesc =
-            !merged.description || !isViewpointy(merged.description);
-        console.log("fallback miradouros", coords, noGoodViewpointDesc, merged);
-        if (coords && noGoodViewpointDesc) {
-            const wvoy = await fetchFromWikivoyage(
-                coords.lat,
-                coords.lon,
-                approxName ?? merged.label ?? null
-            );
-            console.log("🌍 Wikivoyage fallback:", wvoy);
-            if (Object.keys(wvoy).length) {
-                merged = mergePoiPieces(merged, wvoy);
-                pushDesc(wvoy.description, "wikivoyage", { title: wvoy.label ?? null, coords });
-            }
-        }
-    }
-
-    // 7) Merge direto do feature OSM (override de título + extras)
     if (opts.sourceFeature?.properties) {
         const p = opts.sourceFeature.properties || {};
         const osmDesc    = p.description || p["description:pt"] || null;
@@ -1216,18 +828,14 @@ export async function fetchPoiInfo(opts: {
         const tooltipName = featurePrimaryName(opts.sourceFeature);
 
         pushDesc(osmDesc, "osm", { title: tooltipName || approxName || merged.label || null });
-
         if (osmOH) merged.openingHours = mergeOpeningHours(merged.openingHours, { raw: osmOH }) ?? merged.openingHours;
         merged.contacts = mergeContacts(merged.contacts, { phone: osmPhone ?? undefined, email: osmEmail ?? undefined, website: osmWebsite ?? undefined }) ?? merged.contacts;
         merged.website = merged.website ?? osmWebsite ?? undefined;
 
-        if (startDate) {
-            const s = String(startDate).replace(/^\+/, "");
-            if (/^\d{4}(-\d{2})?(-\d{2})?$/.test(s)) {
-                merged.builtPeriod = merged.builtPeriod || {};
-                if (!merged.builtPeriod.start) merged.builtPeriod.start = s;
-                if (!merged.inception) merged.inception = s;
-            }
+        if (startDate && /^\+?\d{4}(-\d{2})?(-\d{2})?$/.test(String(startDate))) {
+            merged.builtPeriod = merged.builtPeriod || {};
+            if (!merged.builtPeriod.start) merged.builtPeriod.start = String(startDate).replace(/^\+/, "");
+            if (!merged.inception) merged.inception = String(startDate).replace(/^\+/, "");
         }
 
         if (tooltipName) {
@@ -1239,28 +847,24 @@ export async function fetchPoiInfo(opts: {
         }
     }
 
-    // 8) Escolher a melhor descrição (com gate por aderência nome/tipo)
+    // Escolha final da descrição
     {
-        const srcWeightBase: Record<DescSrc, number> = {
-            wikipedia: 1000, opentripmap: 800, wikivoyage: 700, osm: 500, wikidata: 200,
-        };
-
-        // se for miradouro, favorece Wikivoyage e exige “viewpointy”
-        const srcWeight =
-            typeHint === "viewpoint"
-                ? { ...srcWeightBase, wikivoyage: 1200, opentripmap: 500 }
-                : srcWeightBase;
-
+        type DescSrc = "wikidata" | "wikipedia" | "opentripmap" | "osm";
+        const srcWeight: Record<DescSrc, number> = { wikipedia: 1000, opentripmap: 750, osm: 550, wikidata: 200 };
         const targetName = approxName ?? merged.label ?? null;
 
-        // garantir que a atual entra no leilão
-        console.log("🧩 Description candidates:", descCands.map(d => ({
-            src: d.src,
-            title: d.title,
-            textSample: d.text.slice(0, 100)
-        })));
+        const descCands: Array<{ text: string; src: DescSrc; title?: string | null; coords?: { lat: number; lon: number } | null }> = [];
+        const pushDesc = (text?: string | null, src?: DescSrc, meta?: { title?: string | null; coords?: { lat: number; lon: number } | null }) => {
+            const t = (text || "").trim();
+            if (!t || !src) return;
+            if (!descCands.some(d => d.text === t)) descCands.push({ text: t, src, title: meta?.title ?? null, coords: meta?.coords ?? null });
+        };
+
+        // já adicionámos descrições ao longo do pipeline acima
+
         if (merged.description && !descCands.some(d => d.text === merged.description)) {
-            const inferredSrc: DescSrc = merged.wikipediaUrl ? "wikipedia" : merged.wikidataId ? "wikidata" : "osm";
+            const inferredSrc: DescSrc = merged.wikipediaUrl ? "wikipedia"
+                : merged.wikidataId ? "wikidata" : "osm";
             descCands.push({
                 text: merged.description,
                 src: inferredSrc,
@@ -1269,58 +873,20 @@ export async function fetchPoiInfo(opts: {
             });
         }
 
-        // GATE extra para viewpoint: tem de “cheirar” a miradouro, excepto se vier do Wikivoyage
-        const gated = descCands.filter(c => {
-            if (typeHint === "viewpoint") {
-                const vpOK =
-                    isViewpointy(c.title) || isViewpointy(c.text) || c.src === "wikivoyage";
-                if (!vpOK) return false;
-            }
-            const ov = tokenOverlap(targetName, c.title ?? targetName);
-            const pen = typePenalty(targetName, c.title || c.text);
-            const eq = normalize(targetName) && normalize(targetName) === normalize(c.title);
-            return (ov >= 0.35 || eq) && (pen > -0.59);
-        });
-
-        const base = gated.length ? gated : descCands;
-
-        const scored = base.map(c => {
+        const scored = descCands.map(c => {
             const ov = tokenOverlap(targetName, c.title ?? targetName);
             const eq = normalize(targetName) && normalize(targetName) === normalize(c.title);
             const nameBoost = (eq ? 10 : 0) + Math.round(ov * 8);
-
-            // boost extra se “cheirar” a miradouro
-            const vpBoost =
-                typeHint === "viewpoint" &&
-                (isViewpointy(c.title) || isViewpointy(c.text)) ? 12 : 0;
-
-            const pen = Math.round(typePenalty(targetName, c.title || c.text) * 10);
             const lengthBoost = Math.min(600, c.text.length);
-            const score = (srcWeight[c.src] || 0) + lengthBoost + (nameBoost + vpBoost) * 20 + pen * 20;
-            return { ...c, score, ov: +ov.toFixed(2), eq, pen };
+            const score = (srcWeight[c.src] || 0) + lengthBoost + nameBoost * 20;
+            return { ...c, score };
         }).sort((a, b) => b.score - a.score);
 
-        const before = merged.description;
         const best = scored[0];
-
-        if (best && !startsWithDifferentPOI(targetName, best.text)) {
-            merged.description = best.text;
-            dlog("Description decision(v2)", {
-                typeHint,
-                targetName,
-                chosen: { src: best.src, len: best.text.length, title: best.title ?? null, ov: best.ov, pen: best.pen, score: best.score },
-                totalCands: descCands.length,
-                usedCands: base.length,
-                changed: before !== best.text
-            });
-        } else {
-            dlog("Description decision(v2): fallback keep existing", {
-                typeHint, targetName, hasDesc: !!merged.description, totalCands: descCands.length
-            });
-        }
+        if (best) merged.description = best.text;
     }
 
-    // 9) Normalização final + validação top-3 imagens (404 guard)
+    // Normalização de imagens
     merged.images = normalizeImageUrls(merged.images) ?? [];
     if (merged.image) merged.image = normalizeCommonsUrl(merged.image);
     if (merged.images.length > 48) merged.images = merged.images.slice(0, 48);
@@ -1337,7 +903,6 @@ export async function fetchPoiInfo(opts: {
         return arr;
     })();
 
-    // valida sequencialmente até 3
     const first3: string[] = [];
     for (const u of gallery) {
         // eslint-disable-next-line no-await-in-loop
@@ -1364,31 +929,7 @@ export async function fetchPoiInfo(opts: {
         (merged.images && merged.images.length > 0) ||
         merged.website || merged.contacts || merged.openingHours ||
         (merged.ratings && merged.ratings.length > 0) ||
-        (merged.architects && merged.architects.length > 0) ||
-        (merged.architectureStyles && merged.architectureStyles.length > 0) ||
-        (merged.materials && merged.materials.length > 0) ||
-        (merged.builders && merged.builders.length > 0) ||
         merged.builtPeriod;
 
-    dlog("FINAL MERGED SUMMARY", {
-        label: merged.label,
-        descLen: merged.description?.length || 0,
-        imgHero: !!merged.image,
-        imgs: merged.images?.length || 0,
-        hasContacts: !!merged.contacts,
-        hasOH: !!merged.openingHours,
-        ratingSources: merged.ratings?.map(r => r.source),
-        coords: merged.coords
-    });
-    dgrpEnd();
-
-    if (!hasAny) return merged.wikidataId ? (merged as PoiInfo) : null;
-    console.log("✅ FINAL MERGED POI:", {
-        label: merged.label,
-        descLen: merged.description?.length,
-        image: merged.image,
-        imgs: merged.images?.length,
-        sources: descCands.map(d => d.src)
-    });
-    return merged as PoiInfo;
+    return (hasAny ? (merged as PoiInfo) : null);
 }
