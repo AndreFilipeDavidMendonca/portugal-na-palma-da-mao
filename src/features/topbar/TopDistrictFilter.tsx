@@ -1,12 +1,12 @@
 // src/features/topbar/TopDistrictFilter.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import logo from "@/assets/logo.png";
 import "./TopDistrictFilter.scss";
 
-import { loadGeo } from "@/lib/geo";
-import { buildCulturalPointsQuery, overpassQueryToGeoJSON } from "@/lib/overpass";
+import {loadGeo} from "@/lib/geo";
+import {buildCulturalPointsQuery, overpassQueryToGeoJSON} from "@/lib/overpass";
 import PoiModal from "@/pages/poi/PoiModal";
-import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
+import {fetchPoiInfo, type PoiInfo} from "@/lib/poiInfo";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 type Props = {
@@ -129,21 +129,19 @@ export default function TopDistrictFilter({
         const q = norm(typedQuery);
         if (!q) return [] as SearchItem[];
 
-        const scored = searchIndex
+        return searchIndex
             .map((it) => {
                 const n = norm(it.name);
                 let score = 0;
                 if (n.startsWith(q)) score += 100;
                 if (n.includes(q)) score += 40;
                 if (it.kind === "poi") score += 5;
-                return { it, score };
+                return {it, score};
             })
             .filter((x) => x.score > 0)
             .sort((a, b) => b.score - a.score)
             .slice(0, 30)
             .map((x) => x.it);
-
-        return scored;
     }, [typedQuery, searchIndex]);
 
     // click fora

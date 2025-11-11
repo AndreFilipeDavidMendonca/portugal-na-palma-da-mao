@@ -221,10 +221,6 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
     // Cronologia (sub-linha do título)
     const builtLabel = formatBuiltPeriod(info.builtPeriod, info.inception);
 
-    // Links institucionais vindos do feature
-    const dgpcUrl = poi?.properties?.["heritage:website"] || null;
-    const sipaUrl = poi?.properties?.["heritage:website:sipa"] || null;
-
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
             <div
