@@ -328,11 +328,11 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                         <div className="meta-divider" />
 
-                        {info.oldNames?.length ? (
+                       {/* {info.oldNames?.length ? (
                             <>
                                 <strong>Nome anterior:</strong> {info.oldNames[0]}
                             </>
-                        ) : null}
+                        ) : null}*/}
 
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>

@@ -257,7 +257,6 @@ export default function DistrictModal(props: Props) {
                     selectedPoi.properties["wikipedia:pt"] ??
                     selectedPoi.properties["wikipedia:en"] ??
                     null;
-                const wd: string | null = selectedPoi.properties.wikidata ?? null;
 
                 const approxName =
                     selectedPoi.properties["name:pt"] ??
@@ -267,7 +266,6 @@ export default function DistrictModal(props: Props) {
                 const approxLon = selectedPoi.geometry?.coordinates?.[0];
 
                 const info = await fetchPoiInfo({
-                    wikidata: wd,
                     wikipedia: wp,
                     approx: { name: approxName, lat: approxLat, lon: approxLon },
                     sourceFeature: selectedPoi, // ← merge direto + override label + validação imagens
