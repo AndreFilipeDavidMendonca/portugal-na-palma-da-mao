@@ -1,9 +1,8 @@
-/* src/features/filters/poiFilter.scss */
+/* ===========================
+   Barra de filtros (POI)
+=========================== */
 
-/* Barra de filtros */
-:root {
-  --poi-bar-h: 50px; /* altura da barra fixa */
-}
+:root { --poi-bar-h: 50px; }
 
 .poi-filter {
   background: var(--bg-panel);
@@ -20,11 +19,7 @@
   --count-fs: clamp(13px, 1.3vw, 16px);
   --count-weight: 500;
 
-  &--top {
-    position: sticky;
-    top: 0;
-    z-index: 9000;
-  }
+  &--top { position: sticky; top: 0; z-index: 9000; }
 
   &__inner {
     position: relative;
@@ -32,14 +27,14 @@
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
-    min-height: var(--poi-bar-h); /* altura fixa */
+    min-height: var(--poi-bar-h);
     overflow-x: auto;
     overflow-y: visible;
     scrollbar-width: thin;
   }
 }
 
-/* Chip individual */
+/* Chip */
 .poi-chip {
   position: relative;
   display: inline-flex;
@@ -55,96 +50,34 @@
   font-size: var(--chip-fs);
   font-weight: 600;
   cursor: pointer;
-  transition:
-          color .15s ease,
-          background-color .15s ease,
-          border-color .15s ease,
-          box-shadow .15s ease;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
 
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
+  input { position: absolute; opacity: 0; pointer-events: none; }
 
   .poi-chip__icon {
-    width: 1.2em;
-    height: 1.2em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    width: 1.2em; height: 1.2em; display: inline-flex; align-items: center; justify-content: center;
     transform: translateY(-1.5px);
-
-    svg {
-      width: 100% !important;
-      height: 100% !important;
-      display: block !important;
-    }
-    svg [fill]   { fill: currentColor !important; }
+    svg { width: 100% !important; height: 100% !important; display: block !important; }
+    svg [fill] { fill: currentColor !important; }
     svg [stroke] { stroke: currentColor !important; }
   }
 
-  .poi-chip__label {
-    line-height: 1;
-    display: inline-block;
-    transform: translateY(-1px);
-  }
+  .poi-chip__label { line-height: 1; display: inline-block; transform: translateY(-1px); }
 
   .poi-chip__count {
-    margin-left: 3px;
-    font-style: normal;
-    font-size: var(--count-fs);
-    line-height: 1;
-    opacity: 0.95;
-    font-weight: var(--count-weight);
-    transform: translateY(-1px);
+    margin-left: 3px; font-style: normal; font-size: var(--count-fs); line-height: 1;
+    opacity: 0.95; font-weight: var(--count-weight); transform: translateY(-1px);
   }
 
-  &:hover {
-    box-shadow: 0 2px 5px rgba(0,0,0,.12);
-    border-color: var(--gold-strong);
-  }
+  &:hover { box-shadow: 0 2px 5px rgba(0,0,0,.12); border-color: var(--gold-strong); }
 
   &.poi-chip--on {
     background: var(--gold-strong);
     border: 1.3px solid var(--gold-dark);
-    box-shadow: 0 0 0 2px var(--gold-dark),
-    0 0 6px rgba(179,143,59,.28);
+    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179,143,59,.28);
   }
 
-  &:active {
-    box-shadow: 0 1px 3px rgba(0,0,0,.14);
-  }
-}
-
-/* Botão LIMPAR (mesma fonte que os chips) */
-.poi-clear {
-  flex: 0 0 auto;
-  padding: var(--chip-py) var(--chip-px);
-  min-height: var(--chip-minh);
-  border: 1.3px solid var(--gold-dark);
-  border-radius: 12px;
-  background: var(--bg-panel);
-  color: var(--gold);
-  font-family: var(--font-title, "Cormorant Garamond", serif), serif;
-  font-size: var(--clear-fs);
-  font-weight: 700;
-  letter-spacing: .6px;
-  cursor: pointer;
-  transition:
-          color .15s ease,
-          background-color .15s ease,
-          border-color .15s ease,
-          box-shadow .15s ease;
-
-  &:hover {
-    box-shadow: 0 2px 5px rgba(0,0,0,.12);
-    border-color: var(--gold-strong);
-  }
-
-  &:active {
-    box-shadow: 0 1px 3px rgba(0,0,0,.14);
-  }
+  &:active { box-shadow: 0 1px 3px rgba(0,0,0,.14); }
 }
 
 /* LOGO aumentado (sem crescer a barra) */
@@ -156,61 +89,30 @@
   margin-right: clamp(8px, 1vw, 16px);
   overflow: visible;
 }
-
 .poi-logo img {
   height: calc(var(--poi-bar-h) - 9px);
   width: auto;
   object-fit: contain;
-  transform: scale(1.35);          /* aumenta o logo sem afetar layout */
-  transform-origin: left center;   /* expande para fora pela esquerda */
+  transform: scale(1.35);
+  transform-origin: left center;
   filter: brightness(1.05) saturate(1.1);
   transition: transform .25s ease;
 }
+.poi-logo:hover img { transform: scale(1.4); }
 
-/* opcional: ligeiro hover no logo */
-.poi-logo:hover img {
-  transform: scale(1.4);
-}
+.poi-spacer { flex: 1 1 auto; min-width: 8px; }
 
-/* Espaço flexível para empurrar o X */
-.poi-spacer {
-  flex: 1 1 auto;
-  min-width: 8px;
-}
-
-/* Botão X dourado redondo */
+/* X dourado redondo */
 .gold-close {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+  width: 42px; height: 42px; border-radius: 50%;
   border: 2px solid var(--gold-dark);
-  background-color: var(--gold);
-  color: var(--bg-deep);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2;
-  transition: background-color .25s ease,
-  border-color .25s ease,
-  color .25s ease,
-  box-shadow .25s ease;
+  background-color: var(--gold); color: var(--bg-deep);
+  font-size: 22px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 2;
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease;
 
-  &:hover {
-    background-color: var(--gold-strong);
-    border-color: var(--gold);
-    color: var(--bg-panel);
-    box-shadow: 0 0 10px rgba(215,178,90,.5);
-  }
-
-  &:active {
-    transform: translateY(-50%);
-  }
+  &:hover { background-color: var(--gold-strong); border-color: var(--gold); color: var(--bg-panel); box-shadow: 0 0 10px rgba(215,178,90,.5); }
+  &:active { transform: translateY(-50%); }
 }

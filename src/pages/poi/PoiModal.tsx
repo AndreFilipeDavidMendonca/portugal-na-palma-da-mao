@@ -43,6 +43,19 @@ function expandDayToken(tok: string): string[] {
     }
     return DAY_ORDER.includes(tok) ? [tok] : [];
 }
+
+function parseOpeningHoursRaw(raw?: string | null): { str?: string; arr?: string[] } {
+    if (!raw) return {};
+    // se for JSON de array (guardar vindo do compactOpeningHours)
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return { arr: parsed as string[] };
+    } catch {
+        // não é JSON — segue
+    }
+    return { str: raw };
+}
+
 function isContiguousRange(days: string[]): boolean {
     if (days.length <= 1) return false;
     const idxs = days.map(d => DAY_ORDER.indexOf(d)).filter(i => i >= 0);
@@ -171,7 +184,7 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     );
 }
 
-export default function PoiModal({ open, onClose, info, poi }: Props) {
+export default function PoiModal({ open, onClose, info }: Props) {
     if (!open || !info) return null;
 
     // Galeria
@@ -202,10 +215,11 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
     // Dados
     const hasAnyPhoto = gallery.length > 0;
     const rating = (info.ratings ?? [])[0];
-    const ohText = formatOpeningHours(info.openingHours?.raw ?? null);
+    const ohParsed = parseOpeningHoursRaw(info.openingHours?.raw ?? null);
+    const ohFallback = formatOpeningHours(ohParsed.str ?? null);
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
-
+    const addHToTimes = (s: string) => s.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h");
     const renderStars = (v: number) => {
         const full = Math.floor(v);
         const half = v - full >= 0.5;
@@ -220,10 +234,6 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
 
     // Cronologia (sub-linha do título)
     const builtLabel = formatBuiltPeriod(info.builtPeriod, info.inception);
-
-    // Links institucionais vindos do feature
-    const dgpcUrl = poi?.properties?.["heritage:website"] || null;
-    const sipaUrl = poi?.properties?.["heritage:website:sipa"] || null;
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
@@ -277,8 +287,7 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
                     </section>
 
                     {/* INFO */}
-                    <aside className="poi-side">
-                        {(website || info.coords || dgpcUrl || sipaUrl) && (
+                    <aside className="poi-side gold-scroll">
                             <div
                                 style={{
                                     display: "flex",
@@ -288,31 +297,42 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
                                     marginBottom: 8,
                                 }}
                             >
-                                {website && (
-                                    <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
-                                        Site oficial
-                                    </a>
-                                )}
-                                {info.coords && (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        flexWrap: "wrap",
+                                        alignItems: "center",
+                                        marginBottom: 8,
+                                    }}
+                                >
+                                    {website && (
+                                        <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
+                                            Site oficial
+                                        </a>
+                                    )}
                                     <a
                                         className="btn-directions"
-                                        href={`https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`}
+                                        href={
+                                            info?.coords
+                                                ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
+                                                : `https://www.google.com/maps/`
+                                        }
                                         target="_blank"
                                         rel="noreferrer"
                                     >
                                         Direções
                                     </a>
-                                )}
+                                </div>
                             </div>
-                        )}
 
                         <div className="meta-divider" />
 
-                        {info.oldNames?.length ? (
+                       {/* {info.oldNames?.length ? (
                             <>
                                 <strong>Nome anterior:</strong> {info.oldNames[0]}
                             </>
-                        ) : null}
+                        ) : null}*/}
 
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
@@ -344,8 +364,24 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
                                     </a>
                                 </div>
                             )}
-                            {ohText && (
-                                <div><strong>Horário:</strong> {ohText}</div>
+                            {(ohParsed.arr?.length || ohParsed.str || ohFallback) && (
+                                <div>
+                                    <strong>Horário:</strong>{" "}
+                                    {ohParsed.str ? (
+                                        // caso “Todos os dias - das … às …”
+                                        <span>{addHToTimes(ohParsed.str)}</span>
+                                    ) : ohParsed.arr?.length ? (
+                                        // caso array vindo do Google (weekday_text)
+                                        <ul className="hours-list">
+                                            {ohParsed.arr.map((line, i) => (
+                                                <li key={i}>{addHToTimes(line)}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        // fallback (ex.: OSM Mo-Fr 10:00-18:00 → “de Segunda a Sexta - 10:00h–18:00h”)
+                                        <span>{addHToTimes(ohFallback ?? "")}</span>
+                                    )}
+                                </div>
                             )}
                         </div>
 

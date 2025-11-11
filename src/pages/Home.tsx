@@ -10,7 +10,7 @@ import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
 import { getDistrictKeyFromFeature } from "@/utils/geo";
 import { filterPointsInsideDistrict } from "@/lib/spatial";
 import DistrictModal from "@/pages/district/DistrictModal";
-import LoadingOverlay from "@/features/map/LoadingOverlay";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
 
 type AnyGeo = any;

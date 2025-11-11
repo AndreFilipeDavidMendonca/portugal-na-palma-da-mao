@@ -5,7 +5,7 @@
 /* Variáveis locais do componente */
 .poi-card {
   --modal-h: min(92vh, 1080px);
-  --carousel-h: clamp(480px, 62vh, 780px); /* controla a altura do slideshow */
+  --carousel-h: clamp(480px, 62vh, 780px);
 }
 
 /* Backdrop e centragem */
@@ -21,7 +21,7 @@
 
 /* Cartão central */
 .poi-card {
-  width: min(1280px, calc(100vw - 60px)); /* modal mais largo */
+  width: min(1280px, calc(100vw - 60px));
   height: var(--modal-h);
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -80,21 +80,22 @@
   font-size: 1rem;
   color: var(--muted);
   padding: 5px 26px;
-}
 
-.poi-subline a {
-  color: var(--gold);
-  text-decoration: none;
-  font-weight: 600;
-  transition: color .25s ease, text-shadow .25s ease;
-  &:hover { color: var(--gold-strong); text-shadow: 0 0 6px rgba(241,210,122,.6); }
-  &:active { color: var(--gold); text-shadow: none; }
+  a {
+    color: var(--gold);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color .25s ease, text-shadow .25s ease;
+
+    &:hover { color: var(--gold-strong); text-shadow: 0 0 6px rgba(241,210,122,.6); }
+    &:active { color: var(--gold); text-shadow: none; }
+  }
 }
 
 /* ===== Corpo ===== */
 .poi-body {
   display: grid;
-  grid-template-columns: 1.8fr 1fr; /* imagem domina mais */
+  grid-template-columns: 1.8fr 1fr;
   gap: 0;
   height: calc(var(--modal-h) - 80px);
   overflow: hidden;
@@ -150,6 +151,7 @@
   padding: 0 10px;
   border-radius: 6px;
   transition: background .2s;
+
   &:hover { background: rgba(0, 0, 0, .5); }
 }
 .nav.prev { left: 8px; }
@@ -176,9 +178,9 @@
   line-height: 1.6;
   font-size: 0.98rem;
   letter-spacing: 0.1px;
-  max-width: 70ch;           /* limita a largura óptima de leitura */
-  text-wrap: pretty;         /* quebras mais naturais (Chrome/Edge/Safari modernos) */
-  hyphens: auto;             /* hifenização automática quando lang="pt" */
+  max-width: 70ch;
+  text-wrap: pretty;
+  hyphens: auto;
   word-break: normal;
 }
 
@@ -194,6 +196,7 @@
   font-weight: 500;
   text-decoration: none;
   transition: color 0.2s ease, text-shadow 0.2s ease;
+
   &:hover { color: #fff4ce; text-shadow: 0 0 6px rgba(215, 178, 90, 0.45); }
 }
 
@@ -210,6 +213,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
   &:hover { border-color: var(--gold); background: var(--bg-panel-2); }
 }
 
@@ -231,6 +235,8 @@
   transition: all .25s ease;
   box-shadow: 0 0 8px rgba(0, 0, 0, .15);
   margin-top: 4px;
+  position: relative;
+  overflow: hidden;
 
   &:hover {
     background: var(--bg-panel);
@@ -243,8 +249,6 @@
     box-shadow: 0 0 6px rgba(215, 178, 90, .2);
   }
 
-  position: relative;
-  overflow: hidden;
   &:before {
     content: "";
     position: absolute;
@@ -265,6 +269,18 @@
   font-weight: 700;
 }
 
+/* Lista de horários (sem marcadores + capitalizada) */
+.poi-side .hours-list {
+  list-style: none;        /* remove os pontos */
+  margin: 6px 0 0 0;
+  padding-left: 0;
+}
+.poi-side .hours-list li {
+  text-transform: capitalize; /* Segunda-Feira, Terça-Feira, ... */
+  line-height: 1.7;
+}
+
+/* Tags e metadados */
 .poi-tags {
   display: grid;
   grid-template-columns: 1fr 2fr;

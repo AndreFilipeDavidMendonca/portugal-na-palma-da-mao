@@ -31,19 +31,9 @@ import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 
 import "./DistrictModal.scss";
+import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 type AnyGeo = any;
-
-/* ---------------- Debug helpers ---------------- */
-const DEBUG_POI = (() => {
-    try {
-        if (import.meta.env?.VITE_DEBUG_POI === "true") return true;
-        return new URLSearchParams(window.location.search).get("debug") === "poi";
-    } catch { return false; }
-})();
-const dlog = (...args: any[]) => { if (DEBUG_POI) console.log("[POI]", ...args); };
-const dgrp = (t: string) => { if (DEBUG_POI) console.groupCollapsed(t); };
-const dgrpEnd = () => { if (DEBUG_POI) console.groupEnd(); };
 
 /* ---------- Fit Bounds ---------- */
 function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
@@ -65,79 +55,6 @@ function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
     }, [feature, map]);
 
     return null;
-}
-
-/* ---------- Helpers: normalizar & validar imagens ---------- */
-function normalizeCommonsUrl(u: string): string {
-    if (!u) return u;
-    try {
-        const url = new URL(u);
-        if (!/commons\.wikimedia\.org$/i.test(url.hostname)) return u;
-        const p = url.pathname;
-
-        const extractFileName = (s: string) => {
-            const decoded = decodeURIComponent(s);
-            const afterColon = decoded.split(":").pop() || decoded;
-            return afterColon.trim();
-        };
-
-        if (/\/wiki\/Special:Redirect\/file\//i.test(p)) {
-            const filePart = p.replace(/.*\/wiki\/Special:Redirect\/file\//i, "");
-            const fileName = extractFileName(filePart);
-            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
-        }
-
-        if (/\/wiki\/(File|Ficheiro):/i.test(p)) {
-            const filePart = p.replace(/.*\/wiki\/(File|Ficheiro):/i, "");
-            const fileName = extractFileName(filePart);
-            return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
-        }
-
-        return u;
-    } catch {
-        return u;
-    }
-}
-
-function buildNormalizedGallery(info: { image?: string | null; images?: string[] | null }): string[] {
-    const arr: string[] = [];
-    const push = (s?: string | null) => {
-        if (!s) return;
-        const n = normalizeCommonsUrl(s);
-        if (n && !arr.includes(n)) arr.push(n);
-    };
-    push(info.image ?? null);
-    for (const u of info.images ?? []) push(u);
-    return arr;
-}
-
-function getFeatureName(f: any): string | null {
-    const p = f?.properties ?? {};
-    const tags = p.tags ?? {};
-    return (
-        p["name:pt"] ||
-        p.name ||
-        p["name:en"] ||
-        tags["name:pt"] ||
-        tags.name ||
-        tags["name:en"] ||
-        null
-    );
-}
-
-function testLoadable(url: string, timeoutMs = 8000): Promise<boolean> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        const t = setTimeout(() => resolve(false), timeoutMs);
-        img.onload = () => { clearTimeout(t); resolve(true); };
-        img.onerror = () => { clearTimeout(t); resolve(false); };
-        img.src = url;
-    });
-}
-
-async function filterLoadableImages(urls: string[], timeoutMs = 8000): Promise<string[]> {
-    const results = await Promise.all(urls.map((u) => testLoadable(u, timeoutMs)));
-    return urls.filter((_, i) => results[i]);
 }
 
 /* ---------- Props ---------- */
@@ -239,7 +156,7 @@ export default function DistrictModal(props: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    /* ----- Normalização + filtro (remove sem nome e "só nome") ----- */
+    /* ----- Normalização + filtro ----- */
     const normalizedPoints = useMemo(() => {
         if (!poiPoints) return null;
 
@@ -249,7 +166,6 @@ export default function DistrictModal(props: Props) {
                 const tags = props.tags ?? f.tags ?? {};
                 const mergedProps = { ...props, ...tags, tags };
 
-                // nome do POI
                 const name =
                     mergedProps["name:pt"] ||
                     mergedProps.name ||
@@ -257,10 +173,8 @@ export default function DistrictModal(props: Props) {
                     mergedProps["label"] ||
                     null;
 
-                // 1) sem nome -> descarta
                 if (!name || typeof name !== "string" || name.trim() === "") return null;
 
-                // 2) só nome sem refs/tipo -> descarta
                 const hasRefs =
                     mergedProps.wikipedia ||
                     mergedProps["wikipedia:pt"] ||
@@ -285,7 +199,7 @@ export default function DistrictModal(props: Props) {
                     mergedProps.leisure ||
                     mergedProps.boundary;
 
-                if (!hasRefs && !hasType) return null; // ← filtro “só nome”
+                if (!hasRefs && !hasType) return null;
 
                 const nf = { ...f, properties: mergedProps as any };
                 const cat = getPoiCategory(nf);
@@ -294,13 +208,6 @@ export default function DistrictModal(props: Props) {
                 return nf;
             })
             .filter(Boolean);
-
-        if (DEBUG_POI) {
-            dgrp("[POI] normalizedPoints");
-            dlog("total in:", poiPoints.features?.length ?? 0);
-            dlog("total out:", feats.length);
-            dgrpEnd();
-        }
 
         return { ...poiPoints, features: feats };
     }, [poiPoints]);
@@ -330,13 +237,10 @@ export default function DistrictModal(props: Props) {
 
     /* ====== Clique num ponto ====== */
     const onPoiClick = (feature: any) => {
-        dgrp("[POI] click feature");
-        console.log(feature);
-        dgrpEnd();
         setSelectedPoi(feature);
     };
 
-    /* ====== Fetch info + pré-carregar imagens + decisão de abrir ====== */
+    /* ====== Fetch info LIMPA (centralizado no poiInfo) ====== */
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -353,7 +257,6 @@ export default function DistrictModal(props: Props) {
                     selectedPoi.properties["wikipedia:pt"] ??
                     selectedPoi.properties["wikipedia:en"] ??
                     null;
-                const wd: string | null = selectedPoi.properties.wikidata ?? null;
 
                 const approxName =
                     selectedPoi.properties["name:pt"] ??
@@ -362,110 +265,19 @@ export default function DistrictModal(props: Props) {
                 const approxLat = selectedPoi.geometry?.coordinates?.[1];
                 const approxLon = selectedPoi.geometry?.coordinates?.[0];
 
-                dgrp("[POI] fetchPoiInfo start");
-                dlog({ wd, wp, approx: { name: approxName, lat: approxLat, lon: approxLon } });
-                dgrpEnd();
-
-                let info = await fetchPoiInfo({
-                    wikidata: wd,
+                const info = await fetchPoiInfo({
                     wikipedia: wp,
                     approx: { name: approxName, lat: approxLat, lon: approxLon },
+                    sourceFeature: selectedPoi, // ← merge direto + override label + validação imagens
                 });
                 if (!alive || reqId !== lastReqRef.current) return;
 
-                dgrp("[POI] fetchPoiInfo result (raw)");
-                console.log(info);
-                dgrpEnd();
+                setSelectedPoiInfo(info);
 
-                // normalizar + filtrar imagens que realmente carregam
-                const normalized = buildNormalizedGallery(info ?? {});
-                const loadable = await filterLoadableImages(normalized, 8000);
-                if (!alive || reqId !== lastReqRef.current) return;
-
-                let image: string | null = null;
-                let images: string[] = [];
-                if (loadable.length > 0) {
-                    image = loadable[0];
-                    images = loadable.slice(1);
-                }
-
-                const finalInfo: PoiInfo = { ...(info ?? {}), image, images };
-
-
-                // ---- FUSÃO: completar info com campos vindos do próprio feature OSM ----
-                const p = selectedPoi.properties || {};
-                const osmDesc    = p.description || p["description:pt"] || null;
-                const osmOH      = p.opening_hours || null;
-                const osmPhone   = p.phone || p["contact:phone"] || null;
-                const osmEmail   = p.email || p["contact:email"] || null;
-                const osmWebsite = p.website || p["contact:website"] || null;
-                const startDate  = p.start_date || null; // "1442+", "1875-1890", "1160-00-00"...
-
-                // descrição (só preenche se o enriquecido não trouxe nada melhor)
-                if (osmDesc && osmDesc.trim().length > 0) {
-                    finalInfo.description = osmDesc.trim();
-                }
-
-                // opening_hours (mantém o que já existir)
-                if (osmOH && !finalInfo.openingHours?.raw) {
-                    finalInfo.openingHours = { ...(finalInfo.openingHours || {}), raw: osmOH };
-                }
-
-                // contactos/website (merge não destrutivo)
-                finalInfo.contacts = {
-                    phone:   finalInfo.contacts?.phone   ?? osmPhone   ?? undefined,
-                    email:   finalInfo.contacts?.email   ?? osmEmail   ?? undefined,
-                    website: finalInfo.contacts?.website ?? osmWebsite ?? undefined,
-                };
-                finalInfo.website = finalInfo.website ?? osmWebsite ?? undefined;
-
-                // datas: usa start_date como "builtPeriod.start" e também inception se estiver vazio
-                if (startDate) {
-                    const norm = String(startDate).replace(/^\+/, "");
-                    const looksISO = /^\d{4}(-\d{2})?(-\d{2})?$/.test(norm);
-                    if (looksISO) {
-                        finalInfo.builtPeriod = finalInfo.builtPeriod || {};
-                        if (!finalInfo.builtPeriod.start) finalInfo.builtPeriod.start = norm;
-                        if (!finalInfo.inception) finalInfo.inception = norm;
-                    }
-                }
-
-                // fallback para título do próprio feature (se faltar label)
-                if (!finalInfo.label) {
-                    const fallbackName = getFeatureName(selectedPoi);
-                    if (fallbackName) finalInfo.label = fallbackName;
-                }
-
-                const norm = (s?: string | null) =>
-                    (s || "")
-                        .normalize("NFD")
-                        .replace(/[\u0300-\u036f]/g, "")
-                        .replace(/[^\w\s]/g, "")
-                        .replace(/\s+/g, " ")
-                        .trim()
-                        .toLowerCase();
-
-// Nome vindo da tooltip (OSM)
-                const tooltipName = getFeatureName(selectedPoi);
-
-// Se houver tooltipName, usamos sempre como título.
-// Se for diferente do nome do 2º endpoint, guardamos esse como "nome anterior".
-                if (tooltipName) {
-                    const oldLabel = finalInfo.label; // nome do 2º endpoint
-                    if (oldLabel && norm(tooltipName) !== norm(oldLabel)) {
-                        finalInfo.oldNames = Array.from(new Set([...(finalInfo.oldNames ?? []), oldLabel]));
-                    }
-                    finalInfo.label = tooltipName; // força título = tooltip
-                }
-
-                setSelectedPoiInfo(finalInfo);
-
-                const hasAnyImage = loadable.length > 0;
-                const hasTitle = !!finalInfo.label;
-                const hasDesc = !!finalInfo.description && finalInfo.description.trim().length > 0;
-                const shouldOpen = hasTitle || hasDesc || hasAnyImage;
-
-                dlog("[POI] open decision:", { hasAnyImage, hasTitle, hasDesc, shouldOpen });
+                const hasAnyImage = (info?.image || (info?.images?.length ?? 0) > 0);
+                const hasTitle = !!info?.label;
+                const hasDesc = !!info?.description && info!.description!.trim().length > 0;
+                const shouldOpen = !!(hasTitle || hasDesc || hasAnyImage);
 
                 setShowPoiModal(shouldOpen);
             } catch (e) {
@@ -519,7 +331,6 @@ export default function DistrictModal(props: Props) {
                             <TileLayer url={DISTRICT_LABELS} />
                         </Pane>
 
-                        {/* contorno do distrito */}
                         {districtFeature && (
                             <GeoJSON
                                 data={districtFeature as any}
@@ -528,7 +339,6 @@ export default function DistrictModal(props: Props) {
                             />
                         )}
 
-                        {/* exemplos de camadas extra (ativar as que quiseres) */}
                         {rivers && (
                             <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
                                 <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5 }} interactive={false} />
@@ -600,14 +410,12 @@ export default function DistrictModal(props: Props) {
                             </Pane>
                         )}
 
-                        {/* áreas/polígonos de POI */}
                         {poiAreas && (
                             <Pane name="areas" style={{ zIndex: 430 }}>
                                 <PoiAreasLayer data={poiAreas} />
                             </Pane>
                         )}
 
-                        {/* pontos de POI (clicáveis / já normalizados & filtrados) */}
                         {filteredPoints && (
                             <Pane name="points" style={{ zIndex: 460 }}>
                                 <PoiPointsLayer
@@ -623,7 +431,6 @@ export default function DistrictModal(props: Props) {
                     </MapContainer>
                 </div>
 
-                {/* painel direito com dados do distrito */}
                 <aside className="right-panel">
                     <div className="right-inner">
                         <h1>
@@ -674,12 +481,9 @@ export default function DistrictModal(props: Props) {
                 poi={selectedPoi}
             />
 
-            {/* Overlay de loading com blur verde-escuro */}
+            {/* Overlay loading */}
             {loadingPoi && (
-                <div className="poi-preloader" role="status" aria-live="polite" aria-busy="true">
-                    <div className="spinner" />
-                    <span className="sr-only">A carregar…</span>
-                </div>
+                <SpinnerOverlay open={loadingPoi} message="A carregar…" />
             )}
         </div>
     );

@@ -5,18 +5,12 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-
-    "types": ["node", "vite/client"],
-
+    "paths": { "@/*": ["src/*"] },
+    "types": ["node", "google.maps"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true

@@ -51,18 +51,6 @@ export const POI_LABELS: Record<PoiCategory, string> = {
     protected_area: "Áreas protegidas",
 };
 
-// === Cores ===
-export const POI_COLORS: Record<PoiCategory, string> = {
-    castle: "#7e1616",
-    palace: "#501c61",
-    monument: "#24338e",
-    ruins: "#51362c",
-    church: "#3890dc",
-    viewpoint: "#1e4c13",
-    park: "#2E7D32",
-    protected_area: "#66BB6A",
-};
-
 // === Lista para UI (filtros) ===
 export const POI_CATEGORIES: { key: PoiCategory; label: string; kind: "node" | "area" }[] = [
     { key: "castle", label: POI_LABELS.castle, kind: "node" },

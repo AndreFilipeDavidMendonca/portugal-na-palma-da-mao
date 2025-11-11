@@ -1,8 +1,8 @@
-/* --------------------------------
+/* ------------------------------
    Base global + tema + tipografia
---------------------------------- */
+------------------------------- */
 
-/* Import das fontes */
+/* Import das fontes (1x global) */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Poppins:wght@300;400;500&display=swap');
 
 /* Paleta + fontes globais */
@@ -18,7 +18,7 @@
   --gold-strong: #f1d27a;   /* ativo/hover */
   --muted: rgba(215,178,90,.75);
 
-  /* Fontes (fácil de trocar no futuro) */
+  /* Fontes */
   --font-body: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-title: 'Cormorant Garamond', serif;
 
@@ -27,14 +27,12 @@
   --font-weight-title: 600;
 }
 
-/* --------------------------------
-   Estrutura + tipografia base
---------------------------------- */
-
+/* Estrutura base */
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden; /* homepage sem scroll */
 }
 
 body {
@@ -53,47 +51,7 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
-/* Estrutura base */
-.app-root { display: flex; flex-direction: column; height: 100%; }
-.map-pad  { flex: 1; }
-
-.map-root .leaflet-container {
-  height: 100vh;
-  width: 100vw;
-}
-
-/* Header */
-.header {
-  display: flex;
-  gap: .75rem;
-  align-items: center;
-  padding: .5rem .75rem;
-  border-bottom: 1px solid var(--border);
-
-  input {
-    flex: 1;
-    padding: .4rem .6rem;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-panel);
-    color: var(--gold);
-    font-family: var(--font-body), serif;
-  }
-}
-.district-label span {
-  display: inline-block;
-  font-family: var(--font-title), serif;
-  color: var(--gold);
-  font-size: clamp(14px, 1.4vw, 18px);
-  font-weight: 600;
-  line-height: 1;
-  text-align: center;
-  text-shadow: 0 1px 3px rgba(0,0,0,.6);
-  white-space: nowrap;
-  user-select: none;
-  pointer-events: none;
-}
-
+/* Botão base */
 .btn {
   padding: .35rem .6rem;
   border: 1px solid var(--border);
@@ -110,7 +68,13 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Etiquetas */
+/* Leaflet canvas full-viewport padrão */
+.map-root .leaflet-container {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Etiquetas genéricas */
 .country-label span {
   font: 600 12px/1.2 var(--font-body);
   color: var(--gold);
@@ -118,40 +82,42 @@ h1, h2, h3, h4, h5, h6 {
   user-select: none;
   pointer-events: none;
 }
-
-/* --------------------------------
-   Overlay (vídeo/logo)
---------------------------------- */
-
-.loading-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  background: #0e3b2e;
-  display: grid;
-  place-items: center;
+.district-label span {
+  display: inline-block;
+  font-family: var(--font-title), serif;
+  color: var(--gold);
+  font-size: clamp(14px, 1.4vw, 18px);
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
 }
 
-.loading-frame {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
+/* Botão Limpar (fora do input) — mesmo “visual” do DistrictModal */
+.btn-clear {
+  margin-left: 10px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold-dark);
+  font-family: var(--font-title), serif;
+  font-weight: var(--font-weight-title);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all .18s ease;
+  display: inline-flex; align-items: center; gap: 8px; line-height: 1;
+
+  &:hover { background: var(--bg-panel-2); border-color: var(--gold); color: var(--gold-strong); }
+  &:active { transform: translateY(1px); }
+  &:focus { outline: none; box-shadow: 0 0 0 3px rgba(215,178,90,.15); }
 }
 
-:root {
-  --logo-shift-x: 0%;
-  --logo-shift-y: 0%;
-}
-
-.loading-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
-  background: #0e3b2e;
-}
+/* Tooltip de distrito */
 .leaflet-tooltip.district-badge {
   --badge-bg: var(--bg-panel-2);
   --badge-border: var(--gold-dark);
@@ -171,22 +137,57 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
   animation: district-badge-pop .18s ease-out both;
 }
-
 .leaflet-tooltip-top.district-badge:before {
   border-top-color: var(--bg-panel-2) !important;
   border-width: 7px !important;
 }
 
-/* transições suaves nos polígonos */
+/* Transições suaves em geometrias */
 .leaflet-interactive {
   transition: fill-opacity .22s ease, stroke .22s ease, stroke-width .22s ease, fill .22s ease;
 }
 
+/* Scrollbar dourada (global util) */
+.gold-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold) transparent;
+}
+.gold-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.gold-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.gold-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--gold);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
 
-/* --------------------------------
-   Acessibilidade e performance
---------------------------------- */
+/* Overlay de loading global (ex.: ecrã de arranque) */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #0e3b2e;
+  display: grid;
+  place-items: center;
+}
+.loading-frame { position: relative; width: 100vw; height: 100vh; }
+:root { --logo-shift-x: 0%; --logo-shift-y: 0%; }
+.loading-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
+  background: #0e3b2e;
+}
 
+/* Acessibilidade / motion */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
@@ -195,5 +196,3 @@ h1, h2, h3, h4, h5, h6 {
     scroll-behavior: auto !important;
   }
 }
-
-/* Não definir .modal-close aqui (está no PoiFilter/DistrictModal) */
