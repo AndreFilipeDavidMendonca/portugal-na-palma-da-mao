@@ -955,6 +955,11 @@ export async function fetchPoiInfo(opts: {
     let merged: Partial<PoiInfo> = { images: [] };
 
     dgrp("fetchPoiInfo()");
+    console.log("🔎 START fetchPoiInfo", {
+        approxName: opts.approx?.name,
+        coords: opts.approx,
+        typeHint: typeHintFromName(opts.approx?.name)
+    });
     dlog("opts:", opts);
 
     // Resolver por nome/coords
@@ -1021,6 +1026,7 @@ export async function fetchPoiInfo(opts: {
     if (wdId) {
         try {
             const wd = await fetchFromWikidata(wdId);
+            console.log("📘 Wikidata result:", wd);
             wdEntity = wd.entity ?? null;
             dgrp("Wikidata result");
             dlog(wd);
@@ -1038,46 +1044,61 @@ export async function fetchPoiInfo(opts: {
             }
         } catch (e) { dlog("Wikidata error:", e); }
     }
-
+    if (!wpResolved && approxName) {
+        try {
+            const test = await fetchFromWikipediaStrict(
+                "pt",
+                approxName,
+                approxCoords,
+                typeHint === "viewpoint" ? 5 : 60
+            );
+            if (Object.keys(test).length) {
+                wpResolved = { lang: "pt", title: approxName };
+                dlog("Wikipedia exact-name fallback OK", wpResolved);
+            }
+        } catch {}
+    }
     // 2) Wikipedia (strict geográfico)
     let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || wpResolved || null;
     if (wpTag) {
         try {
-            const strictKm = typeHint === "viewpoint" ? 3 : 60;
+            const strictKm = typeHint === "viewpoint" ? 1.5 : 60;
             const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, strictKm);
-            if (Object.keys(wp).length) {
-                const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
-                merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
-                pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: wp.coords ?? null });
 
-                const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
-                merged = mergePoiPieces(merged, {
-                    historyText: sections.history ?? undefined,
-                    architectureText: sections.architecture ?? undefined,
-                });
+            if (Object.keys(wp).length) {
+                // 🔒 NOVO: travão a “falsos positivos” (ex: Sandro Rocha)
+                const targetName = approxName ?? merged.label ?? null;
+                const candTitle = wp.label ?? wpTag.title;
+                const ov = tokenOverlap(targetName, candTitle); // já tens esta função
+
+                const titleLooksPerson =
+                    /\b[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+ [A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+\b/.test(candTitle || "") &&
+                    !/\b(igreja|mosteiro|convento|catedral|sé|castelo|forte|ponte|pal[aá]cio|torre|praça|parque|museu|miradouro|viewpoint|ruínas?)\b/i
+                        .test(candTitle || "");
+
+                const wpHasCoords = !!(wp as any).coords;
+
+                // Regras:
+                // - Se não tem coords E overlap < 0.6 → descartar
+                // - Ou se o título parece ser pessoa → descartar
+                if ((!wpHasCoords && ov < 0.6) || titleLooksPerson) {
+                    dlog("Wikipedia strict descartada (low-ov ou bio-like)", { candTitle, ov, wpHasCoords, titleLooksPerson });
+                } else {
+                    const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
+                    merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
+                    pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: (wp as any).coords ?? null });
+
+                    const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
+                    merged = mergePoiPieces(merged, {
+                        historyText: sections.history ?? undefined,
+                        architectureText: sections.architecture ?? undefined,
+                    });
+                }
             } else {
                 dlog("Wikipedia strict descartado por distância");
             }
         } catch (e) {
-            dlog("Wikipedia primary failed:", e);
-            if (wpTag.lang !== "en") {
-                try {
-                    const wp = await fetchFromWikipediaStrict("en", wpTag.title, approxCoords, 60);
-                    if (Object.keys(wp).length) {
-                        const mediaImgsEn = await fetchImagesFromWikipediaMediaList("en", wpTag.title);
-                        merged = mergePoiPieces(merged, { ...wp, images: mediaImgsEn });
-                        pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: wp.coords ?? null });
-
-                        const sectionsEn = await fetchWikipediaSections("en", wpTag.title);
-                        merged = mergePoiPieces(merged, {
-                            historyText: sectionsEn.history ?? undefined,
-                            architectureText: sectionsEn.architecture ?? undefined,
-                        });
-                    } else {
-                        dlog("Wikipedia EN strict descartado por distância");
-                    }
-                } catch (e2) { dlog("Wikipedia EN fallback error:", e2); }
-            }
+            // ...
         }
     }
 
@@ -1086,6 +1107,7 @@ export async function fetchPoiInfo(opts: {
         const cat = commonsCategoryFromWikidata(wdEntity);
         if (cat) {
             const commonsImgs = await fetchImagesFromCommonsCategory(cat);
+            console.log("🖼️ Commons images:", commonsImgs.slice(0, 5));
             if (commonsImgs.length) {
                 merged = mergePoiPieces(merged, { images: commonsImgs });
                 dlog("Merged Commons from WD category", { count: commonsImgs.length });
@@ -1113,6 +1135,7 @@ export async function fetchPoiInfo(opts: {
             coords: merged.coords ?? approxCoords ?? null,
             name: approxName ?? merged.label ?? null,
         });
+        console.log("🗺️ OSM Deep result:", osmExtra);
         merged = mergePoiPieces(merged, osmExtra);
         pushDesc(osmExtra.description, "osm", { title: approxName ?? merged.label ?? null });
     } catch (e) { dlog("Overpass error:", e); }
@@ -1123,7 +1146,7 @@ export async function fetchPoiInfo(opts: {
         const baseCoords = merged.coords ?? approxCoords ?? null;
         if (OTM_KEY && baseName && baseCoords) {
             const otm = await fetchFromOpenTripMap(baseName, baseCoords.lat, baseCoords.lon);
-
+            console.log("🧭 OpenTripMap result:", otm);
             // sempre podemos aproveitar ratings/imagens
             const { ratings, images } = otm;
             if ((ratings && ratings.length) || (images && images.length)) {
@@ -1172,7 +1195,7 @@ export async function fetchPoiInfo(opts: {
                 coords.lon,
                 approxName ?? merged.label ?? null
             );
-            console.log("fallback miradouros", wvoy);
+            console.log("🌍 Wikivoyage fallback:", wvoy);
             if (Object.keys(wvoy).length) {
                 merged = mergePoiPieces(merged, wvoy);
                 pushDesc(wvoy.description, "wikivoyage", { title: wvoy.label ?? null, coords });
@@ -1231,6 +1254,11 @@ export async function fetchPoiInfo(opts: {
         const targetName = approxName ?? merged.label ?? null;
 
         // garantir que a atual entra no leilão
+        console.log("🧩 Description candidates:", descCands.map(d => ({
+            src: d.src,
+            title: d.title,
+            textSample: d.text.slice(0, 100)
+        })));
         if (merged.description && !descCands.some(d => d.text === merged.description)) {
             const inferredSrc: DescSrc = merged.wikipediaUrl ? "wikipedia" : merged.wikidataId ? "wikidata" : "osm";
             descCands.push({
@@ -1355,5 +1383,12 @@ export async function fetchPoiInfo(opts: {
     dgrpEnd();
 
     if (!hasAny) return merged.wikidataId ? (merged as PoiInfo) : null;
+    console.log("✅ FINAL MERGED POI:", {
+        label: merged.label,
+        descLen: merged.description?.length,
+        image: merged.image,
+        imgs: merged.images?.length,
+        sources: descCands.map(d => d.src)
+    });
     return merged as PoiInfo;
 }
