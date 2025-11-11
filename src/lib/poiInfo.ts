@@ -64,9 +64,8 @@ export type PoiInfo = {
     architectureStyles?: string[];
     materials?: string[];
 
-    // NOVO
-    builders?: string[];        // fundador/criador/empreiteiro/mecenas + arquitetos
-    builtPeriod?: BuiltPeriod;  // janelas temporais mais ricas
+    builders?: string[];
+    builtPeriod?: BuiltPeriod;
 };
 
 /* ===========================
@@ -145,13 +144,12 @@ async function safeJson(url: string) {
 }
 function htmlToText(html: string): string {
     const doc = new DOMParser().parseFromString(html, "text/html");
-    // junta parágrafos visíveis
     const ps = Array.from(doc.querySelectorAll("p"));
     return ps.map(p => p.textContent?.trim() || "").filter(Boolean).join("\n\n");
 }
 function normalizeDateISO(iso?: string | null): string | null {
     if (!iso) return null;
-    return iso.replace(/^\+/, "").slice(0, 10); // +1160-00-00 → 1160-00-00 → 1160-00-00
+    return iso.replace(/^\+/, "").slice(0, 10);
 }
 
 /* Heurística de tipo pelo nome (ajuda no ranking de pesquisas) */
@@ -222,6 +220,44 @@ function normalizeImageUrls(imgs?: string[] | null): string[] | undefined {
 }
 
 /* ===========================
+   Nome/tipo matching helpers (novos)
+   =========================== */
+const normalize = (s?: string | null) =>
+    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+
+function tokenOverlap(a?: string | null, b?: string | null) {
+    const A = new Set(normalize(a).split(" ").filter(Boolean));
+    const B = new Set(normalize(b).split(" ").filter(Boolean));
+    if (!A.size || !B.size) return 0;
+    let hit = 0; A.forEach(t => { if (B.has(t)) hit++; });
+    return hit / Math.min(A.size, B.size);
+}
+
+function typePenalty(targetName?: string | null, candTitleOrText?: string | null) {
+    const t = normalize(targetName);
+    const c = normalize(candTitleOrText);
+    const isPal = /\bpalac|pal[aá]cio\b/.test(t);
+    const isIgr = /\bigrej|sé|catedral|mosteir|convent|capela\b/.test(t);
+    const candIgr = /\bigrej|sé|catedral|mosteir|convent|capela\b/.test(c);
+    const candPal = /\bpalac|pal[aá]cio\b/.test(c);
+    let pen = 0;
+    if (isPal && candIgr) pen -= 0.6;
+    if (isIgr && candPal) pen -= 0.6;
+    return pen;
+}
+
+function startsWithDifferentPOI(targetName?: string | null, text?: string | null) {
+    const t = normalize(text).slice(0, 80);
+    const pal = /\bpalac|pal[aá]cio\b/.test(normalize(targetName));
+    const startsIgreja = /^a\s+(igreja|sé|catedral)\b/.test(t);
+    const startsPalacio = /^o\s+pal[aá]cio\b/.test(t);
+    if (pal && startsIgreja) return true;
+    if (!pal && startsPalacio) return true;
+    return false;
+}
+
+/* ===========================
    Merge helpers
    =========================== */
 function mergeContacts(a?: Contacts | null, b?: Contacts | null): Contacts | undefined {
@@ -283,7 +319,6 @@ function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiIn
     const mats = uniq([...(a.materials ?? []), ...(b.materials ?? [])]);
     if (mats.length) out.materials = mats;
 
-    // NOVO: builders e builtPeriod
     const builders = uniq([...(a.builders ?? []), ...(b.builders ?? [])]);
     if (builders.length) out.builders = builders;
 
@@ -324,6 +359,7 @@ async function fetchFromWikipediaStrict(
         image,
         wikipediaUrl: jd?.content_urls?.desktop?.page ?? null,
     };
+    dlog("Wikipedia summary OK", { lang, title, descLen: out.description?.length || 0, hasImg: !!out.image });
     if (wpCoords) out.coords = out.coords ?? wpCoords;
     return out;
 }
@@ -335,8 +371,9 @@ async function fetchImagesFromWikipediaMediaList(lang: string, title: string): P
         for (const item of jd?.items ?? []) {
             if (item?.type === "image" && item?.title) xs.push(COMMONS_FILE(item.title.replace(/^File:/i, "")));
         }
+        dlog("Wikipedia media-list OK", { lang, title, count: xs.length });
         return xs;
-    } catch { return []; }
+    } catch { dlog("Wikipedia media-list FAIL", { lang, title }); return []; }
 }
 
 /* Wikipedia: secções História/Arquitetura (PT→EN fallback) */
@@ -351,29 +388,21 @@ async function fetchWikipediaSections(
             if (!html) return { history: null, architecture: null };
 
             const doc = new DOMParser().parseFromString(html, "text/html");
-            // recolher heading -> content
             const sections: Record<string, string> = {};
             let current = "";
             const nodes = Array.from(doc.body.childNodes);
-            const push = (k: string, v: string) => {
-                sections[k] = (sections[k] || "") + v;
-            };
+            const push = (k: string, v: string) => { sections[k] = (sections[k] || "") + v; };
 
             for (const n of nodes) {
                 if (n.nodeType === 1) {
                     const el = n as HTMLElement;
-                    if (/^H[2-4]$/.test(el.tagName)) {
-                        current = (el.textContent || "").trim().toLowerCase();
-                        continue;
-                    }
-                    if (current && (el.tagName === "P" || el.tagName === "UL" || el.tagName === "OL")) {
-                        push(current, el.outerHTML);
-                    }
+                    if (/^H[2-4]$/.test(el.tagName)) { current = (el.textContent || "").trim().toLowerCase(); continue; }
+                    if (current && (el.tagName === "P" || el.tagName === "UL" || el.tagName === "OL")) push(current, el.outerHTML);
                 }
             }
 
-            const getFirstParas = (keyList: string[]) => {
-                for (const k of keyList) {
+            const getFirstParas = (keys: string[]) => {
+                for (const k of keys) {
                     const hit = Object.entries(sections).find(([hdr]) => hdr.includes(k));
                     if (hit) {
                         const text = htmlToText(hit[1]).trim();
@@ -385,8 +414,9 @@ async function fetchWikipediaSections(
 
             const history = getFirstParas(["história", "history"]);
             const architecture = getFirstParas(["arquitetura", "architecture"]);
+            dlog("Wikipedia sections OK", { lang: lng, title, hasHistory: !!history, hasArch: !!architecture });
             return { history, architecture };
-        } catch { return { history: null, architecture: null }; }
+        } catch { dlog("Wikipedia sections FAIL", { lang: lng, title }); return { history: null, architecture: null }; }
     };
 
     const pt = await tryLang(lang);
@@ -404,8 +434,10 @@ async function searchWikipediaTitleByName(name: string) {
             if (!hit?.title) return null;
             return { lang, title: hit.title as string };
         };
-        return (await tryLang("pt")) || (await tryLang("en"));
-    } catch { return null; }
+        const res = (await tryLang("pt")) || (await tryLang("en"));
+        if (res) dlog("Wikipedia title by name OK", { name, ...res });
+        return res;
+    } catch { dlog("Wikipedia title by name FAIL", { name }); return null; }
 }
 async function geosearchWikipediaTitleSmart(
     lat: number,
@@ -413,19 +445,15 @@ async function geosearchWikipediaTitleSmart(
     approxName?: string | null,
     hint?: ReturnType<typeof typeHintFromName>
 ) {
-    const radius = hint === "viewpoint" ? 400 : 800; // miradouros: mais estrito
+    const radius = hint === "viewpoint" ? 400 : 800;
     const tryLang = async (lang: string) => {
         try {
             const jd = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, radius));
             const items: any[] = jd?.query?.geosearch ?? [];
             if (!items.length) return null;
 
-            // helpers p/ scoring
-            const norm = (s: string) =>
-                s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                    .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ")
-                    .trim().toLowerCase();
-
+            const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
             const toks = (s: string) => norm(s).split(" ").filter(Boolean);
             const kwVP = /(^|[\s-])(miradouro|viewpoint|mirador)([\s-]|$)/i;
             const badType = /(igreja|sé|catedral|mosteiro|convento|museu|pante[aã]o|pal[aá]cio)/i;
@@ -435,47 +463,35 @@ async function geosearchWikipediaTitleSmart(
             const score = (title: string, dist: number) => {
                 let s = 0;
                 const tNorm = norm(title);
-
-                // 1) bónus por palavras-chave certas
                 if (hint === "viewpoint" && kwVP.test(title)) s += 6;
-
-                // 2) overlap de tokens com o nome da tooltip
                 if (nameTokens.size) {
                     const tks = new Set(toks(title));
                     let overlap = 0;
                     nameTokens.forEach(tt => { if (tks.has(tt)) overlap++; });
-                    s += Math.min(5, overlap); // até +5
-                    if (tNorm === norm(approxName!)) s += 4; // match quase perfeito
-                    if (tNorm.includes(norm(approxName!))) s += 2; // contém
+                    s += Math.min(5, overlap);
+                    if (approxName && tNorm === norm(approxName)) s += 4;
+                    if (approxName && tNorm.includes(norm(approxName))) s += 2;
                 }
-
-                // 3) penalizações por tipo provável “errado” para viewpoint
                 if (hint === "viewpoint" && badType.test(title)) s -= 4;
-
-                // 4) distância (quanto mais perto melhor)
                 if (Number.isFinite(dist)) {
-                    // 0 m → +4, 400 m → +0 (clamped)
                     const closeness = Math.max(0, 1 - dist / 400);
                     s += Math.round(closeness * 4);
                 }
                 return s;
             };
 
-            // escolher melhor por score
             let best: { title: string; score: number } | null = null;
             for (const it of items) {
                 const sc = score(it?.title || "", it?.dist ?? 99999);
                 if (!best || sc > best.score) best = { title: it.title, score: sc };
             }
-
-            // limiar mínimo para evitar “pegar o que houver”
             if (!best || best.score < (hint === "viewpoint" ? 6 : 3)) return null;
             return { lang, title: best.title as string };
-        } catch {
-            return null;
-        }
+        } catch { return null; }
     };
-    return (await tryLang("pt")) || (await tryLang("en"));
+    const res = (await tryLang("pt")) || (await tryLang("en"));
+    if (res) dlog("Wikipedia geosearch OK", { approxName, ...res });
+    return res;
 }
 
 /* ===========================
@@ -491,6 +507,7 @@ async function fetchFromWikivoyage(lat: number, lon: number): Promise<Partial<Po
         if (!hit?.title) return {};
         const title = hit.title as string;
         const sum = await safeJson(`https://pt.wikivoyage.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+        dlog("Wikivoyage summary OK", { title, descLen: sum?.extract?.length || 0 });
         return {
             label: title,
             description: sum?.extract ?? null,
@@ -498,6 +515,7 @@ async function fetchFromWikivoyage(lat: number, lon: number): Promise<Partial<Po
             wikipediaUrl: sum?.content_urls?.desktop?.page ?? null,
         };
     } catch {
+        dlog("Wikivoyage FAIL", { lat, lon });
         return {};
     }
 }
@@ -509,19 +527,23 @@ async function fetchImagesFromCommonsCategory(category: string): Promise<string[
     try {
         const jd = await safeJson(commonsCategoryMembers(category, 60));
         const files = jd?.query?.categorymembers ?? [];
-        return files.map((f: any) => f?.title?.replace(/^File:/i, "")).filter(Boolean).map((fn: string) => COMMONS_FILE(fn));
-    } catch { return []; }
+        const out = files.map((f: any) => f?.title?.replace(/^File:/i, "")).filter(Boolean).map((fn: string) => COMMONS_FILE(fn));
+        dlog("Commons by category OK", { category, count: out.length });
+        return out;
+    } catch { dlog("Commons by category FAIL", { category }); return []; }
 }
 async function geosearchCommonsImages(lat: number, lon: number): Promise<string[]> {
     try {
         const jd = await safeJson(COMMONS_GEOSEARCH(lat, lon));
         const items = jd?.query?.geosearch ?? [];
-        return items
+        const out = items
             .map((it: any) => it?.title as string)
             .filter(Boolean)
             .map((t: any) => t.replace(/^File:/i, ""))
             .map((fn: any) => COMMONS_FILE(fn));
-    } catch { return []; }
+        dlog("Commons geosearch OK", { lat, lon, count: out.length });
+        return out;
+    } catch { dlog("Commons geosearch FAIL", { lat, lon }); return []; }
 }
 
 /* ===========================
@@ -559,22 +581,20 @@ async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
     const coords = coord ? { lat: coord.latitude, lon: coord.longitude } : null;
     const website = claimString(entity, "P856");
 
-    const p31   = claimEntityIds(entity, "P31");   // instance of
-    const p131  = claimEntityIds(entity, "P131");  // located in
-    const p1435 = claimEntityIds(entity, "P1435"); // heritage
+    const p31   = claimEntityIds(entity, "P31");
+    const p131  = claimEntityIds(entity, "P131");
+    const p1435 = claimEntityIds(entity, "P1435");
 
-    // Arquitetura / autores / construtores
-    const p84   = claimEntityIds(entity, "P84");   // architect
-    const p112  = claimEntityIds(entity, "P112");  // founder
-    const p170  = claimEntityIds(entity, "P170");  // creator
-    const p193  = claimEntityIds(entity, "P193");  // main building contractor
-    const p859  = claimEntityIds(entity, "P859");  // sponsor/patron
+    const p84   = claimEntityIds(entity, "P84");
+    const p112  = claimEntityIds(entity, "P112");
+    const p170  = claimEntityIds(entity, "P170");
+    const p193  = claimEntityIds(entity, "P193");
+    const p859  = claimEntityIds(entity, "P859");
 
-    // Datas
-    const inceptionRaw = pick<string>(entity, ["claims","P571",0,"mainsnak","datavalue","value","time"]); // inception
-    const openedRaw    = pick<string>(entity, ["claims","P1619",0,"mainsnak","datavalue","value","time"]); // official opening
-    const earliestRaw  = pick<string>(entity, ["claims","P1319",0,"mainsnak","datavalue","value","time"]); // earliest date
-    const latestRaw    = pick<string>(entity, ["claims","P1326",0,"mainsnak","datavalue","value","time"]); // latest date
+    const inceptionRaw = pick<string>(entity, ["claims","P571",0,"mainsnak","datavalue","value","time"]);
+    const openedRaw    = pick<string>(entity, ["claims","P1619",0,"mainsnak","datavalue","value","time"]);
+    const earliestRaw  = pick<string>(entity, ["claims","P1319",0,"mainsnak","datavalue","value","time"]);
+    const latestRaw    = pick<string>(entity, ["claims","P1326",0,"mainsnak","datavalue","value","time"]);
 
     const labels = await fetchLabels([...p31, ...p131, ...p1435, ...p84, ...p112, ...p170, ...p193, ...p859]);
 
@@ -592,7 +612,7 @@ async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
         opened: normalizeDateISO(openedRaw || null),
     };
 
-    return {
+    const extra: Partial<PoiInfo> = {
         coords,
         website,
         instanceOf: p31.map(q => labels[q] || q),
@@ -603,9 +623,13 @@ async function fetchExtraFromWikidata(entity: any): Promise<Partial<PoiInfo>> {
         materials:  claimEntityIds(entity, "P186").map(q => labels[q] || q),
         builders:   uniq([...architects, ...buildersExtra]),
         builtPeriod,
-        // manter também inception old-style para compat (string yyyy-mm-dd)
         inception: normalizeDateISO(inceptionRaw || null),
     };
+    dlog("Wikidata extra OK", {
+        hasCoords: !!coords, website: !!website,
+        p31: extra.instanceOf?.slice(0,5), architects: architects.slice(0,3)
+    });
+    return extra;
 }
 
 export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & Partial<PoiInfo>> {
@@ -624,13 +648,15 @@ export async function fetchFromWikidata(id: string): Promise<{ entity?: any } & 
 
     const extra = await fetchExtraFromWikidata(entity);
 
-    return {
+    const out = {
         entity,
         wikidataId: id,
         label, description,
         image: imageName ? COMMONS_FILE(imageName) : null,
         ...extra,
     };
+    dlog("Wikidata entity OK", { id, label, descLen: description?.length || 0, hasImg: !!imageName });
+    return out;
 }
 
 /* Wikidata: resolver QID por nome */
@@ -646,8 +672,10 @@ async function searchWikidataIdByName(name: string) {
             const sb = scoreByNameAndType(b?.label || "", b?.description, name, hint);
             return sb - sa;
         });
-        return all[0]?.id ?? null;
-    } catch { return null; }
+        const id = all[0]?.id ?? null;
+        if (id) dlog("Wikidata by name OK", { name, id, topLabel: all[0]?.label });
+        return id;
+    } catch { dlog("Wikidata by name FAIL", { name }); return null; }
 }
 
 /* ===========================
@@ -703,16 +731,12 @@ out tags center;`;
         };
         const openingHours: OpeningHours | null = tags["opening_hours"] ? { raw: tags["opening_hours"] } : null;
 
-        // NOVO: descrição direta do OSM (se existir)
         const description: string | undefined = tags["description"] || undefined;
 
-        // NOVO: builtPeriod a partir de start_date
         let builtPeriod: PoiInfo["builtPeriod"] | undefined;
         const sd = tags["start_date"] || null;
         if (sd) {
             const s = String(sd).trim();
-
-            // intervalo YYYY-YYYY (tolerando YYYY-MM(-DD))
             const mRange = s.match(/^(\d{3,4})(?:-\d{2})?-(\d{3,4})(?:-\d{2})?(?:-\d{2})?$/);
             if (mRange) {
                 builtPeriod = { start: mRange[1], end: mRange[2] };
@@ -732,21 +756,28 @@ out tags center;`;
             }
         }
 
+        dlog("OSM Deep OK", {
+            hasContacts: !!(contacts.phone || contacts.email || contacts.website),
+            hasOH: !!openingHours, descLen: description?.length || 0, builtPeriod
+        });
+
         return {
             contacts: (contacts.phone || contacts.email || contacts.website) ? contacts : undefined,
             openingHours: openingHours ?? undefined,
             website: contacts.website ?? undefined,
-            description,   // ← agora devolvemos a descrição do OSM
-            builtPeriod,   // ← e a janela temporal derivada do start_date
+            description,
+            builtPeriod,
         };
     } catch {
+        dlog("OSM Deep FAIL", opts);
         return {};
     }
 }
+
 /* ===========================
    OpenTripMap
    =========================== */
-export async function fetchFromOpenTripMap(name: string, lat: number, lon: number): Promise<Partial<PoiInfo>> {
+export async function fetchFromOpenTripMap(name: string, lat: number, lon: number): Promise<Partial<PoiInfo> & { label?: string | null }> {
     if (!OTM_KEY) return {};
     try {
         const search = await safeJson(OTM_PLACE_BY_NAME(lat, lon, name));
@@ -763,12 +794,21 @@ export async function fetchFromOpenTripMap(name: string, lat: number, lon: numbe
                 ? [{ source: "opentripmap", value: Math.min(5, Math.max(0, ratingVal)), votes: det?.wikidata ? null : null }]
                 : [];
 
+        const desc = det?.wikipedia_extracts?.text || undefined;
+        const label = det?.name || place?.properties?.name || name;
+
+        dlog("OpenTripMap OK", {
+            xid, label, descLen: desc?.length || 0, imgCount: images.length, rating: ratingVal
+        });
+
         return {
             ratings,
             images,
-            description: det?.wikipedia_extracts?.text || undefined,
+            description: desc,
+            label,
         };
-    } catch {
+    } catch (e) {
+        dlog("OpenTripMap FAIL", { name, lat, lon, err: String(e) });
         return {};
     }
 }
@@ -781,6 +821,28 @@ export async function fetchFromPortugueseHeritage(_opts: { sipaId?: string | nul
 }
 
 /* ===========================
+   Helpers diversos
+   =========================== */
+function featurePrimaryName(f?: any | null): string | null {
+    if (!f) return null;
+    const p = f?.properties ?? {};
+    const tags = p.tags ?? {};
+    return (
+        p["name:pt"] ||
+        p.name ||
+        p["name:en"] ||
+        tags["name:pt"] ||
+        tags.name ||
+        tags["name:en"] ||
+        null
+    );
+}
+const normStr = (s?: string | null) =>
+    (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, "").replace(/\s+/g, " ")
+        .trim().toLowerCase();
+
+/* ===========================
    Orquestrador
    =========================== */
 export async function fetchPoiInfo(opts: {
@@ -788,13 +850,15 @@ export async function fetchPoiInfo(opts: {
     wikipedia?: string | null;
     osmId?: string | null;
     approx?: { name?: string | null; lat?: number | null; lon?: number | null } | null;
+    /** opcional: feature OSM de origem para merge/override de título */
+    sourceFeature?: any | null;
 }): Promise<PoiInfo | null> {
     let merged: Partial<PoiInfo> = { images: [] };
 
     dgrp("fetchPoiInfo()");
     dlog("opts:", opts);
 
-    // Resolver por nome/coords (antes de tudo)
+    // Resolver por nome/coords
     let wdId = opts.wikidata ?? null;
     let wpResolved: { lang: string; title: string } | null = null;
 
@@ -802,12 +866,27 @@ export async function fetchPoiInfo(opts: {
     const approxLat = opts.approx?.lat ?? null;
     const approxLon = opts.approx?.lon ?? null;
     const approxCoords = (approxLat != null && approxLon != null)
-        ? { lat: approxLat!, lon: approxLon! }
+        ? { lat: approxLat, lon: approxLon }
         : null;
 
     const typeHint = typeHintFromName(approxName);
 
-    // --- Wikidata por nome: evitar para miradouros (muitos falsos positivos) ---
+    // Agregador de descrições (com meta)
+    type DescSrc = "wikidata" | "wikipedia" | "opentripmap" | "osm" | "wikivoyage";
+    type DescCand = {
+        text: string;
+        src: DescSrc;
+        title?: string | null;
+        coords?: { lat: number; lon: number } | null;
+    };
+    const descCands: DescCand[] = [];
+    const pushDesc = (text?: string | null, src?: DescSrc, meta?: { title?: string | null; coords?: {lat:number;lon:number} | null }) => {
+        const t = (text || "").trim();
+        if (!t || !src) return;
+        if (!descCands.some(d => d.text === t)) descCands.push({ text: t, src, title: meta?.title ?? null, coords: meta?.coords ?? null });
+    };
+
+    // Wikidata por nome (evitar para miradouros)
     if (!wdId && approxName) {
         if (typeHint !== "viewpoint") {
             wdId = await searchWikidataIdByName(approxName);
@@ -817,10 +896,12 @@ export async function fetchPoiInfo(opts: {
         }
     }
 
-    // --- Wikipedia title: para miradouros, preferir geosearch; senão, nome→geo ---
+    // Wikipedia title: geosearch preferida p/ miradouros
     if (!opts.wikipedia && approxName) {
         if (approxCoords) {
-            wpResolved = await geosearchWikipediaTitleSmart(approxCoords.lat, approxCoords.lon, approxName, typeHint);
+            wpResolved = await geosearchWikipediaTitleSmart(
+                approxCoords.lat, approxCoords.lon, approxName, typeHint
+            );
         }
         if (!wpResolved && typeHint !== "viewpoint") {
             wpResolved = await searchWikipediaTitleByName(approxName);
@@ -839,10 +920,10 @@ export async function fetchPoiInfo(opts: {
             dgrpEnd();
             delete (wd as any).entity;
             merged = mergePoiPieces(merged, wd);
+            pushDesc(wd.description, "wikidata", { title: wd.label ?? null });
 
-            // Filtro de distância para WD (se WD tiver coords e forem longe)
             if (approxCoords && merged.coords && isFar(approxCoords, merged.coords, 60)) {
-                dlog("Wikidata descartado por distância → limpar campos sensíveis");
+                dlog("Wikidata descartado por distância → limpar coords/rel.");
                 merged.coords = undefined;
                 merged.instanceOf = undefined;
                 merged.locatedIn = undefined;
@@ -851,17 +932,17 @@ export async function fetchPoiInfo(opts: {
         } catch (e) { dlog("Wikidata error:", e); }
     }
 
-    // 2) Wikipedia (summary + media) — strict geográfico
+    // 2) Wikipedia (strict geográfico)
     let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || wpResolved || null;
     if (wpTag) {
         try {
-            const strictKm = typeHint === "viewpoint" ? 0.6 : 60; // miradouros: 600 m
+            const strictKm = typeHint === "viewpoint" ? 0.6 : 60;
             const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, approxCoords, strictKm);
             if (Object.keys(wp).length) {
                 const mediaImgs = await fetchImagesFromWikipediaMediaList(wpTag.lang, wpTag.title);
                 merged = mergePoiPieces(merged, { ...wp, images: mediaImgs });
+                pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: wp.coords ?? null });
 
-                // 2.1) Secções História/Arquitetura
                 const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
                 merged = mergePoiPieces(merged, {
                     historyText: sections.history ?? undefined,
@@ -878,6 +959,7 @@ export async function fetchPoiInfo(opts: {
                     if (Object.keys(wp).length) {
                         const mediaImgsEn = await fetchImagesFromWikipediaMediaList("en", wpTag.title);
                         merged = mergePoiPieces(merged, { ...wp, images: mediaImgsEn });
+                        pushDesc(wp.description, "wikipedia", { title: wp.label ?? wpTag.title, coords: wp.coords ?? null });
 
                         const sectionsEn = await fetchWikipediaSections("en", wpTag.title);
                         merged = mergePoiPieces(merged, {
@@ -897,18 +979,22 @@ export async function fetchPoiInfo(opts: {
         const cat = commonsCategoryFromWikidata(wdEntity);
         if (cat) {
             const commonsImgs = await fetchImagesFromCommonsCategory(cat);
-            if (commonsImgs.length) merged = mergePoiPieces(merged, { images: commonsImgs });
+            if (commonsImgs.length) {
+                merged = mergePoiPieces(merged, { images: commonsImgs });
+                dlog("Merged Commons from WD category", { count: commonsImgs.length });
+            }
         }
     }
 
-    // 3.1) Commons geosearch (caso haja poucas imagens)
+    // 3.1) Commons geosearch (se poucas imagens)
     if ((merged.images?.length ?? 0) < 3) {
-        const baseCoords =
-            merged.coords ??
-            (approxLat != null && approxLon != null ? { lat: approxLat!, lon: approxLon! } : null);
+        const baseCoords = merged.coords ?? approxCoords ?? null;
         if (baseCoords) {
             const nearImgs = await geosearchCommonsImages(baseCoords.lat, baseCoords.lon);
-            if (nearImgs.length) merged = mergePoiPieces(merged, { images: nearImgs });
+            if (nearImgs.length) {
+                merged = mergePoiPieces(merged, { images: nearImgs });
+                dlog("Merged Commons geosearch", { count: nearImgs.length });
+            }
         }
     }
 
@@ -917,42 +1003,163 @@ export async function fetchPoiInfo(opts: {
         const osmExtra = await fetchFromOSMDeep({
             osmId: opts.osmId ?? null,
             wikidata: wdId ?? null,
-            coords:
-                merged.coords ??
-                (approxLat != null && approxLon != null ? { lat: approxLat!, lon: approxLon! } : null),
+            coords: merged.coords ?? approxCoords ?? null,
             name: approxName ?? merged.label ?? null,
         });
         merged = mergePoiPieces(merged, osmExtra);
+        pushDesc(osmExtra.description, "osm", { title: approxName ?? merged.label ?? null });
     } catch (e) { dlog("Overpass error:", e); }
 
     // 5) OpenTripMap
     try {
         const baseName = approxName ?? merged.label ?? null;
-        const baseCoords =
-            merged.coords ??
-            (approxLat != null && approxLon != null ? { lat: approxLat!, lon: approxLon! } : null);
+        const baseCoords = merged.coords ?? approxCoords ?? null;
         if (OTM_KEY && baseName && baseCoords) {
             const otm = await fetchFromOpenTripMap(baseName, baseCoords.lat, baseCoords.lon);
             merged = mergePoiPieces(merged, otm);
+            pushDesc(otm.description, "opentripmap", { title: (otm as any).label ?? baseName, coords: baseCoords });
         }
     } catch (e) { dlog("OpenTripMap error:", e); }
 
-    // 6) Fallback dedicado a MIRADOUROS (Wikivoyage por geosearch)
+    // 6) Fallback miradouros (Wikivoyage)
     if (typeHint === "viewpoint") {
-        const coords = merged.coords ?? approxCoords;
+        const coords = merged.coords ?? approxCoords ?? null;
         const descTooShort = !merged.description || merged.description.trim().length < 30;
         if (coords && descTooShort) {
             const wvoy = await fetchFromWikivoyage(coords.lat, coords.lon);
             if (Object.keys(wvoy).length) {
                 merged = mergePoiPieces(merged, wvoy);
+                pushDesc(wvoy.description, "wikivoyage", { title: wvoy.label ?? null, coords });
             }
         }
     }
 
-    // Normalização final
+    // 7) Merge direto do feature OSM (override de título + extras)
+    if (opts.sourceFeature?.properties) {
+        const p = opts.sourceFeature.properties || {};
+        const osmDesc    = p.description || p["description:pt"] || null;
+        const osmOH      = p.opening_hours || null;
+        const osmPhone   = p.phone || p["contact:phone"] || null;
+        const osmEmail   = p.email || p["contact:email"] || null;
+        const osmWebsite = p.website || p["contact:website"] || null;
+        const startDate  = p.start_date || null;
+
+        const tooltipName = featurePrimaryName(opts.sourceFeature);
+
+        pushDesc(osmDesc, "osm", { title: tooltipName || approxName || merged.label || null });
+
+        if (osmOH) merged.openingHours = mergeOpeningHours(merged.openingHours, { raw: osmOH }) ?? merged.openingHours;
+        merged.contacts = mergeContacts(merged.contacts, { phone: osmPhone ?? undefined, email: osmEmail ?? undefined, website: osmWebsite ?? undefined }) ?? merged.contacts;
+        merged.website = merged.website ?? osmWebsite ?? undefined;
+
+        if (startDate) {
+            const s = String(startDate).replace(/^\+/, "");
+            if (/^\d{4}(-\d{2})?(-\d{2})?$/.test(s)) {
+                merged.builtPeriod = merged.builtPeriod || {};
+                if (!merged.builtPeriod.start) merged.builtPeriod.start = s;
+                if (!merged.inception) merged.inception = s;
+            }
+        }
+
+        if (tooltipName) {
+            const oldLabel = merged.label ?? null;
+            if (oldLabel && normStr(tooltipName) !== normStr(oldLabel)) {
+                merged.oldNames = Array.from(new Set([...(merged.oldNames ?? []), oldLabel]));
+            }
+            merged.label = tooltipName;
+        }
+    }
+
+    // 8) Escolher a melhor descrição (com gate por aderência nome/tipo)
+    {
+        const srcWeight: Record<DescSrc, number> = {
+            wikipedia: 1000, opentripmap: 800, wikivoyage: 700, osm: 500, wikidata: 200,
+        };
+
+        const targetName = approxName ?? merged.label ?? null;
+
+        // garantir que a atual entra no leilão
+        if (merged.description && !descCands.some(d => d.text === merged.description)) {
+            const inferredSrc: DescSrc = merged.wikipediaUrl ? "wikipedia" : merged.wikidataId ? "wikidata" : "osm";
+            descCands.push({ text: merged.description, src: inferredSrc, title: merged.label ?? targetName ?? null, coords: merged.coords ?? null });
+        }
+
+        const gated = descCands.filter(c => {
+            const ov = tokenOverlap(targetName, c.title ?? targetName);
+            const pen = typePenalty(targetName, c.title || c.text);
+            const eq = normalize(targetName) && normalize(targetName) === normalize(c.title);
+            return (ov >= 0.35 || eq) && (pen > -0.59);
+        });
+
+        const base = gated.length ? gated : descCands;
+
+        const scored = base.map(c => {
+            const ov = tokenOverlap(targetName, c.title ?? targetName);
+            const eq = normalize(targetName) && normalize(targetName) === normalize(c.title);
+            const nameBoost = (eq ? 10 : 0) + Math.round(ov * 8);
+            const pen = Math.round(typePenalty(targetName, c.title || c.text) * 10);
+            const lengthBoost = Math.min(600, c.text.length);
+            const score = (srcWeight[c.src] || 0) + lengthBoost + nameBoost * 20 + pen * 20;
+            return { ...c, score, ov: +ov.toFixed(2), eq, pen };
+        }).sort((a, b) => b.score - a.score);
+
+        const before = merged.description;
+        const best = scored[0];
+
+        if (best && !startsWithDifferentPOI(targetName, best.text)) {
+            merged.description = best.text;
+            dlog("Description decision(v2)", {
+                targetName,
+                chosen: { src: best.src, len: best.text.length, title: best.title ?? null, ov: best.ov, pen: best.pen, score: best.score },
+                totalCands: descCands.length,
+                usedCands: base.length,
+                changed: before !== best.text
+            });
+        } else {
+            dlog("Description decision(v2): fallback keep existing (sanity fail ou sem candidatos)", {
+                targetName, hasDesc: !!merged.description, totalCands: descCands.length
+            });
+        }
+    }
+
+    // 9) Normalização final + validação top-3 imagens (404 guard)
     merged.images = normalizeImageUrls(merged.images) ?? [];
     if (merged.image) merged.image = normalizeCommonsUrl(merged.image);
     if (merged.images.length > 48) merged.images = merged.images.slice(0, 48);
+
+    const gallery = (() => {
+        const arr: string[] = [];
+        const push = (s?: string | null) => {
+            if (!s) return;
+            const n = normalizeCommonsUrl(s);
+            if (n && !arr.includes(n)) arr.push(n);
+        };
+        push(merged.image ?? null);
+        for (const u of merged.images ?? []) push(u);
+        return arr;
+    })();
+
+    // valida sequencialmente até 3
+    const first3: string[] = [];
+    for (const u of gallery) {
+        // eslint-disable-next-line no-await-in-loop
+        const ok = await new Promise<boolean>((resolve) => {
+            const img = new Image();
+            const t = setTimeout(() => resolve(false), 8000);
+            img.onload = () => { clearTimeout(t); resolve(true); };
+            img.onerror = () => { clearTimeout(t); resolve(false); };
+            img.src = u;
+        });
+        if (ok) first3.push(u);
+        if (first3.length >= 3) break;
+    }
+    if (first3.length > 0) {
+        merged.image = first3[0];
+        merged.images = first3.slice(1);
+    } else {
+        merged.image = undefined;
+        merged.images = [];
+    }
 
     const hasAny =
         merged.label || merged.description || merged.image ||
@@ -964,6 +1171,18 @@ export async function fetchPoiInfo(opts: {
         (merged.materials && merged.materials.length > 0) ||
         (merged.builders && merged.builders.length > 0) ||
         merged.builtPeriod;
+
+    dlog("FINAL MERGED SUMMARY", {
+        label: merged.label,
+        descLen: merged.description?.length || 0,
+        imgHero: !!merged.image,
+        imgs: merged.images?.length || 0,
+        hasContacts: !!merged.contacts,
+        hasOH: !!merged.openingHours,
+        ratingSources: merged.ratings?.map(r => r.source),
+        coords: merged.coords
+    });
+    dgrpEnd();
 
     if (!hasAny) return merged.wikidataId ? (merged as PoiInfo) : null;
     return merged as PoiInfo;

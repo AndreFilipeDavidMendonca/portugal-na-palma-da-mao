@@ -277,8 +277,7 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
                     </section>
 
                     {/* INFO */}
-                    <aside className="poi-side">
-                        {(website || info.coords || dgpcUrl || sipaUrl) && (
+                    <aside className="poi-side gold-scroll">
                             <div
                                 style={{
                                     display: "flex",
@@ -293,18 +292,34 @@ export default function PoiModal({ open, onClose, info, poi }: Props) {
                                         Site oficial
                                     </a>
                                 )}
-                                {info.coords && (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        flexWrap: "wrap",
+                                        alignItems: "center",
+                                        marginBottom: 8,
+                                    }}
+                                >
+                                    {website && (
+                                        <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
+                                            Site oficial
+                                        </a>
+                                    )}
                                     <a
                                         className="btn-directions"
-                                        href={`https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`}
+                                        href={
+                                            info?.coords
+                                                ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
+                                                : `https://www.google.com/maps/`
+                                        }
                                         target="_blank"
                                         rel="noreferrer"
                                     >
                                         Direções
                                     </a>
-                                )}
+                                </div>
                             </div>
-                        )}
 
                         <div className="meta-divider" />
 

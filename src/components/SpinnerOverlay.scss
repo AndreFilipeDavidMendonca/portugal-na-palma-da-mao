@@ -1,0 +1,45 @@
+.spinner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 42, 26, var(--overlay-opacity, 0.45));
+  backdrop-filter: blur(var(--overlay-blur, 6px)) saturate(130%) brightness(0.9);
+  -webkit-backdrop-filter: blur(var(--overlay-blur, 6px)) saturate(130%) brightness(0.9);
+}
+
+.spinner-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  display: grid;
+  gap: 10px;
+}
+
+.spinner-gold {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid rgba(215, 178, 90, 0.3);
+  border-top-color: var(--gold);
+  box-shadow:
+          0 0 16px rgba(215,178,90,0.3),
+          0 0 4px rgba(215,178,90,0.15) inset;
+  animation: spinner-rotate 0.9s linear infinite;
+  margin: 0 auto;
+}
+
+.spinner-msg {
+  font-family: var(--font-title, "Cormorant Garamond", serif), serif;
+  color: var(--gold);
+  font-weight: 700;
+  font-size: clamp(14px, 1.4vw, 18px);
+  letter-spacing: .3px;
+}
+
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-gold { animation: none; }
+}

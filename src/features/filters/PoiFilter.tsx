@@ -79,7 +79,7 @@ export default function PoiFilter({
                 })}
 
                 {/* LIMPAR logo após as categorias */}
-                <button type="button" className="poi-clear" onClick={onClear}>
+                <button type="button" className="btn-clear" onClick={onClear}>
                     Limpar
                 </button>
 
