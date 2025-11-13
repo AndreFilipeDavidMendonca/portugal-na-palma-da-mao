@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
 import "./PoiModal.scss";
@@ -46,12 +46,11 @@ function expandDayToken(tok: string): string[] {
 
 function parseOpeningHoursRaw(raw?: string | null): { str?: string; arr?: string[] } {
     if (!raw) return {};
-    // se for JSON de array (guardar vindo do compactOpeningHours)
     try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return { arr: parsed as string[] };
     } catch {
-        // não é JSON — segue
+        // não é JSON, segue
     }
     return { str: raw };
 }
@@ -85,15 +84,17 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 
             {hasChildren && (
                 <div className="dtree__panel">
-                    {/* Se todos os filhos forem strings, renderiza lista simples;
-              caso contrário, renderiza recursivamente sub-<details> */}
                     {items.every(i => typeof i === "string") ? (
                         <ul className="dtree__list">
-                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                            {items.map((it, idx) => (
+                                <DetailsTree key={idx} node={it} level={level + 1} />
+                            ))}
                         </ul>
                     ) : (
                         <div className="dtree__children">
-                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                            {items.map((it, idx) => (
+                                <DetailsTree key={idx} node={it} level={level + 1} />
+                            ))}
                         </div>
                     )}
                 </div>
@@ -109,33 +110,24 @@ function uniqueInOrder<T>(arr: T[]): T[] {
     return out;
 }
 
-/** Formata strings simples do opening_hours em PT legível.
- * Agora coloca “h” no fim das horas: 10:00h–20:00h
- */
-export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): string | null {
+/** Formata opening_hours em PT legível e com “h” nas horas */
+export function formatOpeningHours(raw?: string | null): string | null {
     if (!raw) return null;
 
-    // helper: acrescenta "h" no fim da hora capturada (ex.: "10:00" -> "10:00h")
     const withH = (t: string) => `${t}h`;
 
-    // tenta extrair intervalo de horas
     const timeMatch = raw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
     const timeText = timeMatch ? `${withH(timeMatch[1])}–${withH(timeMatch[2])}` : null;
 
-    // parte de dias (remove o pedaço de horas extraído)
     const daysPart = timeMatch ? raw.replace(timeMatch[0], "").trim() : raw.trim();
-
-    // tokenizar por espaços e vírgulas
     const tokens = daysPart.split(/[,\s]+/).filter(Boolean);
-
     const hasPH = tokens.some(t => t.toUpperCase() === "PH");
 
-    // recolhe dias, expandindo ranges
     let collected: string[] = [];
     for (const t of tokens) {
         const T = t.charAt(0).toUpperCase() + t.slice(1);
         if (/^(Mo|Tu|We|Th|Fr|Sa|Su)$/i.test(T)) {
-            collected.push(T.slice(0,2) === "Mo" ? "Mo" : T.slice(0,2));
+            collected.push(T.slice(0, 2));
         } else if (/^[A-Z][a-z]?-[A-Z][a-z]?$/i.test(T)) {
             const [a, b] = T.split("-");
             collected.push(...expandDayToken(a + "-" + b));
@@ -161,10 +153,10 @@ export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): stri
 
     if (!daysText && timeText) return timeText;
     if (daysText && timeText) return `${daysText} - ${timeText}`;
-    return daysText || raw; // fallback
+    return daysText || raw;
 }
 
-/* ----- Datas: formatação simpática ----- */
+/* ----- Datas & texto ----- */
 function trimISOToNice(iso?: string | null): string | null {
     if (!iso) return null;
     const s = iso.replace(/^\+/, "");
@@ -198,7 +190,7 @@ function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string |
     return inc ? `c. ${inc}` : null;
 }
 
-/* ----- ReadMore: expande/contrai textos longos ----- */
+/* ----- ReadMore ----- */
 function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     const [open, setOpen] = useState(false);
     if (!text) return null;
@@ -224,38 +216,40 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
 export default function PoiModal({ open, onClose, info }: Props) {
     if (!open || !info) return null;
 
-    // Galeria
-    const gallery = useMemo(() => {
+    // Galeria simples
+    const gallery: string[] = (() => {
         const a: string[] = [];
         if (info.image) a.push(info.image);
         for (const u of info.images ?? []) if (u && !a.includes(u)) a.push(u);
         return a;
-    }, [info]);
+    })();
 
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const descPretty = useMemo(() => prettifyPtInlineText(info.description), [info.description]);
-    const histPretty = useMemo(() => prettifyPtInlineText(info.historyText), [info.historyText]);
 
     useEffect(() => {
         if (paused || gallery.length <= 1) return;
-        timerRef.current = setTimeout(() => setActive((i) => (i + 1) % gallery.length), 4000);
-        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-    }, [active, paused, gallery]);
+        timerRef.current = setTimeout(() => {
+            setActive(i => (i + 1) % gallery.length);
+        }, 4000);
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [active, paused, gallery.length]);
 
-    const next = () => setActive((i) => (i + 1) % gallery.length);
-    const prev = () => setActive((i) => (i - 1 + gallery.length) % gallery.length);
+    const next = () => setActive(i => (i + 1) % gallery.length);
+    const prev = () => setActive(i => (i - 1 + gallery.length) % gallery.length);
 
     const title = info.label ?? "Ponto de interesse";
 
-    // Dados
     const hasAnyPhoto = gallery.length > 0;
     const rating = (info.ratings ?? [])[0];
     const ohParsed = parseOpeningHoursRaw(info.openingHours?.raw ?? null);
     const ohFallback = formatOpeningHours(ohParsed.str ?? null);
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
+
     const renderStars = (v: number) => {
         const full = Math.floor(v);
         const half = v - full >= 0.5;
@@ -268,14 +262,28 @@ export default function PoiModal({ open, onClose, info }: Props) {
         );
     };
 
-    // Cronologia (sub-linha do título)
     const builtLabel = formatBuiltPeriod(info.builtPeriod, info.inception);
+
+    const descPretty = prettifyPtInlineText(info.description);
+    const histPretty = prettifyPtInlineText(info.historyText);
+
+    // 👉 FICHA SIPA: extraAttributes vindos do backend
+    const sipaExtraMap: Record<string, string> | null =
+        (info as any).sipaExtraAttributes ??
+        (info as any).sipa?.extraAttributes ??
+        null;
+
+    const sipaEntries = sipaExtraMap
+        ? Object.entries(sipaExtraMap).filter(
+            ([, v]) => v != null && String(v).trim() !== ""
+        )
+        : [];
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
             <div
                 className="poi-card"
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
             >
@@ -283,15 +291,17 @@ export default function PoiModal({ open, onClose, info }: Props) {
                     <div className="poi-title-wrap">
                         <h2 className="poi-title">{title}</h2>
                         <div className="poi-subline">
-                            {info.wikipediaUrl ? (
+                            {info.wikipediaUrl && (
                                 <a href={info.wikipediaUrl} target="_blank" rel="noreferrer">
                                     Página Wikipedia
                                 </a>
-                            ) : null}
-                            {builtLabel ? <> · {builtLabel}</> : null}
+                            )}
+                            {builtLabel && <> · {builtLabel}</>}
                         </div>
                     </div>
-                    <button className="poi-close" onClick={onClose} aria-label="Fechar">×</button>
+                    <button className="poi-close" onClick={onClose} aria-label="Fechar">
+                        ×
+                    </button>
                 </header>
 
                 <div className="poi-body">
@@ -312,8 +322,12 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                 />
                                 {gallery.length > 1 && (
                                     <>
-                                        <button className="nav prev" onClick={prev}>‹</button>
-                                        <button className="nav next" onClick={next}>›</button>
+                                        <button className="nav prev" onClick={prev}>
+                                            ‹
+                                        </button>
+                                        <button className="nav next" onClick={next}>
+                                            ›
+                                        </button>
                                     </>
                                 )}
                             </div>
@@ -324,52 +338,43 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                     {/* INFO */}
                     <aside className="poi-side gold-scroll">
-                            <div
-                                style={{
-                                    display: "flex",
-                                    gap: 10,
-                                    flexWrap: "wrap",
-                                    alignItems: "center",
-                                    marginBottom: 8,
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        flexWrap: "wrap",
-                                        alignItems: "center",
-                                        marginBottom: 8,
-                                    }}
+                        {/* Ações principais */}
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: 10,
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                marginBottom: 8,
+                            }}
+                        >
+                            {website && (
+                                <a
+                                    className="btn-directions"
+                                    href={website}
+                                    target="_blank"
+                                    rel="noreferrer"
                                 >
-                                    {website && (
-                                        <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
-                                            Site oficial
-                                        </a>
-                                    )}
-                                    <a
-                                        className="btn-directions"
-                                        href={
-                                            info?.coords
-                                                ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
-                                                : `https://www.google.com/maps/`
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Direções
-                                    </a>
-                                </div>
-                            </div>
+                                    Site oficial
+                                </a>
+                            )}
+                            <a
+                                className="btn-directions"
+                                href={
+                                    info?.coords
+                                        ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
+                                        : `https://www.google.com/maps/`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Direções
+                            </a>
+                        </div>
 
                         <div className="meta-divider" />
 
-                       {/* {info.oldNames?.length ? (
-                            <>
-                                <strong>Nome anterior:</strong> {info.oldNames[0]}
-                            </>
-                        ) : null}*/}
-
+                        {/* Rating */}
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
                                 {renderStars(rating.value)}{" "}
@@ -379,6 +384,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             </p>
                         )}
 
+                        {/* Contactos + Horário */}
                         <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
                             {contacts.phone && (
                                 <div>
@@ -394,84 +400,148 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     <a
                                         className="gold-link"
                                         href={`mailto:${contacts.email.replace(/\s+/g, "")}`}
-                                        target="_self"
                                     >
                                         {contacts.email}
                                     </a>
                                 </div>
                             )}
+
                             {(ohParsed.arr?.length || ohParsed.str || ohFallback) && (
                                 <DetailsTree
                                     node={{
                                         title: "Horário",
-                                        // podes controlar se abre por defeito:
                                         open: false,
                                         items:
                                             ohParsed.arr?.length
-                                                ? ohParsed.arr.map(line => (line ? line.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h") : line))
-                                                : (ohFallback
-                                                    ? [ohFallback.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")]
-                                                    : (ohParsed.str ? [ohParsed.str.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")] : []))
+                                                ? ohParsed.arr.map(line =>
+                                                    line
+                                                        ? line.replace(
+                                                            /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                            "$1h"
+                                                        )
+                                                        : line
+                                                )
+                                                : ohFallback
+                                                    ? [
+                                                        ohFallback.replace(
+                                                            /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                            "$1h"
+                                                        ),
+                                                    ]
+                                                    : ohParsed.str
+                                                        ? [
+                                                            ohParsed.str.replace(
+                                                                /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                                "$1h"
+                                                            ),
+                                                        ]
+                                                        : [],
                                     }}
                                 />
                             )}
                         </div>
 
-                        <div className="poi-info-list" style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                            {info.instanceOf?.length ? (
-                                <div><strong>Tipo:</strong> {info.instanceOf.join(" · ")}</div>
-                            ) : null}
-                            {info.locatedIn?.length ? (
-                                <div><strong>Localização:</strong> {info.locatedIn.join(", ")}</div>
-                            ) : null}
-                            {info.heritage?.length ? (
-                                <div><strong>Classificação:</strong> {info.heritage.join(" · ")}</div>
-                            ) : null}
+                        {/* Tipo / Localização / Classificação */}
+                        <div
+                            className="poi-info-list"
+                            style={{ display: "grid", gap: 6, marginTop: 8 }}
+                        >
+                            {info.instanceOf?.length && (
+                                <div>
+                                    <strong>Tipo:</strong> {info.instanceOf.join(" · ")}
+                                </div>
+                            )}
+                            {info.locatedIn?.length && (
+                                <div>
+                                    <strong>Localização:</strong> {info.locatedIn.join(", ")}
+                                </div>
+                            )}
+                            {info.heritage?.length && (
+                                <div>
+                                    <strong>Classificação:</strong>{" "}
+                                    {info.heritage.join(" · ")}
+                                </div>
+                            )}
                         </div>
 
-                        {(info.architectureText ||
-                            (info.architectureStyles?.length || info.architects?.length || info.materials?.length) ||
-                            (info.builders?.length) ||
-                            builtLabel) ? (
-                            <>
-                                {info.architectureText ? (
-                                    <p className="poi-desc">{info.architectureText}</p>
-                                ) : null}
+                        {/* 👉 Ficha SIPA */}
+                        {sipaEntries.length > 0 && (
+                            <div style={{ marginTop: 10 }}>
+                                <DetailsTree
+                                    node={{
+                                        title: "Ficha técnica SIPA (monumentos.gov.pt)",
+                                        open: false,
+                                        items: sipaEntries.map(
+                                            ([k, v]) => `${k}: ${v}`
+                                        ),
+                                    }}
+                                />
+                            </div>
+                        )}
 
-                                <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
-                                    {builtLabel ? (
-                                        <div><strong>Inicio de construção:</strong> {builtLabel}</div>
-                                    ) : null}
-                                    {info.architectureStyles?.length ? (
-                                        <div><strong>Estilo:</strong> {info.architectureStyles.join(" · ")}</div>
-                                    ) : null}
-                                    {info.architects?.length ? (
-                                        <div><strong>Arquiteto(s):</strong> {info.architects.join(", ")}</div>
-                                    ) : null}
-                                    {info.builders?.length ? (
-                                        <div><strong>Construtor/Autor:</strong> {info.builders.join(", ")}</div>
-                                    ) : null}
-                                    {info.materials?.length ? (
-                                        <div><strong>Materiais:</strong> {info.materials.join(", ")}</div>
-                                    ) : null}
+                        {/* Arquitetura / Materiais / Construção */}
+                        {(info.architectureText ||
+                            info.architectureStyles?.length ||
+                            info.architects?.length ||
+                            info.materials?.length ||
+                            info.builders?.length ||
+                            builtLabel) && (
+                            <>
+                                {info.architectureText && (
+                                    <p className="poi-desc">{info.architectureText}</p>
+                                )}
+
+                                <div
+                                    className="poi-info-list"
+                                    style={{ display: "grid", gap: 6 }}
+                                >
+                                    {builtLabel && (
+                                        <div>
+                                            <strong>Início de construção:</strong>{" "}
+                                            {builtLabel}
+                                        </div>
+                                    )}
+                                    {info.architectureStyles?.length && (
+                                        <div>
+                                            <strong>Estilo:</strong>{" "}
+                                            {info.architectureStyles.join(" · ")}
+                                        </div>
+                                    )}
+                                    {info.architects?.length && (
+                                        <div>
+                                            <strong>Arquiteto(s):</strong>{" "}
+                                            {info.architects.join(", ")}
+                                        </div>
+                                    )}
+                                    {info.builders?.length && (
+                                        <div>
+                                            <strong>Construtor/Autor:</strong>{" "}
+                                            {info.builders.join(", ")}
+                                        </div>
+                                    )}
+                                    {info.materials?.length && (
+                                        <div>
+                                            <strong>Materiais:</strong>{" "}
+                                            {info.materials.join(", ")}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="meta-divider" />
                             </>
-                        ) : null}
+                        )}
 
-                        {info.description ? (
-                            <>
-                                <ReadMore text={descPretty} />
-                            </>
-                        ) : null}
+                        {/* Descrição & Histórico */}
+                        {info.description && <ReadMore text={descPretty} />}
 
-                        {info.historyText ? (
+                        {info.historyText && (
                             <>
-                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Histórico</h4>
+                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>
+                                    Histórico
+                                </h4>
                                 <ReadMore text={histPretty} />
                             </>
-                        ) : null}
+                        )}
                     </aside>
                 </div>
             </div>

@@ -17,6 +17,14 @@ export const OVERPASS_ENDPOINTS = [
     "https://z.overpass-api.de/api/interpreter",
 ] as const;
 
+// === WMS SIPA / Património Cultural (oficial) ===
+// Base do serviço WMS (SIPA/DGT)
+export const SIPA_WMS_URL =
+    "http://servicos.dgterritorio.pt/SDISNITZWMS_SIPA_PPP_IHRU/service.svc/get";
+
+// Nome da layer a usar (ajustar depois de ver o GetCapabilities)
+export const SIPA_WMS_LAYER = "SIPA_PPP_IHRU"; // TODO: confirmar nome real da layer
+
 export const CATEGORY_COLORS: Record<PoiCategory, string> = {
     castle: "#7e1616",
     palace: "#501c61",

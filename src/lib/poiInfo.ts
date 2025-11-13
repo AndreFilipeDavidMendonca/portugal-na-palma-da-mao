@@ -18,6 +18,7 @@ import {
     findPlaceByNameAndPoint,
 } from "@/lib/gplaces";
 import { compactOpeningHours } from "@/utils/openingHours";
+import {fetchSipaDetail} from "@/lib/sipa";
 
 /* =====================================================================
    TIPOS
@@ -513,6 +514,13 @@ function mergePoiPieces(current: Partial<PoiInfo>, incoming: Partial<PoiInfo>): 
         choose(incoming.architectureText, current.architectureText) ??
         result.architectureText;
 
+    // ⬇️ novo: herança / classificação
+    if (incoming.heritage && incoming.heritage.length) {
+        result.heritage = uniq([...(current.heritage ?? []), ...incoming.heritage]);
+    } else if (current.heritage && current.heritage.length) {
+        result.heritage = current.heritage;
+    }
+
     return result;
 }
 
@@ -540,13 +548,9 @@ export async function fetchPoiInfo(options: {
     const isViewpoint = poiCategory === "viewpoint";
 
     /* -------------------------------------------------------
-     1) GOOGLE — nome oficial, coords, fotos, horário, rating
-        (e única fonte para miradouros)
-     ------------------------------------------------------- */
-    /* -------------------------------------------------------
-  1) GOOGLE — nome oficial, coords, fotos, horário, rating
-     (e única fonte para miradouros)
-  ------------------------------------------------------- */
+       1) GOOGLE — nome oficial, coords, fotos, horário, rating
+          (e única fonte para miradouros)
+       ------------------------------------------------------- */
     try {
         if (approximateName && approximateCoords) {
             const searchNames = buildGoogleSearchNames(
@@ -569,6 +573,7 @@ export async function fetchPoiInfo(options: {
 
                 const details = await getPlaceDetailsById(candidate.place_id);
                 if (!details) continue;
+
                 // rejeitar cafés/restaurantes/etc. para miradouros
                 if (isViewpoint && isBadViewpointPlace(details)) {
                     continue;
@@ -674,7 +679,55 @@ export async function fetchPoiInfo(options: {
     const baseCoords = merged.coords ?? approximateCoords ?? null;
 
     /* -------------------------------------------------------
-       2) WIKIPEDIA — texto (exceto para viewpoints)
+       2) SIPA — detalhe oficial (descrição, classificação, fotos)
+       ------------------------------------------------------- */
+    if (baseCoords) {
+        try {
+            const sipa = await fetchSipaDetail({
+                name: baseName,
+                lat: baseCoords.lat,
+                lon: baseCoords.lon,
+            });
+
+            console.log("SIPA:", sipa);
+            if (sipa) {
+                const plainHtml =
+                    (sipa as any).fullDescriptionHtml
+                        ? htmlToPlainText((sipa as any).fullDescriptionHtml)
+                        : undefined;
+
+                merged = mergePoiPieces(merged, {
+                    // se o SIPA tiver nome, pode refinar o label
+                    label: (sipa as any).originalName ?? merged.label,
+
+                    // descrição oficial tem prioridade sobre Wikipedia
+                    description:
+                        (sipa as any).shortDescription ?? plainHtml ?? merged.description,
+
+                    image:
+                        (sipa as any).imageUrls?.[0] ??
+                        merged.image,
+                    images: (sipa as any).imageUrls ?? merged.images,
+
+                    // mapeamos classificação para heritage[]
+                    heritage: [
+                        ...(merged.heritage ?? []),
+                        ...(((sipa as any).heritageCategory
+                            ? [(sipa as any).heritageCategory]
+                            : []) as string[]),
+                        ...(((sipa as any).protectionStatus
+                            ? [(sipa as any).protectionStatus]
+                            : []) as string[]),
+                    ],
+                });
+            }
+        } catch (error) {
+            console.warn("SIPA resolver falhou:", error);
+        }
+    }
+
+    /* -------------------------------------------------------
+       3) WIKIPEDIA — texto (exceto para viewpoints)
        ------------------------------------------------------- */
     let wikiTag: { lang: string; title: string } | null = null;
 
@@ -725,14 +778,20 @@ export async function fetchPoiInfo(options: {
                         wikipediaUrl: (wikiSummary as any).wikipediaUrl ?? undefined,
                     });
 
-                    const sections = await fetchWikipediaSections(wikiTag.lang, wikiTag.title);
+                    const sections = await fetchWikipediaSections(
+                        wikiTag.lang,
+                        wikiTag.title
+                    );
                     merged = mergePoiPieces(merged, {
                         historyText: sections.history ?? undefined,
                         architectureText: sections.architecture ?? undefined,
                     });
 
                     if (!sections.history && !sections.architecture) {
-                        const enSections = await fetchWikipediaSections("en", wikiTag.title);
+                        const enSections = await fetchWikipediaSections(
+                            "en",
+                            wikiTag.title
+                        );
                         merged = mergePoiPieces(merged, {
                             historyText:
                                 merged.historyText ?? enSections.history ?? undefined,
@@ -750,7 +809,7 @@ export async function fetchPoiInfo(options: {
     }
 
     /* -------------------------------------------------------
-       3) OSM — overrides suaves (nome antigo + contactos)
+       4) OSM — overrides suaves (nome antigo + contactos)
        ------------------------------------------------------- */
     if (sourceFeature?.properties) {
         const props = sourceFeature.properties || {};
@@ -780,7 +839,7 @@ export async function fetchPoiInfo(options: {
     }
 
     /* -------------------------------------------------------
-       4) Normalização final
+       5) Normalização final
        ------------------------------------------------------- */
     merged.images = (merged.images ?? []).filter(Boolean);
     if ((merged.images?.length ?? 0) > 48) {

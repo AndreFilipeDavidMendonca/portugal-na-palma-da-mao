@@ -239,7 +239,7 @@ export default function Home() {
         <>
             {showOverlay && <LoadingOverlay message="A carregar os seus dados" />}
 
-            {!isModalOpen && (
+           {/* {!isModalOpen && (
                 <div className="top-district-filter">
                     <div className="tdf-inner">
                         <TopDistrictFilter
@@ -249,7 +249,7 @@ export default function Home() {
                         />
                     </div>
                 </div>
-            )}
+            )}*/}
 
             <div className="map-shell">
                 <MapContainer
