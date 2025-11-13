@@ -89,11 +89,11 @@ export async function nearbyViewpointsByCoords(
 
     const keyword = "miradouro OR viewpoint OR mirador OR belvedere OR overlook OR mirante";
 
-    return await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
+    const results = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
         // @ts-ignore
         service.nearbySearch(
             {
-                location: {lat, lng},
+                location: { lat, lng },
                 radius,
                 keyword,
                 language: "pt",
@@ -106,6 +106,8 @@ export async function nearbyViewpointsByCoords(
             }
         );
     });
+
+    return results;
 }
 
 /* =====================================================================
@@ -379,11 +381,13 @@ function pickExactMatches(
     const normTargets = targetNames.map((n) => normalizeForMatch(n)).filter(Boolean);
     if (!normTargets.length) return [];
 
-    return results.filter((r) => {
+    const matches = results.filter((r) => {
         // @ts-ignore
         const rn = r._normName || normalizeForMatch(r.name || "");
         return normTargets.includes(rn);
     });
+
+    return matches;
 }
 
 /**
@@ -408,7 +412,8 @@ function pickPreferredPrefixCandidate(
             // @ts-ignore
             const rn = (r._normName as string) || normalizeForMatch(r.name || "");
             if (!rn.startsWith(prefix + " ")) return false;
-            return baseTokens.some((t) => rn.includes(t));
+            const hasToken = baseTokens.some((t) => rn.includes(t));
+            return hasToken;
         });
 
         if (!candidates.length) return null;
