@@ -387,7 +387,6 @@ function pickExactMatches(
         return normTargets.includes(rn);
     });
 
-    console.log("pickExactMatches", targetNames, matches.map((m) => m.name));
     return matches;
 }
 
@@ -439,7 +438,6 @@ function pickPreferredPrefixCandidate(
     for (const p of prefixes) {
         const picked = tryPrefix(p);
         if (picked) {
-            console.log(`[GP DEBUG] prefix '${p}' match:`, picked.name);
             return picked;
         }
     }
@@ -495,19 +493,7 @@ function pickBestViewpointGeneric(
     scored.sort((a, b) => b.score - a.score);
     const best = scored[0];
 
-    if (best) {
-        console.log(
-            "[GP DEBUG] generic viewpoint pick:",
-            best.r.name,
-            "dist",
-            best.d,
-            "overlap",
-            best.overlap
-        );
-        return best.r;
-    }
-
-    return null;
+    return best ? best.r : null;
 }
 
 /**
@@ -548,19 +534,7 @@ function pickBestGeneric(
     scored.sort((a, b) => b.score - a.score);
     const best = scored[0];
 
-    if (best) {
-        console.log(
-            "[GP DEBUG] generic best candidate:",
-            best.r.name,
-            "dist",
-            best.d,
-            "overlap",
-            best.overlap
-        );
-        return best.r;
-    }
-
-    return null;
+    return best ? best.r : null;
 }
 
 /**
@@ -589,12 +563,7 @@ function pickClosestByDistance(
     scored.sort((a, b) => a.d - b.d);
     const best = scored[0];
 
-    if (best) {
-        console.log("[GP DEBUG] closest-by-distance fallback:", best.r.name, "dist", best.d);
-        return best.r;
-    }
-
-    return null;
+    return best ? best.r : null;
 }
 
 /* =====================================================================
@@ -614,14 +583,6 @@ export async function findPlaceByNameAndPoint(
 
     const ACCEPT_RADIUS = 3000; // 3 km – filtro duro que pediste
 
-    console.log("[GP DEBUG] findPlaceByNameAndPoint:", {
-        rawName: name,
-        baseName,
-        lat,
-        lng,
-        radius,
-    });
-
     // 1) Fazemos textSearch com o nome original (para ter um pool inicial)
     let results = await textSearchPlaces(g, trimmedName, lat, lng, radius);
 
@@ -634,21 +595,17 @@ export async function findPlaceByNameAndPoint(
     results = enrichResultsForMatch(results);
     results = filterByRadius(g, results, lat, lng, ACCEPT_RADIUS);
 
-    console.log("[GP DEBUG] legacy candidates (within 3km):", results.length);
-
     if (!results.length) return null;
 
     // ------------- RAMO MIRADOURO (quando o nome já vem com Miradouro ...) -------------
     if (isViewpoint) {
         // 1) exact match do nome completo do miradouro (depois de limpeza)
         const exactMatches = pickExactMatches(results, [trimmedName]);
-        console.log("exactMatches (viewpoint):", exactMatches.map((r) => r.name));
 
         if (exactMatches.length) {
             const picked = pickClosestByDistance(g, exactMatches, lat, lng);
             if (picked && picked.place_id && picked.geometry?.location) {
                 const loc = picked.geometry.location;
-                console.log("[GP DEBUG] exact viewpoint match:", picked.name);
                 return {
                     place_id: picked.place_id,
                     name: picked.name || baseName,
@@ -698,7 +655,7 @@ export async function findPlaceByNameAndPoint(
     }
 
     // ---------------- GENÉRICO (NÃO começa por "Miradouro ...") ----------------
-    // Ordem que pediste:
+    // Ordem que definimos:
     // 1) Miradouro + baseName
     // 2) Jardim / Largo / Parque + baseName
     // 3) Só depois tentar match pelo baseName dentro de 3 km
@@ -745,7 +702,6 @@ export async function findPlaceByNameAndPoint(
         const bestView = pickBestViewpointGeneric(g, prefixResults, baseName, lat, lng);
         if (bestView && bestView.place_id && bestView.geometry?.location) {
             const loc = bestView.geometry.location;
-            console.log("[GP DEBUG] prefix-based viewpoint match:", bestView.name);
             return {
                 place_id: bestView.place_id,
                 name: bestView.name || baseName,
@@ -757,16 +713,11 @@ export async function findPlaceByNameAndPoint(
 
     // 3) Só agora fazemos match pelo baseName, mas SEM sair dos 3 km
     const exactGeneric = pickExactMatches(results, [trimmedName, baseName]);
-    console.log(
-        "exactMatches (generic, 3km only):",
-        exactGeneric.map((r) => r.name)
-    );
 
     if (exactGeneric.length) {
         const picked = pickClosestByDistance(g, exactGeneric, lat, lng);
         if (picked && picked.place_id && picked.geometry?.location) {
             const loc = picked.geometry.location;
-            console.log("[GP DEBUG] exact generic match (3km):", picked.name);
             return {
                 place_id: picked.place_id,
                 name: picked.name || baseName,
