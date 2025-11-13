@@ -700,6 +700,10 @@ export async function fetchPoiInfo(options: {
      1) GOOGLE — nome oficial, coords, fotos, horário, rating
         (e única fonte para miradouros)
      ------------------------------------------------------- */
+    /* -------------------------------------------------------
+  1) GOOGLE — nome oficial, coords, fotos, horário, rating
+     (e única fonte para miradouros)
+  ------------------------------------------------------- */
     try {
         if (approximateName && approximateCoords) {
             const searchNames = buildGoogleSearchNames(
@@ -709,40 +713,38 @@ export async function fetchPoiInfo(options: {
             );
 
             for (const searchName of searchNames) {
-                let placeHit =
-                    (await findPlaceByNameAndPoint(
-                        searchName,
-                        approximateCoords.lat,
-                        approximateCoords.lon,
-                        300
-                    )) ??
-                    (await findBestGooglePlaceByNameNear(
-                        searchName,
-                        approximateCoords.lat,
-                        approximateCoords.lon
-                    ));
+                const candidate = await findPlaceByNameAndPoint(
+                    searchName,
+                    approximateCoords.lat!,
+                    approximateCoords.lon!,
+                    isViewpoint ? 400 : 1000
+                );
 
-                if (!placeHit?.place_id) {
+                console.log('Google data ', candidate)
+                if (!candidate?.place_id) {
                     continue;
                 }
 
-                const details = await getPlaceDetailsById(placeHit.place_id);
+                const details = await getPlaceDetailsById(candidate.place_id);
                 if (!details) continue;
 
-                // 🔍 Filtrar cafés/restaurantes quando é miradouro
-                if (isViewpoint && isBadViewpointCandidate(details)) {
+                console.log('Google details ', details)
+                // rejeitar cafés/restaurantes/etc. para miradouros
+                if (isViewpoint && isBadViewpointPlace(details)) {
                     console.log(
                         "[POI] rejeitado candidato (café/restaurante/etc) para miradouro:",
                         searchName,
-                        (details as any).name,
+                        (details as any).name || (details as any).displayName?.text,
                         (details as any).types
                     );
-                    continue; // tenta próximo nome / próximo candidato
+                    continue;
                 }
 
-                const candidateCoords = details.location
-                    ? { lat: details.location.lat(), lon: details.location.lng() }
-                    : { lat: placeHit.lat, lon: placeHit.lng };
+                const candidateCoords = {
+                    lat: candidate.lat,
+                    lon: candidate.lng,
+                };
+
                 const dist = distanceKm(approximateCoords, candidateCoords);
                 const maxAllowedKm = isViewpoint ? 8 : 60;
 
@@ -753,14 +755,13 @@ export async function fetchPoiInfo(options: {
                 );
 
                 if (dist > maxAllowedKm) {
-                    // Muito longe → provavelmente outro sítio com o mesmo nome
                     continue;
                 }
 
                 const resolvedName =
                     (details as any).displayName?.text ||
-                    details.name ||
-                    placeHit.name ||
+                    (details as any).name ||
+                    candidate.name ||
                     approximateName ||
                     null;
 
@@ -768,11 +769,12 @@ export async function fetchPoiInfo(options: {
                     (details as any).websiteUri ??
                     (details as any).website ??
                     (details as any).websiteUrl ??
-                    details.website ??
                     undefined;
 
                 const ratingValue =
-                    typeof details.rating === "number" ? details.rating : undefined;
+                    typeof (details as any).rating === "number"
+                        ? (details as any).rating
+                        : undefined;
 
                 const ratingCount =
                     typeof (details as any).userRatingCount === "number"
@@ -807,7 +809,6 @@ export async function fetchPoiInfo(options: {
 
                 const googlePhotos = photoUrlsFromPlace(details, 1600);
 
-                // Para miradouros podemos, se quisermos, usar também um pequeno resumo do Google:
                 const googleDescription: string | undefined =
                     (details as any).editorialSummary?.text ??
                     (details as any).editorial_summary?.overview ??
@@ -830,12 +831,10 @@ export async function fetchPoiInfo(options: {
                             : undefined,
                     image: googlePhotos[0],
                     images: googlePhotos.slice(1),
-                    // descrição Google só é realmente relevante para viewpoints,
-                    // mas não faz mal ficar aqui para todos.
                     description: googleDescription ?? merged.description,
                 });
 
-                // Encontrámos um bom candidato — não é preciso tentar mais nomes
+                // já temos um bom candidato → não precisamos de tentar outros nomes
                 break;
             }
         }

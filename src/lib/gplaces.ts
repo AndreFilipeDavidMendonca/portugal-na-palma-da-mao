@@ -1,5 +1,17 @@
 // src/lib/gplaces.ts
-// Carregamento Google Maps JS + Places (API nova com fallbacks) e utilitários.
+// -------------------------------------------------------------
+// Carregamento do Google Maps JS + Places (legacy) e utilitários
+// com lógica especial para miradouros:
+//  - usa sempre coords (lat/lng) como âncora;
+//  - limpa artigos/pronomes (do/da/de/das/dos/o/a/os/as);
+//  - para nomes "Miradouro ...":
+//      1) tenta match exato (nome completo);
+//      2) se falhar, dentro do mesmo array tenta "Jardim ...", "Largo ...",
+//         "Parque ..." + baseName;
+//      3) se ainda falhar, escolhe o melhor candidato por texto+distância
+//         filtrando tipos "maus" (cafés, bilheteiras, etc);
+//      4) fallback final: o mais próximo das coords.
+// -------------------------------------------------------------
 
 declare global {
     interface Window {
@@ -18,6 +30,10 @@ function ensureKey(): string {
     return key;
 }
 
+/**
+ * Carrega o script do Google Maps JS com as libs necessárias
+ * (`places` e `geometry`) e devolve o objeto `google`.
+ */
 export async function loadGoogleMaps(): Promise<typeof google> {
     if (gmapsReady) return gmapsReady;
 
@@ -33,7 +49,7 @@ export async function loadGoogleMaps(): Promise<typeof google> {
         url.searchParams.set("key", key);
         url.searchParams.set("v", "weekly");
         url.searchParams.set("language", "pt");
-        // Não precisamos passar ?libraries=...; vamos usar importLibrary() abaixo.
+        url.searchParams.set("libraries", "places,geometry");
 
         const s = document.createElement("script");
         s.src = url.toString();
@@ -51,66 +67,37 @@ export async function loadGoogleMaps(): Promise<typeof google> {
     return gmapsReady;
 }
 
-/** Carrega a lib 'places' (API moderna via importLibrary) */
-export async function loadPlacesLib(): Promise<google.maps.PlacesLibrary> {
-    const g = await loadGoogleMaps();
-    // @ts-ignore - importLibrary não está completo em alguns tipos
-    return (await g.maps.importLibrary("places")) as google.maps.PlacesLibrary;
-}
+/* =====================================================================
+   VIEWPOINTS PRÓXIMOS (legacy nearbySearch - opcional)
+   ===================================================================== */
 
-/** Garante a lib geometry disponível (para computeDistanceBetween) */
-async function ensureGeometryLib(): Promise<void> {
-    const g = await loadGoogleMaps();
-    try {
-        // @ts-ignore
-        await g.maps.importLibrary?.("geometry");
-    } catch {
-        // sem geometry, tratamos com fallback mais abaixo
-    }
-}
-
-/** Nearby viewpoints (opcional, mantido para quem usa) */
 export async function nearbyViewpointsByCoords(
     lat: number,
     lng: number,
     radius = 3000
-): Promise<any[]> {
+): Promise<google.maps.places.PlaceResult[]> {
     const g = await loadGoogleMaps();
-    const placesLib = await loadPlacesLib();
-    const keyword = "miradouro OR viewpoint OR mirador OR belvedere OR overlook OR mirante";
 
-    // Tenta API nova
-    try {
-        // @ts-ignore
-        const { Place } = placesLib as any;
-        if (Place && typeof Place.searchNearby === "function") {
-            const req: any = {
-                locationRestriction: { center: { lat, lng }, radius },
-                textQuery: keyword,
-                language: "pt",
-            };
-            // @ts-ignore
-            const resp = await Place.searchNearby(req);
-            const arr = resp?.places ?? [];
-            if (arr.length) return arr;
-        }
-    } catch (err) {
-        console.warn("ℹ️ Place.searchNearby não disponível, a usar legacy nearbySearch.", err);
-    }
-
-    // Fallback (legacy)
     const div = document.createElement("div");
     div.style.width = "0";
     div.style.height = "0";
     document.body.appendChild(div);
+
     const map = new g.maps.Map(div, { center: { lat, lng }, zoom: 14 });
     // @ts-ignore
     const service = new g.maps.places.PlacesService(map);
 
-    const legacyResults = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
+    const keyword = "miradouro OR viewpoint OR mirador OR belvedere OR overlook OR mirante";
+
+    const results = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
         // @ts-ignore
         service.nearbySearch(
-            { location: { lat, lng }, radius, keyword, language: "pt" } as any,
+            {
+                location: { lat, lng },
+                radius,
+                keyword,
+                language: "pt",
+            } as any,
             // @ts-ignore
             (res, status) => {
                 // @ts-ignore
@@ -120,51 +107,26 @@ export async function nearbyViewpointsByCoords(
         );
     });
 
-    return legacyResults as any[];
+    return results;
 }
 
-/** Details por place_id (API nova -> fallback legacy) */
+/* =====================================================================
+   DETAILS POR place_id (legacy getDetails)
+   ===================================================================== */
+
 export async function getPlaceDetailsById(placeId: string): Promise<any> {
     const g = await loadGoogleMaps();
-    const placesLib = await loadPlacesLib();
 
-    // Nova
-    try {
-        // @ts-ignore
-        const { Place } = placesLib as any;
-        if (Place) {
-            // @ts-ignore
-            const place = new Place({ id: placeId });
-            const fields = [
-                "id",
-                "displayName",
-                "location",
-                "formattedAddress",
-                "websiteUri",
-                "rating",
-                "userRatingCount",
-                "photos",
-                "googleMapsUri",
-                "opening_hours", // algumas builds ainda populam isto
-            ];
-            // @ts-ignore
-            await place.fetchFields({ fields, language: "pt" });
-            return place;
-        }
-    } catch (err) {
-        console.warn("ℹ️ Place.fetchFields não disponível, a usar getDetails (legacy).", err);
-    }
-
-    // Legacy
     const div = document.createElement("div");
     div.style.width = "0";
     div.style.height = "0";
     document.body.appendChild(div);
+
     const map = new g.maps.Map(div, { center: { lat: 0, lng: 0 }, zoom: 3 });
     // @ts-ignore
     const service = new g.maps.places.PlacesService(map);
 
-    const fieldsLegacy: Array<keyof google.maps.places.PlaceResult> = [
+    const fields: Array<keyof google.maps.places.PlaceResult> = [
         "name",
         "geometry",
         "url",
@@ -176,113 +138,195 @@ export async function getPlaceDetailsById(placeId: string): Promise<any> {
         "photos",
     ];
 
-    const res = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
+    const result = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
         // @ts-ignore
-        service.getDetails({ placeId, fields: fieldsLegacy } as any, (det, status) => {
-            // @ts-ignore
-            if (status === g.maps.places.PlacesServiceStatus.OK && det) resolve(det);
-            else reject(new Error(`getDetails falhou: ${status}`));
-        });
+        service.getDetails(
+            { placeId, fields, language: "pt" } as any,
+            (det, status) => {
+                // @ts-ignore
+                if (status === g.maps.places.PlacesServiceStatus.OK && det) resolve(det);
+                else reject(new Error(`getDetails falhou: ${status}`));
+            }
+        );
     });
 
-    return res as any;
+    return result as any;
 }
 
-/** URLs de fotos (suporta modelo novo e antigo) */
+/* =====================================================================
+   FOTOS DO PLACE
+   ===================================================================== */
+
 export function photoUrlsFromPlace(place: any, max = 1600): string[] {
     const phs = place?.photos ?? [];
     if (!Array.isArray(phs) || phs.length === 0) return [];
 
-    // API nova
     if (typeof phs[0]?.getURI === "function") {
         return phs.slice(0, 8).map((p: any) => p.getURI({ maxWidth: max }));
     }
-    // Legacy
     if (typeof phs[0]?.getUrl === "function") {
         return phs.slice(0, 8).map((p: any) => p.getUrl({ maxWidth: max }));
     }
     return [];
 }
 
-/** Procura por nome enviesado pelas coords, devolve id + ponto corrigido */
-export async function findPlaceByNameAndPoint(
-    name: string,
+/* =====================================================================
+   HELPERS: normalização, distância, tipos "maus" para miradouros
+   ===================================================================== */
+
+const BAD_VIEWPOINT_TYPES = new Set([
+    "cafe",
+    "restaurant",
+    "bar",
+    "night_club",
+    "bakery",
+    "meal_takeaway",
+    "meal_delivery",
+    "lodging",
+    "hotel",
+    "motel",
+    "campground",
+    "store",
+    "supermarket",
+    "grocery_or_supermarket",
+    "shopping_mall",
+    "convenience_store",
+    "parking",
+    "parking_lot",
+    "gas_station",
+    "car_rental",
+    "car_dealer",
+    "ticket_agency",
+    "travel_agency",
+    "real_estate_agency",
+]);
+
+function normalizeText(value?: string | null): string {
+    return (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+function normalizeForMatch(value?: string | null): string {
+    let base = normalizeText(value);
+
+    // remover artigos/preposições em qualquer posição
+    base = base.replace(/\b(do|da|de|dos|das|d|o|a|os|as)\b/g, " ");
+
+    return base.replace(/\s+/g, " ").trim();
+}
+
+function filterByRadius(
+    g: typeof google,
+    results: google.maps.places.PlaceResult[],
     lat: number,
     lng: number,
-    radius = 250
-): Promise<{ place_id: string; name: string; lat: number; lng: number } | null> {
-    const g = await loadGoogleMaps();
-    const placesLib = await loadPlacesLib();
-    await ensureGeometryLib();
+    maxDistMeters: number
+): google.maps.places.PlaceResult[] {
+    return results.filter((r) => {
+        const loc = r.geometry?.location
+            ? {
+                lat: r.geometry.location.lat(),
+                lng: r.geometry.location.lng(),
+            }
+            : null;
 
-    // API nova
+        if (!loc) return false;
+
+        const d = distanceMeters(g, lat, lng, loc.lat, loc.lng);
+        // @ts-ignore – guardamos para debug / scoring posterior se quisermos
+        (r as any)._dist = d;
+
+        return d <= maxDistMeters;
+    });
+}
+
+function distanceMeters(
+    g: typeof google,
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number
+): number {
     try {
         // @ts-ignore
-        const { Place } = placesLib as any;
-        if (Place && typeof Place.searchNearby === "function") {
-            const req: any = {
-                locationRestriction: { center: { lat, lng }, radius },
-                textQuery: name,
-                language: "pt",
-            };
-            // @ts-ignore
-            const resp = await Place.searchNearby(req);
-            const arr: any[] = resp?.places ?? [];
-            if (arr.length) {
-                const dist = (a: { lat: number; lng: number }) => {
-                    try {
-                        // @ts-ignore
-                        const d = g.maps.geometry?.spherical?.computeDistanceBetween?.(
-                            new g.maps.LatLng(lat, lng),
-                            new g.maps.LatLng(a.lat, a.lng)
-                        );
-                        return typeof d === "number" ? d : Number.POSITIVE_INFINITY;
-                    } catch {
-                        // fallback: distância euclidiana aproximada (graus)
-                        const dx = (a.lng - lng) * Math.cos(((lat + a.lat) / 2) * (Math.PI / 180));
-                        const dy = a.lat - lat;
-                        return Math.sqrt(dx * dx + dy * dy);
-                    }
-                };
-
-                const best = arr
-                    .map((p) => {
-                        const n = p.displayName?.text || p.name || "";
-                        const loc =
-                            p.location && typeof p.location.lat === "function"
-                                ? { lat: p.location.lat(), lng: p.location.lng() }
-                                : p.location || null;
-                        const ov = (name || "")
-                            .toLowerCase()
-                            .split(/\s+/)
-                            .filter(Boolean)
-                            .reduce((k, t) => k + (n.toLowerCase().includes(t) ? 1 : 0), 0);
-                        const d = loc ? dist(loc) : Number.POSITIVE_INFINITY;
-                        return { p, n, loc, ov, d };
-                    })
-                    .sort((a, b) => (a.d - b.d) || (b.ov - a.ov))[0];
-
-                if (best?.p?.id && best.loc) {
-                    return { place_id: best.p.id, name: best.n, lat: best.loc.lat, lng: best.loc.lng };
-                }
-            }
-        }
-    } catch (e) {
-        console.warn("findPlaceByNameAndPoint (novo) falhou, vou ao fallback.", e);
+        const d = g.maps.geometry?.spherical?.computeDistanceBetween?.(
+            new g.maps.LatLng(lat1, lng1),
+            new g.maps.LatLng(lat2, lng2)
+        );
+        if (typeof d === "number") return d;
+    } catch {
+        // ignore
     }
 
-    // Fallback: Text Search (legacy)
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const R = 6371_000; // m
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lng2 - lng1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+/**
+ * Deteta se o nome é de um miradouro e extrai o "base name" sem o prefixo.
+ * Ex: "Miradouro do Castelo de São Jorge" → {isViewpoint:true, baseName:"Castelo de São Jorge"}
+ */
+function parseViewpointName(rawName: string): { isViewpoint: boolean; baseName: string } {
+    const original = rawName.trim();
+
+    const reFull = /^miradouro\s+(do|da|de|dos|das)\s+/i;
+    const reSimple = /^miradouro\s+/i;
+
+    if (!reFull.test(original) && !reSimple.test(original)) {
+        return { isViewpoint: false, baseName: original };
+    }
+
+    const cleaned = original.replace(reFull, "").replace(reSimple, "").trim();
+
+    return {
+        isViewpoint: true,
+        baseName: cleaned || original,
+    };
+}
+
+/* =====================================================================
+   textSearch (legacy)
+   ===================================================================== */
+
+async function textSearchPlaces(
+    g: typeof google,
+    query: string,
+    lat: number,
+    lng: number,
+    radius: number
+): Promise<google.maps.places.PlaceResult[]> {
     const div = document.createElement("div");
     div.style.cssText = "width:0;height:0";
     document.body.appendChild(div);
+
     const map = new g.maps.Map(div, { center: { lat, lng }, zoom: 15 });
     // @ts-ignore
-    const svc = new g.maps.places.PlacesService(map);
+    const service = new g.maps.places.PlacesService(map);
 
-    const res = await new Promise<any[]>((resolve) => {
+    return await new Promise<google.maps.places.PlaceResult[]>((resolve) => {
         // @ts-ignore
-        svc.textSearch(
-            { query: name, location: { lat, lng }, radius, language: "pt" } as any,
+        service.textSearch(
+            {
+                query,
+                location: { lat, lng },
+                radius,
+                language: "pt",
+            } as any,
             // @ts-ignore
             (items, status) => {
                 // @ts-ignore
@@ -291,47 +335,476 @@ export async function findPlaceByNameAndPoint(
             }
         );
     });
+}
 
-    if (!res.length) return null;
+async function textSearchWithPrefixes(
+    g: typeof google,
+    baseName: string,
+    lat: number,
+    lng: number,
+    radius: number,
+    prefixes: string[]
+): Promise<google.maps.places.PlaceResult[]> {
+    const all: google.maps.places.PlaceResult[] = [];
 
-    const distLegacy = (a: { lat: number; lng: number }) => {
-        try {
+    for (const pfx of prefixes) {
+        const query = `${pfx} ${baseName}`;
+        console.log("[GP DEBUG] prefix textSearch:", query);
+
+        const res = await textSearchPlaces(g, query, lat, lng, radius);
+        all.push(...res);
+    }
+
+    return all;
+}
+
+/* =====================================================================
+   ENRICH: aplicar normalização ao array de resultados
+   ===================================================================== */
+
+function enrichResultsForMatch(
+    results: google.maps.places.PlaceResult[]
+): google.maps.places.PlaceResult[] {
+    return results.map((r) => {
+        (r as any)._normName = normalizeForMatch(r.name || "");
+        return r;
+    });
+}
+
+/* =====================================================================
+   PICKERS DE CANDIDATOS
+   ===================================================================== */
+
+function pickExactMatches(
+    results: google.maps.places.PlaceResult[],
+    targetNames: string[]
+): google.maps.places.PlaceResult[] {
+    const normTargets = targetNames.map((n) => normalizeForMatch(n)).filter(Boolean);
+    if (!normTargets.length) return [];
+
+    const matches = results.filter((r) => {
+        // @ts-ignore
+        const rn = r._normName || normalizeForMatch(r.name || "");
+        return normTargets.includes(rn);
+    });
+
+    console.log("pickExactMatches", targetNames, matches.map((m) => m.name));
+    return matches;
+}
+
+/**
+ * Para miradouros: se não há exactMatch, preferimos:
+ *  - primeiro "Jardim ... baseName"
+ *  - depois "Largo ... baseName"
+ *  - depois "Parque ... baseName"
+ *  Tudo isto dentro *dos mesmos resultados*.
+ */
+function pickPreferredPrefixCandidate(
+    g: typeof google,
+    results: google.maps.places.PlaceResult[],
+    baseName: string,
+    lat: number,
+    lng: number
+): google.maps.places.PlaceResult | null {
+    const baseNorm = normalizeForMatch(baseName);
+    const baseTokens = baseNorm.split(" ").filter(Boolean);
+
+    const tryPrefix = (prefix: string) => {
+        const candidates = results.filter((r) => {
             // @ts-ignore
-            const d = g.maps.geometry?.spherical?.computeDistanceBetween?.(
-                new g.maps.LatLng(lat, lng),
-                new g.maps.LatLng(a.lat, a.lng)
-            );
-            return typeof d === "number" ? d : Number.POSITIVE_INFINITY;
-        } catch {
-            const dx = (a.lng - lng) * Math.cos(((lat + a.lat) / 2) * (Math.PI / 180));
-            const dy = a.lat - lat;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
+            const rn = (r._normName as string) || normalizeForMatch(r.name || "");
+            if (!rn.startsWith(prefix + " ")) return false;
+            const hasToken = baseTokens.some((t) => rn.includes(t));
+            return hasToken;
+        });
+
+        if (!candidates.length) return null;
+
+        const scored = candidates.map((r) => {
+            const loc = r.geometry?.location
+                ? {
+                    lat: r.geometry.location.lat(),
+                    lng: r.geometry.location.lng(),
+                }
+                : null;
+            const d = loc ? distanceMeters(g, lat, lng, loc.lat, loc.lng) : Number.POSITIVE_INFINITY;
+            return { r, d };
+        });
+
+        scored.sort((a, b) => a.d - b.d);
+        return scored[0].r;
     };
 
-    const best = res
-        .map((r) => {
-            const n = r.name || "";
-            const loc = r.geometry?.location
-                ? { lat: r.geometry.location.lat(), lng: r.geometry.location.lng() }
-                : null;
-            const ov = (name || "")
-                .toLowerCase()
-                .split(/\s+/)
-                .filter(Boolean)
-                .reduce((k, t) => k + (n.toLowerCase().includes(t) ? 1 : 0), 0);
-            const d = loc ? distLegacy(loc) : Number.POSITIVE_INFINITY;
-            return { r, n, loc, ov, d };
-        })
-        .sort((a, b) => (a.d - b.d) || (b.ov - a.ov))[0];
+    const prefixes = ["jardim", "largo", "parque"];
 
-    if (best?.r?.place_id && best.loc) {
-        return { place_id: best.r.place_id, name: best.n, lat: best.loc.lat, lng: best.loc.lng };
+    for (const p of prefixes) {
+        const picked = tryPrefix(p);
+        if (picked) {
+            console.log(`[GP DEBUG] prefix '${p}' match:`, picked.name);
+            return picked;
+        }
     }
+
+    return null;
+}
+
+/**
+ * Para miradouros: filtra tipos "maus" (lojas, cafés, bilheteiras, etc)
+ * e escolhe o mais próximo + com melhor overlap textual.
+ */
+function pickBestViewpointGeneric(
+    g: typeof google,
+    results: google.maps.places.PlaceResult[],
+    baseName: string,
+    lat: number,
+    lng: number
+): google.maps.places.PlaceResult | null {
+    if (!results.length) return null;
+
+    const baseTokens = normalizeForMatch(baseName).split(" ").filter(Boolean);
+
+    const filtered = results.filter((r) => {
+        const types: string[] = (r.types || []) as string[];
+        if (!types.length) return true;
+        return !types.some((t) => BAD_VIEWPOINT_TYPES.has(t));
+    });
+
+    const pool = filtered.length ? filtered : results;
+
+    const scored = pool.map((r) => {
+        // @ts-ignore
+        const rnNorm = (r._normName as string) || normalizeForMatch(r.name || "");
+        const overlap = baseTokens.reduce(
+            (acc, t) => acc + (rnNorm.includes(t) ? 1 : 0),
+            0
+        );
+
+        const loc = r.geometry?.location
+            ? {
+                lat: r.geometry.location.lat(),
+                lng: r.geometry.location.lng(),
+            }
+            : null;
+
+        const d = loc ? distanceMeters(g, lat, lng, loc.lat, loc.lng) : Number.POSITIVE_INFINITY;
+
+        const score = overlap * 10 - d / 50;
+
+        return { r, overlap, d, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+
+    if (best) {
+        console.log(
+            "[GP DEBUG] generic viewpoint pick:",
+            best.r.name,
+            "dist",
+            best.d,
+            "overlap",
+            best.overlap
+        );
+        return best.r;
+    }
+
+    return null;
+}
+
+/**
+ * Genérico (não viewpoint): melhor score texto + distância, sem filtro de tipos.
+ */
+function pickBestGeneric(
+    g: typeof google,
+    results: google.maps.places.PlaceResult[],
+    baseName: string,
+    lat: number,
+    lng: number
+): google.maps.places.PlaceResult | null {
+    if (!results.length) return null;
+
+    const baseTokens = normalizeForMatch(baseName).split(" ").filter(Boolean);
+
+    const scored = results.map((r) => {
+        // @ts-ignore
+        const rnNorm = (r._normName as string) || normalizeForMatch(r.name || "");
+        const overlap = baseTokens.reduce(
+            (acc, t) => acc + (rnNorm.includes(t) ? 1 : 0),
+            0
+        );
+
+        const loc = r.geometry?.location
+            ? {
+                lat: r.geometry.location.lat(),
+                lng: r.geometry.location.lng(),
+            }
+            : null;
+
+        const d = loc ? distanceMeters(g, lat, lng, loc.lat, loc.lng) : Number.POSITIVE_INFINITY;
+        const score = overlap * 10 - d / 50;
+
+        return { r, overlap, d, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+
+    if (best) {
+        console.log(
+            "[GP DEBUG] generic best candidate:",
+            best.r.name,
+            "dist",
+            best.d,
+            "overlap",
+            best.overlap
+        );
+        return best.r;
+    }
+
+    return null;
+}
+
+/**
+ * Último fallback: escolhe simplesmente o mais perto das coords.
+ */
+function pickClosestByDistance(
+    g: typeof google,
+    results: google.maps.places.PlaceResult[],
+    lat: number,
+    lng: number
+): google.maps.places.PlaceResult | null {
+    if (!results.length) return null;
+
+    const scored = results.map((r) => {
+        const loc = r.geometry?.location
+            ? {
+                lat: r.geometry.location.lat(),
+                lng: r.geometry.location.lng(),
+            }
+            : null;
+
+        const d = loc ? distanceMeters(g, lat, lng, loc.lat, loc.lng) : Number.POSITIVE_INFINITY;
+        return { r, d };
+    });
+
+    scored.sort((a, b) => a.d - b.d);
+    const best = scored[0];
+
+    if (best) {
+        console.log("[GP DEBUG] closest-by-distance fallback:", best.r.name, "dist", best.d);
+        return best.r;
+    }
+
+    return null;
+}
+
+/* =====================================================================
+   FIND BY NAME + COORDS (com lógica especial para miradouros)
+   ===================================================================== */
+
+export async function findPlaceByNameAndPoint(
+    name: string,
+    lat: number,
+    lng: number,
+    radius = 3000 // raio de pesquisa base
+): Promise<{ place_id: string; name: string; lat: number; lng: number } | null> {
+    const g = await loadGoogleMaps();
+
+    const trimmedName = name.trim();
+    const { isViewpoint, baseName } = parseViewpointName(trimmedName);
+
+    const ACCEPT_RADIUS = 3000; // 3 km – filtro duro que pediste
+
+    console.log("[GP DEBUG] findPlaceByNameAndPoint:", {
+        rawName: name,
+        baseName,
+        lat,
+        lng,
+        radius,
+    });
+
+    // 1) Fazemos textSearch com o nome original (para ter um pool inicial)
+    let results = await textSearchPlaces(g, trimmedName, lat, lng, radius);
+
+    // fallback: se não vier nada e o baseName for diferente, tentamos com baseName
+    if (!results.length && baseName !== trimmedName) {
+        results = await textSearchPlaces(g, baseName, lat, lng, radius);
+    }
+
+    // normalizar + filtrar por 3 km
+    results = enrichResultsForMatch(results);
+    results = filterByRadius(g, results, lat, lng, ACCEPT_RADIUS);
+
+    console.log("[GP DEBUG] legacy candidates (within 3km):", results.length);
+
+    if (!results.length) return null;
+
+    // ------------- RAMO MIRADOURO (quando o nome já vem com Miradouro ...) -------------
+    if (isViewpoint) {
+        // 1) exact match do nome completo do miradouro (depois de limpeza)
+        const exactMatches = pickExactMatches(results, [trimmedName]);
+        console.log("exactMatches (viewpoint):", exactMatches.map((r) => r.name));
+
+        if (exactMatches.length) {
+            const picked = pickClosestByDistance(g, exactMatches, lat, lng);
+            if (picked && picked.place_id && picked.geometry?.location) {
+                const loc = picked.geometry.location;
+                console.log("[GP DEBUG] exact viewpoint match:", picked.name);
+                return {
+                    place_id: picked.place_id,
+                    name: picked.name || baseName,
+                    lat: loc.lat(),
+                    lng: loc.lng(),
+                };
+            }
+        }
+
+        // 2) Jardim / Largo / Parque dentro do mesmo pool
+        const prefixCandidate = pickPreferredPrefixCandidate(g, results, baseName, lat, lng);
+        if (prefixCandidate && prefixCandidate.place_id && prefixCandidate.geometry?.location) {
+            const loc = prefixCandidate.geometry.location;
+            return {
+                place_id: prefixCandidate.place_id,
+                name: prefixCandidate.name || baseName,
+                lat: loc.lat(),
+                lng: loc.lng(),
+            };
+        }
+
+        // 3) fallback genérico (miradouro-ish) filtrando tipos maus
+        const bestViewpoint = pickBestViewpointGeneric(g, results, baseName, lat, lng);
+        if (bestViewpoint && bestViewpoint.place_id && bestViewpoint.geometry?.location) {
+            const loc = bestViewpoint.geometry.location;
+            return {
+                place_id: bestViewpoint.place_id,
+                name: bestViewpoint.name || baseName,
+                lat: loc.lat(),
+                lng: loc.lng(),
+            };
+        }
+
+        // 4) último recurso dentro dos 3 km
+        const closest = pickClosestByDistance(g, results, lat, lng);
+        if (closest && closest.place_id && closest.geometry?.location) {
+            const loc = closest.geometry.location;
+            return {
+                place_id: closest.place_id,
+                name: closest.name || baseName,
+                lat: loc.lat(),
+                lng: loc.lng(),
+            };
+        }
+
+        return null;
+    }
+
+    // ---------------- GENÉRICO (NÃO começa por "Miradouro ...") ----------------
+    // Ordem que pediste:
+    // 1) Miradouro + baseName
+    // 2) Jardim / Largo / Parque + baseName
+    // 3) Só depois tentar match pelo baseName dentro de 3 km
+
+    // 1) Miradouro <baseName>
+    let prefixResults: google.maps.places.PlaceResult[] = [];
+
+    {
+        const miradouroRes = await textSearchPlaces(
+            g,
+            `Miradouro ${baseName}`,
+            lat,
+            lng,
+            radius
+        );
+        let filtered = enrichResultsForMatch(miradouroRes);
+        filtered = filterByRadius(g, filtered, lat, lng, ACCEPT_RADIUS);
+
+        if (filtered.length) {
+            prefixResults.push(...filtered);
+        }
+    }
+
+    // 2) Jardim / Largo / Parque <baseName>, só se ainda não encontrámos nada
+    if (!prefixResults.length) {
+        const extra = await textSearchWithPrefixes(
+            g,
+            baseName,
+            lat,
+            lng,
+            radius,
+            ["Jardim", "Largo", "Parque"]
+        );
+        let filtered = enrichResultsForMatch(extra);
+        filtered = filterByRadius(g, filtered, lat, lng, ACCEPT_RADIUS);
+
+        if (filtered.length) {
+            prefixResults.push(...filtered);
+        }
+    }
+
+    // Se encontrámos algo com Miradouro/Jardim/Largo/Parque, usamos lógica "viewpoint"
+    if (prefixResults.length) {
+        const bestView = pickBestViewpointGeneric(g, prefixResults, baseName, lat, lng);
+        if (bestView && bestView.place_id && bestView.geometry?.location) {
+            const loc = bestView.geometry.location;
+            console.log("[GP DEBUG] prefix-based viewpoint match:", bestView.name);
+            return {
+                place_id: bestView.place_id,
+                name: bestView.name || baseName,
+                lat: loc.lat(),
+                lng: loc.lng(),
+            };
+        }
+    }
+
+    // 3) Só agora fazemos match pelo baseName, mas SEM sair dos 3 km
+    const exactGeneric = pickExactMatches(results, [trimmedName, baseName]);
+    console.log(
+        "exactMatches (generic, 3km only):",
+        exactGeneric.map((r) => r.name)
+    );
+
+    if (exactGeneric.length) {
+        const picked = pickClosestByDistance(g, exactGeneric, lat, lng);
+        if (picked && picked.place_id && picked.geometry?.location) {
+            const loc = picked.geometry.location;
+            console.log("[GP DEBUG] exact generic match (3km):", picked.name);
+            return {
+                place_id: picked.place_id,
+                name: picked.name || baseName,
+                lat: loc.lat(),
+                lng: loc.lng(),
+            };
+        }
+    }
+
+    // 4) Fallback genérico melhor score (overlap texto + distância) mas SEM sair dos 3km
+    const bestGeneric = pickBestGeneric(g, results, baseName || trimmedName, lat, lng);
+    if (bestGeneric && bestGeneric.place_id && bestGeneric.geometry?.location) {
+        const loc = bestGeneric.geometry.location;
+        return {
+            place_id: bestGeneric.place_id,
+            name: bestGeneric.name || baseName || trimmedName,
+            lat: loc.lat(),
+            lng: loc.lng(),
+        };
+    }
+
+    // 5) Último recurso – ainda dentro dos 3 km, porque já filtrámos results lá em cima
+    const closest = pickClosestByDistance(g, results, lat, lng);
+    if (closest && closest.place_id && closest.geometry?.location) {
+        const loc = closest.geometry.location;
+        return {
+            place_id: closest.place_id,
+            name: closest.name || baseName || trimmedName,
+            lat: loc.lat(),
+            lng: loc.lng(),
+        };
+    }
+
     return null;
 }
 
 /* ------------------------------------------------------------------
-   Aliases úteis para compatibilidade com imports antigos
+   Alias útil para compatibilidade com imports antigos
 ------------------------------------------------------------------- */
-export { loadGoogleMaps as loadGoogleMap }; // evita TS2305 se alguém importar o nome no singular
+export { loadGoogleMaps as loadGoogleMap };
