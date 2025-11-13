@@ -1,7 +1,15 @@
 // src/lib/poiInfo.ts
 // -------------------------------------------------------------------
-// NOVA VERSÃO — Google para fotos + horários; Wikipédia para o texto.
-// Nome e coordenadas vêm do Google (mais fiável que OSM).
+// Google:
+//   - nome, coords, fotos, horários, rating, website
+//   - para miradouros (viewpoints): toda a info vem de Google (sem Wikipédia)
+//
+// Wikipédia:
+//   - descrição, história, arquitetura
+//   - usada apenas para POIs que NÃO são miradouro
+//
+// OSM:
+//   - pode fornecer "nome anterior" e contactos (phone/email/website)
 // -------------------------------------------------------------------
 
 import {
@@ -12,13 +20,33 @@ import {
 } from "@/lib/gplaces";
 import { compactOpeningHours } from "@/utils/openingHours";
 
-/* ===========================
-   Tipos
-   =========================== */
-export type OpeningHours = { raw?: string | null; isOpenNow?: boolean; nextChange?: string | null };
-export type Contacts = { phone?: string | null; email?: string | null; website?: string | null };
-export type Ratings = { source: "google"; value: number; votes?: number | null };
-export type BuiltPeriod = { start?: string | null; end?: string | null; opened?: string | null };
+/* =====================================================================
+   TIPOS
+   ===================================================================== */
+
+export type OpeningHours = {
+    raw?: string | null;
+    isOpenNow?: boolean;
+    nextChange?: string | null;
+};
+
+export type Contacts = {
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
+};
+
+export type Ratings = {
+    source: "google";
+    value: number;
+    votes?: number | null;
+};
+
+export type BuiltPeriod = {
+    start?: string | null;
+    end?: string | null;
+    opened?: string | null;
+};
 
 export type PoiInfo = {
     label?: string | null;
@@ -54,15 +82,199 @@ export type PoiInfo = {
     builtPeriod?: BuiltPeriod;
 };
 
-/* ===========================
-   Wikipedia endpoints
-   =========================== */
+/* =====================================================================
+   HELPERS BÁSICOS (texto / JSON / distância)
+   ===================================================================== */
+
+const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
+
+const normalizeText = (value?: string | null) =>
+    (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+
+/** overlap simples de tokens entre dois textos */
+const tokenOverlapRatio = (a?: string | null, b?: string | null) => {
+    const tokensA = new Set(normalizeText(a).split(" ").filter(Boolean));
+    const tokensB = new Set(normalizeText(b).split(" ").filter(Boolean));
+    if (!tokensA.size || !tokensB.size) return 0;
+
+    let matches = 0;
+    tokensA.forEach((token) => {
+        if (tokensB.has(token)) matches++;
+    });
+
+    return matches / Math.min(tokensA.size, tokensB.size);
+};
+
+async function safeJson(url: string) {
+    const response = await fetch(url, { referrerPolicy: "no-referrer" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+}
+
+function htmlToPlainText(html: string): string {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const paragraphs = Array.from(doc.querySelectorAll("p"));
+    return paragraphs
+        .map((p) => p.textContent?.trim() || "")
+        .filter(Boolean)
+        .join("\n\n");
+}
+
+function distanceKm(
+    a?: { lat: number; lon: number } | null,
+    b?: { lat: number; lon: number } | null
+): number {
+    if (!a || !b) return Infinity;
+    const R = 6371; // km
+    const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+    const dLon = ((b.lon - a.lon) * Math.PI) / 180;
+    const lat1 = (a.lat * Math.PI) / 180;
+    const lat2 = (b.lat * Math.PI) / 180;
+
+    const sin1 = Math.sin(dLat / 2);
+    const sin2 = Math.sin(dLon / 2);
+    const x = sin1 * sin1 + Math.cos(lat1) * Math.cos(lat2) * sin2 * sin2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+/** Gera nomes de busca para o Google, com variações especiais para miradouros */
+function buildGoogleSearchNames(
+    approximateName: string,
+    isViewpoint: boolean,
+    sourceFeature?: any | null
+): string[] {
+    const names: string[] = [];
+    const base = approximateName.trim();
+    if (!base) return [];
+
+    // Nome tal como vem do OSM
+    names.push(base);
+
+    if (!isViewpoint) {
+        return Array.from(new Set(names));
+    }
+
+    // Para miradouros: tentar remover o prefixo "Miradouro ..."
+    const withoutPrefix = base
+        .replace(/^miradouro\s+(do|da|de|dos|das)\s+/i, "")
+        .replace(/^miradouro\s+/i, "")
+        .trim();
+
+    if (withoutPrefix && withoutPrefix.toLowerCase() !== base.toLowerCase()) {
+        names.push(withoutPrefix);
+    }
+
+    // Tentar descobrir uma “zona” (cidade / vila) a partir dos tags OSM
+    const props = sourceFeature?.properties ?? {};
+    const tags = props.tags ?? {};
+
+    const zoneCandidate =
+        tags["addr:city"] ??
+        tags["is_in:city"] ??
+        tags["addr:municipality"] ??
+        tags["addr:place"] ??
+        tags["addr:town"] ??
+        tags["addr:village"] ??
+        null;
+
+    if (zoneCandidate && typeof zoneCandidate === "string") {
+        const zone = zoneCandidate.trim();
+        if (zone) {
+            if (withoutPrefix) {
+                names.push(`${withoutPrefix} ${zone}`);            // "Portas do Sol Santarém"
+                names.push(`Miradouro ${withoutPrefix} ${zone}`);  // "Miradouro Portas do Sol Santarém"
+            }
+            names.push(`${base} ${zone}`);                         // "Miradouro das Portas do Sol Santarém"
+            names.push(`${base} ${zone} Portugal`);
+        }
+    }
+
+    return Array.from(new Set(names.filter(Boolean)));
+}
+
+function isBadViewpointCandidate(place: any): boolean {
+    const types: string[] = Array.isArray(place?.types) ? place.types : [];
+
+    if (!types.length) return false;
+
+    const badTypes = new Set([
+        "cafe",
+        "restaurant",
+        "bar",
+        "night_club",
+        "bakery",
+        "food",
+        "lodging",
+        "hotel",
+        "motel",
+        "hostel",
+        "guest_house",
+    ]);
+
+    const goodTypes = new Set([
+        "tourist_attraction",
+        "park",
+        "natural_feature",
+        "campground",
+        "rv_park",
+        "point_of_interest",
+    ]);
+
+    const hasBad = types.some((t) => badTypes.has(t));
+    const hasGood = types.some((t) => goodTypes.has(t));
+
+    // Se for claramente “negócio de comida/hospedagem” e não tiver tipo “turístico/natural”
+    return hasBad && !hasGood;
+}
+
+const BAD_VIEWPOINT_TYPES = new Set([
+    "cafe",
+    "restaurant",
+    "bar",
+    "night_club",
+    "bakery",
+    "meal_takeaway",
+    "meal_delivery",
+    "lodging",
+    "hotel",
+    "motel",
+    "campground",
+    "store",
+    "supermarket",
+    "grocery_or_supermarket",
+    "shopping_mall",
+    "convenience_store",
+    "parking",
+    "parking_lot",
+    "gas_station",
+    "car_rental",
+    "car_dealer",
+    "ticket_agency",
+    "travel_agency",
+    "real_estate_agency"
+]);
+
+function isBadViewpointPlace(place: any): boolean {
+    const types: string[] = place?.types || [];
+    return types.some((t) => BAD_VIEWPOINT_TYPES.has(t));
+}
+
+/* =====================================================================
+   WIKIPEDIA ENDPOINT BUILDERS
+   ===================================================================== */
+
 const WIKIPEDIA_SUMMARY = (lang: string, title: string) =>
     `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
 
-const WIKIPEDIA_SEARCH = (lang: string, q: string) =>
+const WIKIPEDIA_SEARCH = (lang: string, query: string) =>
     `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
-        q
+        query
     )}&format=json&origin=*`;
 
 const WIKIPEDIA_GEOSEARCH = (lang: string, lat: number, lon: number, radius = 800) =>
@@ -73,144 +285,105 @@ const WIKIPEDIA_PARSE = (lang: string, title: string) =>
         title
     )}&prop=sections|text&format=json&origin=*`;
 
-/* ===========================
-   Utils básicos
-   =========================== */
-const uniq = <T,>(a: T[]) => Array.from(new Set(a));
-const normalize = (s?: string | null) =>
-    (s || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLowerCase();
+/* =====================================================================
+   TIPOS / HELPERS WIKIPEDIA
+   ===================================================================== */
 
-const tokenOverlap = (a?: string | null, b?: string | null) => {
-    const A = new Set(normalize(a).split(" ").filter(Boolean));
-    const B = new Set(normalize(b).split(" ").filter(Boolean));
-    if (!A.size || !B.size) return 0;
-    let hit = 0;
-    A.forEach((t) => {
-        if (B.has(t)) hit++;
-    });
-    return hit / Math.min(A.size, B.size);
-};
-
-async function safeJson(url: string) {
-    const r = await fetch(url, { referrerPolicy: "no-referrer" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-}
-
-function htmlToText(html: string): string {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const ps = Array.from(doc.querySelectorAll("p"));
-    return ps.map((p) => p.textContent?.trim() || "").filter(Boolean).join("\n\n");
-}
-
-/* ===========================
-   Wikipedia helpers
-   =========================== */
 export type WikipediaTag = { lang: string; title: string };
 
-function parseWikipediaTag(raw?: string | null): WikipediaTag | null {
-    if (!raw) return null;
-    const parts = raw.split(":");
-    if (parts.length >= 2) {
-        const lang = parts.shift()!.trim().toLowerCase();
-        const title = parts.join(":").trim();
-        if (lang && title) return { lang, title };
-    }
-    return { lang: "pt", title: raw.trim() };
-}
 
-async function fetchFromWikipediaStrict(
+/** usa /page/summary + valida a distância às coords aproximadas */
+export async function fetchFromWikipediaStrict(
     lang: string,
     title: string,
-    approx?: { lat: number; lon: number } | null,
-    maxKm = 60
+    approxCoords?: { lat: number; lon: number } | null,
+    maxDistanceKm = 60
 ): Promise<Partial<PoiInfo>> {
-    const jd = await safeJson(WIKIPEDIA_SUMMARY(lang, title));
-    const wlat = jd?.coordinates?.lat;
-    const wlon = jd?.coordinates?.lon;
-    const wpCoords = typeof wlat === "number" && typeof wlon === "number" ? { lat: wlat, lon: wlon } : null;
+    const json = await safeJson(WIKIPEDIA_SUMMARY(lang, title));
 
-    if (approx && wpCoords) {
-        const R = 6371;
-        const dLat = ((approx.lat - wpCoords.lat) * Math.PI) / 180;
-        const dLon = ((approx.lon - wpCoords.lon) * Math.PI) / 180;
-        const la1 = (approx.lat * Math.PI) / 180,
-            la2 = (wpCoords.lat * Math.PI) / 180;
-        const x =
-            Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
-        const dist = 2 * R * Math.asin(Math.sqrt(x));
-        if (dist > maxKm) return {};
+    const wLat = json?.coordinates?.lat;
+    const wLon = json?.coordinates?.lon;
+    const wikiCoords =
+        typeof wLat === "number" && typeof wLon === "number"
+            ? { lat: wLat, lon: wLon }
+            : null;
+
+    if (approxCoords && wikiCoords) {
+        const distance = distanceKm(approxCoords, wikiCoords);
+        if (distance > maxDistanceKm) return {};
     }
 
     return {
-        label: jd?.title ?? null,
-        description: jd?.extract ?? null,
-        wikipediaUrl: jd?.content_urls?.desktop?.page ?? null,
-        coords: wpCoords ?? null,
+        label: json?.title ?? null,
+        description: json?.extract ?? null,
+        wikipediaUrl: json?.content_urls?.desktop?.page ?? null,
+        coords: wikiCoords ?? null,
     };
 }
 
-async function fetchWikipediaSections(
+/** devolve texto de secções "História" / "Arquitetura" (PT ou EN) */
+export async function fetchWikipediaSections(
     lang: string,
     title: string
 ): Promise<{ history?: string | null; architecture?: string | null }> {
-    const tryLang = async (lng: string) => {
+    const fetchLanguage = async (lng: string) => {
         try {
-            const jd = await safeJson(WIKIPEDIA_PARSE(lng, title));
-            const html = jd?.parse?.text?.["*"];
+            const json = await safeJson(WIKIPEDIA_PARSE(lng, title));
+            const html = json?.parse?.text?.["*"];
             if (!html) return { history: null, architecture: null };
 
             const doc = new DOMParser().parseFromString(html, "text/html");
             const sections: Record<string, string> = {};
-            let current = "";
+            let currentKey = "";
             const nodes = Array.from(doc.body.childNodes);
-            const push = (k: string, v: string) => {
-                sections[k] = (sections[k] || "") + v;
+
+            const appendSection = (key: string, value: string) => {
+                sections[key] = (sections[key] || "") + value;
             };
 
-            for (const n of nodes) {
-                if ((n as HTMLElement).nodeType === 1) {
-                    const el = n as HTMLElement;
+            for (const node of nodes) {
+                if ((node as HTMLElement).nodeType === 1) {
+                    const el = node as HTMLElement;
+
                     if (/^H[2-4]$/.test(el.tagName)) {
-                        current = (el.textContent || "").trim().toLowerCase();
+                        currentKey = (el.textContent || "").trim().toLowerCase();
                         continue;
                     }
+
                     if (
-                        current &&
+                        currentKey &&
                         (el.tagName === "P" || el.tagName === "UL" || el.tagName === "OL")
-                    )
-                        push(current, el.outerHTML);
+                    ) {
+                        appendSection(currentKey, el.outerHTML);
+                    }
                 }
             }
 
-            const getFirstParas = (keys: string[]) => {
-                for (const k of keys) {
-                    const hit = Object.entries(sections).find(([hdr]) => hdr.includes(k));
-                    if (hit) {
-                        const text = htmlToText(hit[1]).trim();
+            const extractFirstParagraphs = (keys: string[]) => {
+                for (const key of keys) {
+                    const entry = Object.entries(sections).find(([header]) =>
+                        header.includes(key)
+                    );
+                    if (entry) {
+                        const text = htmlToPlainText(entry[1]).trim();
                         if (text) return text;
                     }
                 }
                 return null;
             };
 
-            const history = getFirstParas(["história", "history"]);
-            const architecture = getFirstParas(["arquitetura", "architecture"]);
+            const history = extractFirstParagraphs(["história", "history"]);
+            const architecture = extractFirstParagraphs(["arquitetura", "architecture"]);
             return { history, architecture };
         } catch {
             return { history: null, architecture: null };
         }
     };
 
-    const pt = await tryLang(lang);
-    if (pt.history || pt.architecture) return pt;
-    return await tryLang("en");
+    const primary = await fetchLanguage(lang);
+    if (primary.history || primary.architecture) return primary;
+
+    return await fetchLanguage("en");
 }
 
 export async function searchWikipediaTitleByName(
@@ -218,11 +391,10 @@ export async function searchWikipediaTitleByName(
     lang: string = "pt"
 ): Promise<WikipediaTag | null> {
     try {
-        const api = WIKIPEDIA_SEARCH(lang, name);
-        const jd = await safeJson(api);
-        const first = jd?.query?.search?.[0];
-        if (!first) return null;
-        return { lang, title: first.title as string };
+        const json = await safeJson(WIKIPEDIA_SEARCH(lang, name));
+        const firstResult = json?.query?.search?.[0];
+        if (!firstResult) return null;
+        return { lang, title: firstResult.title as string };
     } catch {
         return null;
     }
@@ -235,35 +407,98 @@ export async function geosearchWikipediaTitleSmart(
     lang: string = "pt"
 ): Promise<WikipediaTag | null> {
     try {
-        const api = WIKIPEDIA_GEOSEARCH(lang, lat, lon, 800);
-        const jd = await safeJson(api);
-
-        const items: Array<{ title: string; dist?: number }> = jd?.query?.geosearch ?? [];
+        const json = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, 800));
+        const items: Array<{ title: string; dist?: number }> = json?.query?.geosearch ?? [];
         if (!items.length) return null;
 
-        const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const qn = norm(name ?? "");
+        const normalize = (v: string) =>
+            v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const queryNorm = normalize(name ?? "");
 
-        const best =
-            items.find((i) => (qn ? norm(i.title).includes(qn.split(" ")[0]) : false)) ?? items[0];
+        const bestMatch =
+            items.find((item) =>
+                queryNorm ? normalize(item.title).includes(queryNorm.split(" ")[0]) : false
+            ) ?? items[0];
 
-        return best ? { lang, title: best.title } : null;
+        return bestMatch ? { lang, title: bestMatch.title } : null;
     } catch {
         return null;
     }
 }
 
-/* ===========================
-   OSM helpers (usado só para nomes antigos/auxiliares)
-   =========================== */
-function featurePrimaryName(f?: any | null): string | null {
-    if (!f) return null;
-    const p = f?.properties ?? {};
-    const tags = p.tags ?? {};
+/** tenta converter (lang,title) para o título PT se existir */
+async function resolvePortugueseTitleViaLanglinks(
+    fromLang: string,
+    fromTitle: string
+): Promise<string | null> {
+    try {
+        const api = `https://${fromLang}.wikipedia.org/w/api.php?action=query&prop=langlinks&lllang=pt&format=json&titles=${encodeURIComponent(
+            fromTitle
+        )}&origin=*`;
+        const json = await safeJson(api);
+        const pages = json?.query?.pages || {};
+        const firstPage = Object.values(pages)[0] as any;
+        const langLink = firstPage?.langlinks?.[0];
+        return langLink?.["*"] || null;
+    } catch {
+        return null;
+    }
+}
+
+/** tenta obter título PT via Wikidata sitelinks */
+async function resolvePortugueseTitleViaWikidata(
+    fromLang: string,
+    fromTitle: string
+): Promise<string | null> {
+    try {
+        const api1 = `https://${fromLang}.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&format=json&titles=${encodeURIComponent(
+            fromTitle
+        )}&origin=*`;
+        const json1 = await safeJson(api1);
+        const pages = json1?.query?.pages || {};
+        const firstPage = Object.values(pages)[0] as any;
+        const qid = firstPage?.pageprops?.wikibase_item;
+        if (!qid) return null;
+
+        const api2 = `https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`;
+        const json2 = await safeJson(api2);
+        const entity = json2?.entities?.[qid];
+        const ptTitle = entity?.sitelinks?.ptwiki?.title;
+        return typeof ptTitle === "string" ? ptTitle : null;
+    } catch {
+        return null;
+    }
+}
+
+/** se existir versão PT, devolve {lang:"pt",title}, senão devolve a tag original */
+async function ensurePortugueseTitle(
+    tag: { lang: string; title: string } | null
+): Promise<{ lang: string; title: string } | null> {
+    if (!tag) return null;
+    if (tag.lang === "pt") return tag;
+
+    const viaLanglinks = await resolvePortugueseTitleViaLanglinks(tag.lang, tag.title);
+    if (viaLanglinks) return { lang: "pt", title: viaLanglinks };
+
+    const viaWikidata = await resolvePortugueseTitleViaWikidata(tag.lang, tag.title);
+    if (viaWikidata) return { lang: "pt", title: viaWikidata };
+
+    return tag;
+}
+
+/* =====================================================================
+   OSM HELPERS (nome principal)
+   ===================================================================== */
+
+function featurePrimaryName(feature?: any | null): string | null {
+    if (!feature) return null;
+    const props = feature.properties ?? {};
+    const tags = props.tags ?? {};
+
     return (
-        p["name:pt"] ||
-        p.name ||
-        p["name:en"] ||
+        props["name:pt"] ||
+        props.name ||
+        props["name:en"] ||
         tags["name:pt"] ||
         tags.name ||
         tags["name:en"] ||
@@ -271,25 +506,25 @@ function featurePrimaryName(f?: any | null): string | null {
     );
 }
 
-/* ===========================
-   Google Places lookup (Text Search → Details)
-   =========================== */
+/* =====================================================================
+   GOOGLE PLACES HELPER: textSearch/nearbySearch fallback
+   ===================================================================== */
+
 async function findBestGooglePlaceByNameNear(
     name: string,
     lat: number,
     lon: number
 ): Promise<any | null> {
-    const g = await loadGoogleMaps();
+    const google = await loadGoogleMaps();
 
-    // container invisível para o service antigo
-    const div = document.createElement("div");
-    div.style.width = "0";
-    div.style.height = "0";
-    document.body.appendChild(div);
+    const container = document.createElement("div");
+    container.style.width = "0";
+    container.style.height = "0";
+    document.body.appendChild(container);
 
-    const map = new g.maps.Map(div, { center: { lat, lng: lon }, zoom: 15 });
+    const map = new google.maps.Map(container, { center: { lat, lng: lon }, zoom: 15 });
     // @ts-ignore
-    const service = new g.maps.places.PlacesService(map);
+    const service = new google.maps.places.PlacesService(map);
 
     // 1) textSearch
     try {
@@ -298,230 +533,415 @@ async function findBestGooglePlaceByNameNear(
             (resolve, reject) => {
                 // @ts-ignore
                 service.textSearch(
-                    { query: name, location: { lat, lng: lon }, radius: 1500, language: "pt" } as any,
+                    {
+                        query: name,
+                        location: { lat, lng: lon },
+                        radius: 1500,
+                        language: "pt",
+                    } as any,
                     // @ts-ignore
-                    (res, status) => {
+                    (results, status) => {
                         // @ts-ignore
-                        if (status === g.maps.places.PlacesServiceStatus.OK && res) resolve(res);
-                        else reject(new Error(`textSearch: ${status}`));
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                            resolve(results);
+                        } else {
+                            reject(new Error(`textSearch: ${status}`));
+                        }
                     }
                 );
             }
         );
 
         if (textResults?.length) {
-            const picked = textResults
-                .map((r) => ({ r, score: tokenOverlap(name, r.name || "") * 10 + (r.rating || 0) }))
-                .sort((a, b) => b.score - a.score)[0]?.r;
+            const best = textResults
+                .map((place) => ({
+                    place,
+                    score:
+                        tokenOverlapRatio(name, place.name || "") * 10 + (place.rating || 0),
+                }))
+                .sort((a, b) => b.score - a.score)[0]?.place;
 
-            if (picked?.place_id) {
-                const det = await getPlaceDetailsById(picked.place_id);
-                return det || null;
+            if (best?.place_id) {
+                const details = await getPlaceDetailsById(best.place_id);
+                return details || null;
             }
+
+
         }
-    } catch (e) {
-        console.warn("textSearch falhou, a tentar nearbySearch como fallback.", e);
+    } catch (error) {
+        console.warn("textSearch falhou, a tentar nearbySearch como fallback.", error);
     }
 
     // 2) nearbySearch
     try {
         // @ts-ignore
-        const nearby = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
-            // @ts-ignore
-            service.nearbySearch(
-                { location: { lat, lng: lon }, radius: 1200, keyword: name, language: "pt" } as any,
+        const nearbyResults = await new Promise<google.maps.places.PlaceResult[]>(
+            (resolve, reject) => {
                 // @ts-ignore
-                (res, status) => {
+                service.nearbySearch(
+                    {
+                        location: { lat, lng: lon },
+                        radius: 1200,
+                        keyword: name,
+                        language: "pt",
+                    } as any,
                     // @ts-ignore
-                    if (status === g.maps.places.PlacesServiceStatus.OK && res) resolve(res);
-                    else reject(new Error(`nearbySearch: ${status}`));
-                }
-            );
-        });
+                    (results, status) => {
+                        // @ts-ignore
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                            resolve(results);
+                        } else {
+                            reject(new Error(`nearbySearch: ${status}`));
+                        }
+                    }
+                );
+            }
+        );
 
-        if (nearby?.length) {
-            const picked = nearby
-                .map((r) => ({ r, score: tokenOverlap(name, r.name || "") * 10 + (r.rating || 0) }))
-                .sort((a, b) => b.score - a.score)[0]?.r;
+        if (nearbyResults?.length) {
+            const best = nearbyResults
+                .map((place) => ({
+                    place,
+                    score:
+                        tokenOverlapRatio(name, place.name || "") * 10 + (place.rating || 0),
+                }))
+                .sort((a, b) => b.score - a.score)[0]?.place;
 
-            if (picked?.place_id) {
-                const det = await getPlaceDetailsById(picked.place_id);
-                return det || null;
+            if (best?.place_id) {
+                const details = await getPlaceDetailsById(best.place_id);
+                return details || null;
             }
         }
-    } catch (e) {
-        console.warn("nearbySearch também falhou.", e);
+    } catch (error) {
+        console.warn("nearbySearch também falhou.", error);
     }
 
     return null;
 }
 
-/* ===========================
-   MERGE helpers
-   =========================== */
-function mergeContacts(a?: Contacts | null, b?: Contacts | null): Contacts | undefined {
-    if (!a && !b) return undefined;
+/* =====================================================================
+   MERGE HELPERS (Contacts / PoiInfo)
+   ===================================================================== */
+
+function mergeContacts(existing?: Contacts | null, incoming?: Contacts | null): Contacts | undefined {
+    if (!existing && !incoming) return undefined;
+
     return {
-        phone: (b?.phone ?? a?.phone) ?? undefined,
-        email: (b?.email ?? a?.email) ?? undefined,
-        website: (b?.website ?? a?.website) ?? undefined,
+        phone: (incoming?.phone ?? existing?.phone) ?? undefined,
+        email: (incoming?.email ?? existing?.email) ?? undefined,
+        website: (incoming?.website ?? existing?.website) ?? undefined,
     };
 }
 
-function mergePoiPieces(a: Partial<PoiInfo>, b: Partial<PoiInfo>): Partial<PoiInfo> {
-    const out: Partial<PoiInfo> = { ...a };
-    const take = <T,>(v: T | null | undefined, cur: T | null | undefined): T | undefined =>
-        v === 0 || v === false || (Array.isArray(v) && v.length) || (!!v && v !== "")
-            ? (v as any)
-            : (cur as any);
+function mergePoiPieces(current: Partial<PoiInfo>, incoming: Partial<PoiInfo>): Partial<PoiInfo> {
+    const result: Partial<PoiInfo> = { ...current };
 
-    out.label = a.label ?? b.label ?? out.label ?? null;
-    out.description = take(b.description, a.description) ?? out.description;
-    out.image = take(b.image, a.image) ?? out.image;
-    out.images = b.images?.length ? uniq([...(a.images ?? []), ...b.images]) : a.images ?? out.images;
-    out.wikipediaUrl = a.wikipediaUrl ?? b.wikipediaUrl ?? out.wikipediaUrl ?? null;
+    const choose = <T,>(next: T | null | undefined, prev: T | null | undefined): T | undefined =>
+        next === 0 ||
+        next === false ||
+        (Array.isArray(next) && next.length > 0) ||
+        (!!next && next !== "")
+            ? (next as any)
+            : (prev as any);
 
-    out.coords = a.coords ?? b.coords ?? out.coords ?? null;
-    out.website = a.website ?? b.website ?? out.website ?? null;
+    result.label = current.label ?? incoming.label ?? result.label ?? null;
 
-    out.openingHours = b.openingHours ?? a.openingHours ?? out.openingHours ?? null;
-    out.ratings = b.ratings ?? a.ratings ?? out.ratings;
+    result.description = choose(incoming.description, current.description) ?? result.description;
+    result.image = choose(incoming.image, current.image) ?? result.image;
 
-    out.historyText = take(b.historyText, a.historyText) ?? out.historyText;
-    out.architectureText = take(b.architectureText, a.architectureText) ?? out.architectureText;
+    result.images = incoming.images?.length
+        ? uniq([...(current.images ?? []), ...incoming.images])
+        : current.images ?? result.images;
 
-    return out;
+    result.wikipediaUrl =
+        current.wikipediaUrl ?? incoming.wikipediaUrl ?? result.wikipediaUrl ?? null;
+
+    result.coords = current.coords ?? incoming.coords ?? result.coords ?? null;
+    result.website = current.website ?? incoming.website ?? result.website ?? null;
+
+    result.openingHours =
+        incoming.openingHours ?? current.openingHours ?? result.openingHours ?? null;
+
+    result.ratings = incoming.ratings ?? current.ratings ?? result.ratings;
+
+    result.historyText =
+        choose(incoming.historyText, current.historyText) ?? result.historyText;
+    result.architectureText =
+        choose(incoming.architectureText, current.architectureText) ??
+        result.architectureText;
+
+    return result;
 }
 
-/* ===========================
-   Orquestrador
-   =========================== */
-export async function fetchPoiInfo(opts: {
+/* =====================================================================
+   ORQUESTRADOR: fetchPoiInfo
+   ===================================================================== */
+
+export async function fetchPoiInfo(options: {
     wikipedia?: string | null;
     approx?: { name?: string | null; lat?: number | null; lon?: number | null } | null;
     sourceFeature?: any | null;
 }): Promise<PoiInfo | null> {
     let merged: Partial<PoiInfo> = { images: [] };
 
-    const approxName = opts.approx?.name ?? null;
-    const approxLat = opts.approx?.lat ?? null;
-    const approxLon = opts.approx?.lon ?? null;
-    const approxCoords =
-        approxLat != null && approxLon != null ? { lat: approxLat, lon: approxLon } : null;
+    const approximateName = options.approx?.name ?? null;
+    const approximateLat = options.approx?.lat ?? null;
+    const approximateLon = options.approx?.lon ?? null;
+    const approximateCoords =
+        approximateLat != null && approximateLon != null
+            ? { lat: approximateLat, lon: approximateLon }
+            : null;
 
-    // 1) Google — corrige nome/coords e traz fotos/horário/rating/website
+    const sourceFeature = options.sourceFeature || null;
+    const poiCategory: string | null = sourceFeature?.properties?.__cat ?? null;
+    const isViewpoint = poiCategory === "viewpoint";
+
+    /* -------------------------------------------------------
+     1) GOOGLE — nome oficial, coords, fotos, horário, rating
+        (e única fonte para miradouros)
+     ------------------------------------------------------- */
     try {
-        if (approxName && approxCoords) {
-            const hit =
-                (await findPlaceByNameAndPoint(approxName, approxCoords.lat, approxCoords.lon, 300)) ??
-                (await findBestGooglePlaceByNameNear(approxName, approxCoords.lat, approxCoords.lon));
+        if (approximateName && approximateCoords) {
+            const searchNames = buildGoogleSearchNames(
+                approximateName,
+                isViewpoint,
+                sourceFeature
+            );
 
-            if (hit?.place_id) {
-                const det = await getPlaceDetailsById(hit.place_id);
+            for (const searchName of searchNames) {
+                let placeHit =
+                    (await findPlaceByNameAndPoint(
+                        searchName,
+                        approximateCoords.lat,
+                        approximateCoords.lon,
+                        300
+                    )) ??
+                    (await findBestGooglePlaceByNameNear(
+                        searchName,
+                        approximateCoords.lat,
+                        approximateCoords.lon
+                    ));
 
-                const name = det?.displayName?.text || det?.name || hit.name || approxName || null;
+                if (!placeHit?.place_id) {
+                    continue;
+                }
 
-                const loc = det?.location
-                    ? { lat: det.location.lat(), lon: det.location.lng() }
-                    : { lat: hit.lat, lon: hit.lng };
+                const details = await getPlaceDetailsById(placeHit.place_id);
+                if (!details) continue;
 
-                const website = (det as any).websiteUri ?? det.website ?? undefined;
+                // 🔍 Filtrar cafés/restaurantes quando é miradouro
+                if (isViewpoint && isBadViewpointCandidate(details)) {
+                    console.log(
+                        "[POI] rejeitado candidato (café/restaurante/etc) para miradouro:",
+                        searchName,
+                        (details as any).name,
+                        (details as any).types
+                    );
+                    continue; // tenta próximo nome / próximo candidato
+                }
 
-                const ratingVal = typeof det.rating === "number" ? det.rating : undefined;
+                const candidateCoords = details.location
+                    ? { lat: details.location.lat(), lon: details.location.lng() }
+                    : { lat: placeHit.lat, lon: placeHit.lng };
+                const dist = distanceKm(approximateCoords, candidateCoords);
+                const maxAllowedKm = isViewpoint ? 8 : 60;
+
+                console.log(
+                    `[POI] Google candidate "${searchName}" a ${dist.toFixed(
+                        1
+                    )} km (limite ${maxAllowedKm} km)`
+                );
+
+                if (dist > maxAllowedKm) {
+                    // Muito longe → provavelmente outro sítio com o mesmo nome
+                    continue;
+                }
+
+                const resolvedName =
+                    (details as any).displayName?.text ||
+                    details.name ||
+                    placeHit.name ||
+                    approximateName ||
+                    null;
+
+                const website =
+                    (details as any).websiteUri ??
+                    (details as any).website ??
+                    (details as any).websiteUrl ??
+                    details.website ??
+                    undefined;
+
+                const ratingValue =
+                    typeof details.rating === "number" ? details.rating : undefined;
 
                 const ratingCount =
-                    typeof (det as any).userRatingCount === "number"
-                        ? (det as any).userRatingCount
-                        : typeof det.user_ratings_total === "number"
-                            ? det.user_ratings_total
+                    typeof (details as any).userRatingCount === "number"
+                        ? (details as any).userRatingCount
+                        : typeof (details as any).user_ratings_total === "number"
+                            ? (details as any).user_ratings_total
                             : null;
 
-                const compact = det.opening_hours?.weekday_text
-                    ? compactOpeningHours(det.opening_hours.weekday_text)
-                    : undefined;
+                const googleOpeningText: string[] | undefined =
+                    (details as any).opening_hours?.weekday_text;
 
-                const opening = det.opening_hours
-                    ? {
-                        raw: typeof compact === "string" ? compact : JSON.stringify(compact),
-                        isOpenNow:
-                            typeof det.opening_hours.isOpen === "function"
-                                ? !!det.opening_hours.isOpen()
-                                : undefined,
-                    }
-                    : undefined;
+                const compactOpening =
+                    googleOpeningText && googleOpeningText.length
+                        ? compactOpeningHours(googleOpeningText)
+                        : undefined;
 
-                const photos = photoUrlsFromPlace(det, 1600);
+                const openingHours =
+                    (details as any).opening_hours
+                        ? {
+                            raw:
+                                typeof compactOpening === "string"
+                                    ? compactOpening
+                                    : Array.isArray(compactOpening)
+                                        ? JSON.stringify(compactOpening)
+                                        : undefined,
+                            isOpenNow:
+                                typeof (details as any).opening_hours.isOpen === "function"
+                                    ? !!(details as any).opening_hours.isOpen()
+                                    : undefined,
+                        }
+                        : undefined;
+
+                const googlePhotos = photoUrlsFromPlace(details, 1600);
+
+                // Para miradouros podemos, se quisermos, usar também um pequeno resumo do Google:
+                const googleDescription: string | undefined =
+                    (details as any).editorialSummary?.text ??
+                    (details as any).editorial_summary?.overview ??
+                    undefined;
 
                 merged = mergePoiPieces(merged, {
-                    label: name,
-                    coords: loc,
+                    label: resolvedName,
+                    coords: candidateCoords,
                     website,
-                    openingHours: opening,
+                    openingHours,
                     ratings:
-                        typeof ratingVal === "number"
-                            ? [{ source: "google", value: Math.max(0, Math.min(5, ratingVal)), votes: ratingCount }]
+                        typeof ratingValue === "number"
+                            ? [
+                                {
+                                    source: "google",
+                                    value: Math.max(0, Math.min(5, ratingValue)),
+                                    votes: ratingCount,
+                                },
+                            ]
                             : undefined,
-                    image: photos[0],
-                    images: photos.slice(1),
+                    image: googlePhotos[0],
+                    images: googlePhotos.slice(1),
+                    // descrição Google só é realmente relevante para viewpoints,
+                    // mas não faz mal ficar aqui para todos.
+                    description: googleDescription ?? merged.description,
                 });
+
+                // Encontrámos um bom candidato — não é preciso tentar mais nomes
+                break;
             }
         }
-    } catch (e) {
-        console.warn("Google resolver falhou:", e);
+    } catch (error) {
+        console.warn("Google resolver falhou:", error);
     }
 
-    // 2) Wikipédia — texto/sections (com base no nome/coords já corrigidos)
-    const baseName = merged.label ?? approxName ?? null;
-    const baseCoords = merged.coords ?? approxCoords ?? null;
+    const baseName = merged.label ?? approximateName ?? null;
+    const baseCoords = merged.coords ?? approximateCoords ?? null;
 
-    let wpTag = parseWikipediaTag(opts.wikipedia ?? null) || null;
-    if (!wpTag && baseName) {
-        if (baseCoords) {
-            const near = await geosearchWikipediaTitleSmart(baseCoords.lat, baseCoords.lon, baseName);
-            if (near) wpTag = near;
-        }
-        if (!wpTag) {
+    /* -------------------------------------------------------
+       2) WIKIPEDIA — texto (exceto para viewpoints)
+       ------------------------------------------------------- */
+    let wikiTag: { lang: string; title: string } | null = null;
+
+    if (!isViewpoint) {
+        if (baseName) {
             const byNamePt = await searchWikipediaTitleByName(baseName, "pt");
-            wpTag = byNamePt ?? (await searchWikipediaTitleByName(baseName));
+            if (byNamePt) wikiTag = byNamePt;
         }
-    }
 
-    if (wpTag) {
-        try {
-            const wp = await fetchFromWikipediaStrict(wpTag.lang, wpTag.title, baseCoords, 60);
-            if (Object.keys(wp).length) {
-                merged = mergePoiPieces(merged, {
-                    description: wp.description ?? undefined,
-                    wikipediaUrl: (wp as any).wikipediaUrl ?? undefined,
-                });
+        if (!wikiTag && baseCoords) {
+            const nearPt = await geosearchWikipediaTitleSmart(
+                baseCoords.lat,
+                baseCoords.lon,
+                baseName ?? undefined,
+                "pt"
+            );
+            if (nearPt) wikiTag = nearPt;
+        }
 
-                const sections = await fetchWikipediaSections(wpTag.lang, wpTag.title);
-                merged = mergePoiPieces(merged, {
-                    historyText: sections.history ?? undefined,
-                    architectureText: sections.architecture ?? undefined,
-                });
+        if (wikiTag) {
+            try {
+                let wikiSummary = await fetchFromWikipediaStrict(
+                    wikiTag.lang,
+                    wikiTag.title,
+                    baseCoords,
+                    60
+                );
+
+                if (
+                    (!wikiSummary || !Object.keys(wikiSummary).length) &&
+                    wikiTag.lang !== "pt"
+                ) {
+                    const forcedPt = await ensurePortugueseTitle(wikiTag);
+                    if (forcedPt?.lang === "pt") {
+                        wikiTag = forcedPt;
+                        wikiSummary = await fetchFromWikipediaStrict(
+                            wikiTag.lang,
+                            wikiTag.title,
+                            baseCoords,
+                            60
+                        );
+                    }
+                }
+
+                if (wikiSummary && Object.keys(wikiSummary).length) {
+                    merged = mergePoiPieces(merged, {
+                        description: wikiSummary.description ?? undefined,
+                        wikipediaUrl: (wikiSummary as any).wikipediaUrl ?? undefined,
+                    });
+
+                    const sections = await fetchWikipediaSections(wikiTag.lang, wikiTag.title);
+                    merged = mergePoiPieces(merged, {
+                        historyText: sections.history ?? undefined,
+                        architectureText: sections.architecture ?? undefined,
+                    });
+
+                    if (!sections.history && !sections.architecture) {
+                        const enSections = await fetchWikipediaSections("en", wikiTag.title);
+                        merged = mergePoiPieces(merged, {
+                            historyText:
+                                merged.historyText ?? enSections.history ?? undefined,
+                            architectureText:
+                                merged.architectureText ??
+                                enSections.architecture ??
+                                undefined,
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn("Wikipedia fetch failed:", error);
             }
-        } catch {
-            /* ignore */
         }
     }
 
-    // 3) Overrides opcionais do feature OSM (nome antigo, contactos)
-    if (opts.sourceFeature?.properties) {
-        const p = opts.sourceFeature.properties || {};
-        const tooltipName = featurePrimaryName(opts.sourceFeature);
+    /* -------------------------------------------------------
+       3) OSM — overrides suaves (nome antigo + contactos)
+       ------------------------------------------------------- */
+    if (sourceFeature?.properties) {
+        const props = sourceFeature.properties || {};
+        const tooltipName = featurePrimaryName(sourceFeature);
 
         if (tooltipName) {
-            const old = merged.label ?? null;
-            if (old && normalize(old) !== normalize(tooltipName)) {
-                merged.oldNames = Array.from(new Set([...(merged.oldNames ?? []), old]));
+            const currentLabel = merged.label ?? null;
+            if (currentLabel && normalizeText(currentLabel) !== normalizeText(tooltipName)) {
+                merged.oldNames = Array.from(
+                    new Set([...(merged.oldNames ?? []), currentLabel])
+                );
             }
-            // Mantemos o nome do Google como principal
         }
 
-        const osmPhone = p.phone || p["contact:phone"] || null;
-        const osmEmail = p.email || p["contact:email"] || null;
-        const osmWebsite = p.website || p["contact:website"] || null;
+        const osmPhone = props.phone || props["contact:phone"] || null;
+        const osmEmail = props.email || props["contact:email"] || null;
+        const osmWebsite = props.website || props["contact:website"] || null;
+
         if (osmPhone || osmEmail || osmWebsite) {
             merged.contacts =
                 mergeContacts(merged.contacts, {
@@ -532,11 +952,15 @@ export async function fetchPoiInfo(opts: {
         }
     }
 
-    // 4) Normalização final
+    /* -------------------------------------------------------
+       4) Normalização final
+       ------------------------------------------------------- */
     merged.images = (merged.images ?? []).filter(Boolean);
-    if ((merged.images?.length ?? 0) > 48) merged.images = merged.images!.slice(0, 48);
+    if ((merged.images?.length ?? 0) > 48) {
+        merged.images = merged.images!.slice(0, 48);
+    }
 
-    const hasAny =
+    const hasAnyUsefulField =
         merged.label ||
         merged.description ||
         merged.image ||
@@ -546,5 +970,5 @@ export async function fetchPoiInfo(opts: {
         merged.openingHours ||
         (merged.ratings && merged.ratings.length > 0);
 
-    return hasAny ? (merged as PoiInfo) : null;
+    return hasAnyUsefulField ? (merged as PoiInfo) : null;
 }

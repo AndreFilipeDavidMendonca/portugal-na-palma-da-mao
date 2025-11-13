@@ -65,6 +65,43 @@ function isContiguousRange(days: string[]): boolean {
     }
     return true;
 }
+
+type TreeNode = string | { title: string; items?: TreeNode[]; open?: boolean };
+
+function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
+    if (typeof node === "string") {
+        return <li className="dtree__leaf">{node}</li>;
+    }
+
+    const { title, items = [], open = false } = node;
+    const hasChildren = items && items.length > 0;
+
+    return (
+        <details className={`dtree dtree--lvl${level}`} open={open}>
+            <summary className="dtree__summary">
+                <span className="dtree__title">{title}</span>
+                <span aria-hidden className="dtree__chev">▾</span>
+            </summary>
+
+            {hasChildren && (
+                <div className="dtree__panel">
+                    {/* Se todos os filhos forem strings, renderiza lista simples;
+              caso contrário, renderiza recursivamente sub-<details> */}
+                    {items.every(i => typeof i === "string") ? (
+                        <ul className="dtree__list">
+                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                        </ul>
+                    ) : (
+                        <div className="dtree__children">
+                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                        </div>
+                    )}
+                </div>
+            )}
+        </details>
+    );
+}
+
 function uniqueInOrder<T>(arr: T[]): T[] {
     const seen = new Set<T>();
     const out: T[] = [];
@@ -365,23 +402,19 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                 </div>
                             )}
                             {(ohParsed.arr?.length || ohParsed.str || ohFallback) && (
-                                <div>
-                                    <strong>Horário:</strong>{" "}
-                                    {ohParsed.str ? (
-                                        // caso “Todos os dias - das … às …”
-                                        <span>{addHToTimes(ohParsed.str)}</span>
-                                    ) : ohParsed.arr?.length ? (
-                                        // caso array vindo do Google (weekday_text)
-                                        <ul className="hours-list">
-                                            {ohParsed.arr.map((line, i) => (
-                                                <li key={i}>{addHToTimes(line)}</li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        // fallback (ex.: OSM Mo-Fr 10:00-18:00 → “de Segunda a Sexta - 10:00h–18:00h”)
-                                        <span>{addHToTimes(ohFallback ?? "")}</span>
-                                    )}
-                                </div>
+                                <DetailsTree
+                                    node={{
+                                        title: "Horário",
+                                        // podes controlar se abre por defeito:
+                                        open: false,
+                                        items:
+                                            ohParsed.arr?.length
+                                                ? ohParsed.arr.map(line => (line ? line.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h") : line))
+                                                : (ohFallback
+                                                    ? [ohFallback.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")]
+                                                    : (ohParsed.str ? [ohParsed.str.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")] : []))
+                                    }}
+                                />
                             )}
                         </div>
 

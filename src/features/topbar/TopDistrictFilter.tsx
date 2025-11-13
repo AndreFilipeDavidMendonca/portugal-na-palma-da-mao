@@ -104,8 +104,10 @@ function scoreNameFlexible(name: string, query: string): number {
 
     if (!nameTokens.length || !queryTokens.length) return 0;
 
-    // 1) Cobertura de tokens: requer que TODOS os tokens do query apareçam no nome (em qualquer ordem)
-    let hits = 0, prefixHits = 0;
+    // --- 1) Cobertura de tokens (palavras) ---
+    let hits = 0;
+    let prefixHits = 0;
+
     for (const tq of queryTokens) {
         const hit = nameTokens.find(nt => nt.includes(tq));
         if (hit) {
@@ -113,20 +115,31 @@ function scoreNameFlexible(name: string, query: string): number {
             if (hit.startsWith(tq)) prefixHits++;
         }
     }
+
+    // --- 1b) Fallback: match por letras em sequência (super fuzzy)
+    // Ex.: "fotedanossasenhoradosanj" → "forte de nossa senhora dos anjos ..."
     if (hits < queryTokens.length) {
-        // 1b) fallback: se falhou por tokens, aceita subsequência de letras (permite “palaci odap ena” etc.)
-        return isSubsequenceChars(q, n) ? 35 : 0;
+        const qLetters = q.replace(/\s+/g, "");
+        const nLetters = n.replace(/\s+/g, "");
+
+        // só fazemos este tipo de match se a query for minimamente longa
+        if (qLetters.length >= 6 && isSubsequenceChars(qLetters, nLetters)) {
+            // score alto porque é um match forte de letras
+            // (quanto maior a query, ligeiro bónus)
+            return 80 + Math.min(20, qLetters.length);
+        }
+        return 0;
     }
 
-    // 2) Bónus por começar igual / incluir literal
+    // --- 2) Bónus por começar igual / incluir literal ---
     let score = 0;
     if (n.startsWith(q)) score += 120;
     if (n.includes(q)) score += 60;
 
-    // 3) Bónus por cobertura de tokens e prefixos
+    // --- 3) Cobertura de tokens + prefixos ---
     score += hits * 25 + prefixHits * 10;
 
-    // 4) Bónus pequeno por proximidade da ordem (tokens em ordem)
+    // --- 4) Ordem dos tokens ---
     let inOrder = 0, idx = 0;
     for (const tq of queryTokens) {
         const pos = nameTokens.findIndex((nt, i) => i >= idx && nt.includes(tq));
@@ -134,10 +147,10 @@ function scoreNameFlexible(name: string, query: string): number {
     }
     score += inOrder * 6;
 
-    // 5) Penalização leve por distância de tamanho (evita nomes muito longos vs query curtinha)
+    // --- 5) Penalização leve por nomes muito maiores que a query ---
     score -= Math.max(0, nameTokens.length - queryTokens.length) * 2;
 
-    return Math.max(1, score); // garante >0 se passou
+    return Math.max(1, score);
 }
 
 type SearchItem =
@@ -172,6 +185,7 @@ export default function TopDistrictFilter({
                 if (!poly) return;
                 const q = buildCulturalPointsQuery(poly);
                 const gj = await overpassQueryToGeoJSON(q, 2);
+                console.log('pois', gj)
                 if (!aborted) setPoiAllPT(gj);
             } catch {
                 if (!aborted) setPoiAllPT(null);
@@ -208,7 +222,7 @@ export default function TopDistrictFilter({
                 const score = scoreNameFlexible(it.name, qRaw) + (it.kind === "poi" ? 5 : 0);
                 return { it, score };
             })
-            .filter((x) => x.score > 0)
+            .filter((x) => x.score >= 60)   // <<< aqui está a diferença
             .sort((a, b) => b.score - a.score)
             .slice(0, 30)
             .map((x) => x.it);

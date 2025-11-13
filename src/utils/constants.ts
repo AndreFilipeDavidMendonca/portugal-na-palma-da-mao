@@ -23,7 +23,7 @@ export const CATEGORY_COLORS: Record<PoiCategory, string> = {
     monument: "#24338e",
     ruins: "#51362c",
     church: "#3890dc",
-    viewpoint: "#1e4c13",
+    viewpoint: "#ae7710",
     park: "#2E7D32",
     protected_area: "#66BB6A",
 };
