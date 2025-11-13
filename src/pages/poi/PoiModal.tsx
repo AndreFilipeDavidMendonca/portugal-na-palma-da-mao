@@ -256,7 +256,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
     const ohFallback = formatOpeningHours(ohParsed.str ?? null);
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
-    const addHToTimes = (s: string) => s.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h");
     const renderStars = (v: number) => {
         const full = Math.floor(v);
         const half = v - full >= 0.5;
