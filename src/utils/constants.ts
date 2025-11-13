@@ -60,7 +60,7 @@ export const POI_CATEGORIES: { key: PoiCategory; label: string; kind: "node" | "
     { key: "church", label: POI_LABELS.church, kind: "node" },
     { key: "viewpoint", label: POI_LABELS.viewpoint, kind: "node" },
     { key: "park", label: POI_LABELS.park, kind: "area" },
-    { key: "protected_area", label: POI_LABELS.protected_area, kind: "area" },
+    /*{ key: "protected_area", label: POI_LABELS.protected_area, kind: "area" },*/
 ];
 
 // === Defaults ===

@@ -1,16 +1,15 @@
 // src/features/topbar/TopDistrictFilter.tsx
-import {useEffect, useMemo, useRef, useState} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import logo from "@/assets/logo.png";
 import "./TopDistrictFilter.scss";
 
-import {loadGeo} from "@/lib/geo";
-import {buildCulturalPointsQuery, overpassQueryToGeoJSON} from "@/lib/overpass";
 import PoiModal from "@/pages/poi/PoiModal";
-import {fetchPoiInfo, type PoiInfo} from "@/lib/poiInfo";
+import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 type Props = {
     allNames: string[];
+    poiGeo: any | null;            // 👈 todos os POIs PT vindos do Home
     onPick: (name: string) => void;
     placeholder?: string;
 };
@@ -25,6 +24,7 @@ function norm(s?: string | null) {
         .trim()
         .toLowerCase();
 }
+
 function featureName(f: any): string | null {
     const p = f?.properties ?? {};
     const tags = p.tags ?? {};
@@ -38,6 +38,7 @@ function featureName(f: any): string | null {
         null
     );
 }
+
 function isUsefulPoiFeature(props: any): boolean {
     const tags = props.tags ?? {};
     const hasRefs =
@@ -67,15 +68,15 @@ function isUsefulPoiFeature(props: any): boolean {
     return Boolean(hasRefs || hasType);
 }
 
-/* === NOVO: fuzzy match por tokens e subsequência === */
+/* === fuzzy match por tokens e subsequência === */
 const STOPWORDS = new Set([
-    "o","a","os","as","um","uma","uns","umas",
-    "de","do","da","dos","das","d","e",
-    "no","na","nos","nas",
-    "ao","aos","à","às",
-    "para","por","em",
-    "the","of","and",
-    "nacional" // palavra intermédia comum que não deve “estragar” o match
+    "o", "a", "os", "as", "um", "uma", "uns", "umas",
+    "de", "do", "da", "dos", "das", "d", "e",
+    "no", "na", "nos", "nas",
+    "ao", "aos", "à", "às",
+    "para", "por", "em",
+    "the", "of", "and",
+    "nacional",
 ]);
 
 function tokenize(s: string): string[] {
@@ -83,7 +84,6 @@ function tokenize(s: string): string[] {
 }
 
 function isSubsequenceChars(query: string, target: string): boolean {
-    // remove espaços e compara como subsequência de letras
     const q = norm(query).replace(/\s+/g, "");
     const t = norm(target).replace(/\s+/g, "");
     let i = 0;
@@ -101,10 +101,8 @@ function scoreNameFlexible(name: string, query: string): number {
 
     const nameTokens = tokenize(name);
     const queryTokens = tokenize(query);
-
     if (!nameTokens.length || !queryTokens.length) return 0;
 
-    // --- 1) Cobertura de tokens (palavras) ---
     let hits = 0;
     let prefixHits = 0;
 
@@ -116,30 +114,21 @@ function scoreNameFlexible(name: string, query: string): number {
         }
     }
 
-    // --- 1b) Fallback: match por letras em sequência (super fuzzy)
-    // Ex.: "fotedanossasenhoradosanj" → "forte de nossa senhora dos anjos ..."
     if (hits < queryTokens.length) {
         const qLetters = q.replace(/\s+/g, "");
         const nLetters = n.replace(/\s+/g, "");
-
-        // só fazemos este tipo de match se a query for minimamente longa
         if (qLetters.length >= 6 && isSubsequenceChars(qLetters, nLetters)) {
-            // score alto porque é um match forte de letras
-            // (quanto maior a query, ligeiro bónus)
             return 80 + Math.min(20, qLetters.length);
         }
         return 0;
     }
 
-    // --- 2) Bónus por começar igual / incluir literal ---
     let score = 0;
     if (n.startsWith(q)) score += 120;
     if (n.includes(q)) score += 60;
 
-    // --- 3) Cobertura de tokens + prefixos ---
     score += hits * 25 + prefixHits * 10;
 
-    // --- 4) Ordem dos tokens ---
     let inOrder = 0, idx = 0;
     for (const tq of queryTokens) {
         const pos = nameTokens.findIndex((nt, i) => i >= idx && nt.includes(tq));
@@ -147,7 +136,6 @@ function scoreNameFlexible(name: string, query: string): number {
     }
     score += inOrder * 6;
 
-    // --- 5) Penalização leve por nomes muito maiores que a query ---
     score -= Math.max(0, nameTokens.length - queryTokens.length) * 2;
 
     return Math.max(1, score);
@@ -159,12 +147,12 @@ type SearchItem =
 
 export default function TopDistrictFilter({
                                               allNames,
+                                              poiGeo,
                                               onPick,
                                               placeholder = "Procurar distrito, local ou ponto de interesse…",
                                           }: Props) {
     const [open, setOpen] = useState(false);
 
-    // digitado vs preview com setas
     const [typedQuery, setTypedQuery] = useState("");
     const [previewQuery, setPreviewQuery] = useState<string | null>(null);
     const inputValue = previewQuery ?? typedQuery;
@@ -174,33 +162,18 @@ export default function TopDistrictFilter({
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const listRef = useRef<HTMLUListElement | null>(null);
 
-    // ---------- carregar POIs PT ----------
-    const [poiAllPT, setPoiAllPT] = useState<any | null>(null);
-    useEffect(() => {
-        let aborted = false;
-        (async () => {
-            try {
-                const ptGeo = await loadGeo("/geo/portugal.geojson");
-                const poly = geoToOverpassPoly(ptGeo);
-                if (!poly) return;
-                const q = buildCulturalPointsQuery(poly);
-                const gj = await overpassQueryToGeoJSON(q, 2);
-                console.log('pois', gj)
-                if (!aborted) setPoiAllPT(gj);
-            } catch {
-                if (!aborted) setPoiAllPT(null);
-            }
-        })();
-        return () => { aborted = true; };
-    }, []);
-
     // ---------- índice (distritos + POIs) ----------
     const searchIndex = useMemo<SearchItem[]>(() => {
         const out: SearchItem[] = [];
-        for (const n of allNames) out.push({ kind: "district", name: n });
 
-        if (poiAllPT?.features) {
-            for (const f of poiAllPT.features) {
+        // distritos
+        for (const n of allNames) {
+            out.push({ kind: "district", name: n });
+        }
+
+        // POIs
+        if (poiGeo?.features) {
+            for (const f of poiGeo.features) {
                 const name = featureName(f);
                 if (!name) continue;
                 const props = { ...(f.properties || {}), tags: f.properties?.tags ?? {} };
@@ -208,24 +181,25 @@ export default function TopDistrictFilter({
                 out.push({ kind: "poi", name, feature: f });
             }
         }
-        return out;
-    }, [allNames, poiAllPT]);
 
-    // ---------- resultados (USAR NOVO SCORING) ----------
+        return out;
+    }, [allNames, poiGeo]);
+
+    // ---------- resultados ----------
     const filtered = useMemo(() => {
         const qRaw = typedQuery;
         const q = norm(qRaw);
         if (!q) return [] as SearchItem[];
 
         return searchIndex
-            .map((it) => {
+            .map(it => {
                 const score = scoreNameFlexible(it.name, qRaw) + (it.kind === "poi" ? 5 : 0);
                 return { it, score };
             })
-            .filter((x) => x.score >= 60)   // <<< aqui está a diferença
+            .filter(x => x.score >= 60)
             .sort((a, b) => b.score - a.score)
             .slice(0, 30)
-            .map((x) => x.it);
+            .map(x => x.it);
     }, [typedQuery, searchIndex]);
 
     // click fora
@@ -254,14 +228,14 @@ export default function TopDistrictFilter({
 
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            setActiveIdx((i) => {
+            setActiveIdx(i => {
                 const next = Math.min(i + 1, filtered.length - 1);
                 setPreviewQuery(filtered[next]?.name ?? null);
                 return next;
             });
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            setActiveIdx((i) => {
+            setActiveIdx(i => {
                 const next = Math.max(i - 1, 0);
                 setPreviewQuery(filtered[next]?.name ?? null);
                 return next;
@@ -276,7 +250,7 @@ export default function TopDistrictFilter({
         }
     }
 
-    // ---------- abrir PoiModal local quando for POI ----------
+    // ---------- PoiModal local ----------
     const [poiOpen, setPoiOpen] = useState(false);
     const [poiInfo, setPoiInfo] = useState<PoiInfo | null>(null);
     const [poiFeature, setPoiFeature] = useState<any | null>(null);
@@ -292,7 +266,11 @@ export default function TopDistrictFilter({
 
         try {
             const wp: string | null =
-                f.properties.wikipedia ?? f.properties["wikipedia:pt"] ?? f.properties["wikipedia:en"] ?? null;
+                f.properties.wikipedia ??
+                f.properties["wikipedia:pt"] ??
+                f.properties["wikipedia:en"] ??
+                null;
+
             const approxName = featureName(f);
             const approxLat = f.geometry?.coordinates?.[1];
             const approxLon = f.geometry?.coordinates?.[0];
@@ -302,6 +280,7 @@ export default function TopDistrictFilter({
                 approx: { name: approxName, lat: approxLat, lon: approxLon },
                 sourceFeature: f,
             });
+
             if (reqId !== poiReqRef.current) return;
 
             if (!info) {
@@ -359,7 +338,11 @@ export default function TopDistrictFilter({
                     />
 
                     {open && filtered.length > 0 && (
-                        <ul className="tdf-list gold-scroll" role="listbox" ref={listRef}>
+                        <ul
+                            className="tdf-list gold-scroll"
+                            role="listbox"
+                            ref={listRef}
+                        >
                             {filtered.map((item, i) => (
                                 <li
                                     key={`${item.kind}:${item.name}:${i}`}
@@ -398,7 +381,6 @@ export default function TopDistrictFilter({
                 )}
             </div>
 
-            {/* PoiModal local */}
             <PoiModal
                 open={poiOpen}
                 info={poiInfo}
@@ -410,33 +392,7 @@ export default function TopDistrictFilter({
                 }}
             />
 
-            {loadingPoi && (
-                <SpinnerOverlay open={loadingPoi} message="A carregar…" />
-            )}
+            {loadingPoi && <SpinnerOverlay open={loadingPoi} message="A carregar…" />}
         </>
     );
-}
-
-/** Converte GeoJSON PT em poly:"lat lon ..." para Overpass */
-function geoToOverpassPoly(geo: any): string | null {
-    const rings: number[][][] = [];
-    const pushFeature = (f: any) => {
-        const g = f.geometry || f;
-        if (!g) return;
-        if (g.type === "Polygon") {
-            if (Array.isArray(g.coordinates?.[0])) rings.push(g.coordinates[0]);
-        } else if (g.type === "MultiPolygon") {
-            for (const poly of g.coordinates || []) {
-                if (Array.isArray(poly?.[0])) rings.push(poly[0]);
-            }
-        }
-    };
-    if (geo?.type === "FeatureCollection") for (const f of geo.features || []) pushFeature(f);
-    else if (geo?.type === "Feature") pushFeature(geo);
-    else if (geo) pushFeature(geo);
-
-    if (!rings.length) return null;
-    const parts: string[] = [];
-    for (const ring of rings) for (const [lng, lat] of ring) parts.push(`${lat} ${lng}`);
-    return `poly:"${parts.join(" ")}"`;
 }

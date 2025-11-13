@@ -349,7 +349,6 @@ async function textSearchWithPrefixes(
 
     for (const pfx of prefixes) {
         const query = `${pfx} ${baseName}`;
-        console.log("[GP DEBUG] prefix textSearch:", query);
 
         const res = await textSearchPlaces(g, query, lat, lng, radius);
         all.push(...res);

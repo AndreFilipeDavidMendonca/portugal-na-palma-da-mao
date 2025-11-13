@@ -27,7 +27,7 @@ export default function PoiFilter({
 
     // evita recalcular em cada render
     const nodeCategories = useMemo(
-        () => POI_CATEGORIES.filter((c) => c.kind === "node"),
+        () => POI_CATEGORIES,
         []
     );
 

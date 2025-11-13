@@ -5,7 +5,13 @@ import L from "leaflet";
 
 import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-import { buildCulturalPointsQuery, overpassQueryToGeoJSON } from "@/lib/overpass";
+import {
+    buildCulturalPointsQuery,
+    buildNaturePointsQuery,
+    buildChurchPointsQuery,
+    mergeFeatureCollections,
+    overpassQueryToGeoJSON,
+} from "@/lib/overpass";
 import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
 import { getDistrictKeyFromFeature } from "@/utils/geo";
 import { filterPointsInsideDistrict } from "@/lib/spatial";
@@ -61,6 +67,9 @@ export default function Home() {
         };
     }, []);
 
+    // =========================
+    //   Carregar todos os POIs PT (3 queries)
+    // =========================
     useEffect(() => {
         if (!ptGeo) return;
 
@@ -70,11 +79,22 @@ export default function Home() {
             return;
         }
 
-        const q = buildCulturalPointsQuery(poly);
         const controller = new AbortController();
 
-        overpassQueryToGeoJSON(q, 2, controller.signal)
-            .then((gj) => setPoiAllPT(gj))
+        const qCultural = buildCulturalPointsQuery(poly);
+        const qChurches = buildChurchPointsQuery(poly);
+        const qNature = buildNaturePointsQuery(poly);
+
+        Promise.all([
+            overpassQueryToGeoJSON(qCultural, 2, controller.signal),
+            overpassQueryToGeoJSON(qChurches, 2, controller.signal),
+            overpassQueryToGeoJSON(qNature, 2, controller.signal),
+        ])
+            .then(([culturalFC, churchesFC, natureFC]) => {
+                if (controller.signal.aborted) return;
+                const merged = mergeFeatureCollections(culturalFC, churchesFC, natureFC);
+                setPoiAllPT(merged);
+            })
             .catch((e) => {
                 if (e?.name !== "AbortError") console.error("[overpass] falhou:", e);
                 setPoiAllPT(null);
@@ -93,6 +113,7 @@ export default function Home() {
             return next;
         });
     }
+
     function clearPoiTypes() {
         setSelectedPoiTypes(new Set());
     }
@@ -107,7 +128,10 @@ export default function Home() {
         const m = new Map<string, any>();
         if (districtsGeo?.features) {
             for (const f of districtsGeo.features) {
-                const name = f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"];
+                const name =
+                    f?.properties?.name ||
+                    f?.properties?.NAME ||
+                    f?.properties?.["name:pt"];
                 if (name) m.set(name, f);
             }
         }
@@ -160,11 +184,9 @@ export default function Home() {
     function onMapReadyNoArg() {
         const map = mapRef.current;
         if (!map) return;
-        // Fit inicial apenas UMA vez
         if (ptGeo) fitGeoJSONBoundsTight(map, ptGeo, false);
     }
 
-    /** Centraliza e aproxima ao máximo, respeitando a UI do topo (logo + barra) */
     function fitGeoJSONBoundsTight(map: L.Map, geo: any, animate = true) {
         if (!map || !geo) return;
         try {
@@ -172,16 +194,15 @@ export default function Home() {
             const bounds = gj.getBounds();
             if (!bounds.isValid()) return;
 
-            // Se estiver muito perto, dá um pequeno zoom-out para não “prender”
             const currentZoom = map.getZoom();
             if (currentZoom > 6) map.setZoom(4);
 
             const topbar = document.querySelector<HTMLElement>(".top-district-filter");
             const topH = topbar?.offsetHeight ?? 0;
 
-            const SIDE_PAD = 10; // px
-            const TOP_PAD = topH + 50; // px
-            const BOT_PAD = 10; // px
+            const SIDE_PAD = 10;
+            const TOP_PAD = topH + 50;
+            const BOT_PAD = 10;
 
             map.fitBounds(bounds, {
                 animate,
@@ -216,14 +237,16 @@ export default function Home() {
     // =========================
     return (
         <>
-            {showOverlay && (
-                <LoadingOverlay message="A carregar os seus dados" />
-            )}
+            {showOverlay && <LoadingOverlay message="A carregar os seus dados" />}
 
             {!isModalOpen && (
                 <div className="top-district-filter">
                     <div className="tdf-inner">
-                        <TopDistrictFilter allNames={districtNames} onPick={handlePickFromTop} />
+                        <TopDistrictFilter
+                            allNames={districtNames}
+                            poiGeo={poiAllPT}
+                            onPick={handlePickFromTop}
+                        />
                     </div>
                 </div>
             )}
@@ -233,7 +256,7 @@ export default function Home() {
                     ref={mapRef as any}
                     center={[30, 0]}
                     zoom={3}
-                    whenReady={onMapReadyNoArg}  // <-- sem argumentos
+                    whenReady={onMapReadyNoArg}
                     scrollWheelZoom
                     dragging
                     doubleClickZoom
@@ -263,7 +286,9 @@ export default function Home() {
                     {districtsGeo && (
                         <DistrictsHoverLayer
                             data={districtsGeo as any}
-                            onClickDistrict={(_name, feature) => feature && openDistrictModal(feature)}
+                            onClickDistrict={(_name, feature) =>
+                                feature && openDistrictModal(feature)
+                            }
                         />
                     )}
                 </MapContainer>
@@ -297,12 +322,21 @@ function geoToOverpassPoly(geo: any): string | null {
             }
         }
     };
-    if (geo?.type === "FeatureCollection") for (const f of geo.features || []) pushFeature(f);
-    else if (geo?.type === "Feature") pushFeature(geo);
-    else if (geo) pushFeature(geo);
+
+    if (geo?.type === "FeatureCollection") {
+        for (const f of geo.features || []) pushFeature(f);
+    } else if (geo?.type === "Feature") {
+        pushFeature(geo);
+    } else if (geo) {
+        pushFeature(geo);
+    }
 
     if (!rings.length) return null;
     const parts: string[] = [];
-    for (const ring of rings) for (const [lng, lat] of ring) parts.push(`${lat} ${lng}`);
+    for (const ring of rings) {
+        for (const [lng, lat] of ring) {
+            parts.push(`${lat} ${lng}`);
+        }
+    }
     return `poly:"${parts.join(" ")}"`;
 }

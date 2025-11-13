@@ -8,13 +8,15 @@ const DEBUG_POI = (() => {
     try {
         if (import.meta.env?.VITE_DEBUG_POI === "true") return true;
         return new URLSearchParams(window.location.search).get("debug") === "poi";
-    } catch { return false; }
+    } catch {
+        return false;
+    }
 })();
 const dlog = (...args: any[]) => { if (DEBUG_POI) console.log("[OVP]", ...args); };
 const dgrp = (t: string) => { if (DEBUG_POI) console.groupCollapsed(t); };
 const dgrpEnd = () => { if (DEBUG_POI) console.groupEnd(); };
 
-type CacheEntry = { key: string; savedAt: number; data: AnyGeo; };
+type CacheEntry = { key: string; savedAt: number; data: AnyGeo };
 
 const CACHE_KEY_PREFIX = "ovps-cache:";
 const DEFAULT_TTL_MS = 1000 * 60 * 60 * 24 * 3; // 3 dias
@@ -37,7 +39,9 @@ function runCacheCleanup(ttlMs = DEFAULT_TTL_MS) {
             try {
                 const entry = JSON.parse(raw) as { savedAt?: number };
                 if (!entry?.savedAt || now - entry.savedAt > ttlMs) toDelete.push(k);
-            } catch { toDelete.push(k); }
+            } catch {
+                toDelete.push(k);
+            }
         }
         toDelete.forEach(k => localStorage.removeItem(k));
         localStorage.setItem(LAST_CLEANUP_KEY, String(now));
@@ -46,23 +50,39 @@ function runCacheCleanup(ttlMs = DEFAULT_TTL_MS) {
     }
 }
 
-function hashQuery(q: string) { let h = 0; for (let i=0;i<q.length;i++) h = (h*31 + q.charCodeAt(i))|0; return String(h); }
+function hashQuery(q: string) {
+    let h = 0;
+    for (let i = 0; i < q.length; i++) {
+        h = (h * 31 + q.charCodeAt(i)) | 0;
+    }
+    return String(h);
+}
+
 function loadCache(q: string, ttlMs = DEFAULT_TTL_MS): AnyGeo | null {
     try {
         const key = CACHE_KEY_PREFIX + hashQuery(q);
-        const raw = localStorage.getItem(key); if (!raw) return null;
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
         const parsed = JSON.parse(raw) as CacheEntry;
         if (Date.now() - parsed.savedAt > ttlMs) return null;
         dlog("cache HIT", key);
         return parsed.data;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 }
+
 function saveCache(q: string, data: AnyGeo) {
     try {
         const key = CACHE_KEY_PREFIX + hashQuery(q);
-        localStorage.setItem(key, JSON.stringify({ key, savedAt: Date.now(), data } as CacheEntry));
+        localStorage.setItem(
+            key,
+            JSON.stringify({ key, savedAt: Date.now(), data } as CacheEntry)
+        );
         dlog("cache SAVE", key);
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
 }
 
 /* ---------------------------- fetch de 1 mirror --------------------------- */
@@ -86,11 +106,17 @@ async function fetchOverpassOnce(endpoint: string, query: string, signal?: Abort
     const json = await res.json();
 
     if (DEBUG_POI) {
-        dgrp("[Overpass] raw json"); console.log(json); dgrpEnd();
+        dgrp("[Overpass] raw json");
+        console.log(json);
+        dgrpEnd();
     }
 
     const gj = osmtogeojson(json);
-    if (DEBUG_POI) { dgrp("[Overpass] osmtogeojson"); console.log(gj); dgrpEnd(); }
+    if (DEBUG_POI) {
+        dgrp("[Overpass] osmtogeojson");
+        console.log(gj);
+        dgrpEnd();
+    }
 
     const deduped = dedupeByOsmId(gj);
     const normalized = normalizeToPoints(deduped);
@@ -120,9 +146,11 @@ export async function overpassQueryToGeoJSON(
                 if (e?.name === "AbortError") throw e;
                 const status = e?.status ?? 0;
                 const retryAfterHeader = e?.retryAfter ? parseInt(e.retryAfter, 10) : NaN;
-                const baseDelay = !Number.isNaN(retryAfterHeader) && retryAfterHeader > 0
-                    ? retryAfterHeader * 1000
-                    : 500 * Math.pow(2, attempt);
+                const baseDelay =
+                    !Number.isNaN(retryAfterHeader) && retryAfterHeader > 0
+                        ? retryAfterHeader * 1000
+                        : 500 * Math.pow(2, attempt);
+
                 dlog("mirror fail", { ep, status, attempt, baseDelay });
 
                 if (status && status < 500 && status !== 429) break; // não insistir
@@ -139,9 +167,16 @@ function dedupeByOsmId(fc: any) {
     if (!fc || fc.type !== "FeatureCollection") return fc;
     const seen = new Set<string>();
     const out = { type: "FeatureCollection", features: [] as any[] };
+
     for (const f of fc.features || []) {
         const pid = f?.properties?.["@id"] ?? (f?.id ? String(f.id) : null);
-        const key = pid ?? JSON.stringify([f?.geometry?.type, f?.geometry?.coordinates, f?.properties?.name]);
+        const key =
+            pid ??
+            JSON.stringify([
+                f?.geometry?.type,
+                f?.geometry?.coordinates,
+                f?.properties?.name,
+            ]);
         if (!key) continue;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -149,25 +184,47 @@ function dedupeByOsmId(fc: any) {
     }
     return out;
 }
+
 function normalizeToPoints(fc: any) {
     if (!fc || fc.type !== "FeatureCollection") return fc;
     const out = { type: "FeatureCollection", features: [] as any[] };
+
     for (const f of fc.features || []) {
-        if (f?.geometry?.type === "Point") { out.features.push(f); continue; }
-        const c = f?.properties?.center;
-        if (c && typeof c.lat === "number" && typeof c.lon === "number") {
-            out.features.push({ type: "Feature", geometry: { type: "Point", coordinates: [c.lon, c.lat] }, properties: f.properties || {} });
+        if (f?.geometry?.type === "Point") {
+            out.features.push(f);
             continue;
         }
+
+        const c = f?.properties?.center;
+        if (c && typeof c.lat === "number" && typeof c.lon === "number") {
+            out.features.push({
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [c.lon, c.lat] },
+                properties: f.properties || {},
+            });
+            continue;
+        }
+
         const bb = f?.bbox;
         if (Array.isArray(bb) && bb.length === 4) {
-            const lon = (bb[0] + bb[2]) / 2, lat = (bb[1] + bb[3]) / 2;
-            out.features.push({ type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties: f.properties || {} });
+            const lon = (bb[0] + bb[2]) / 2;
+            const lat = (bb[1] + bb[3]) / 2;
+            out.features.push({
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [lon, lat] },
+                properties: f.properties || {},
+            });
         }
     }
+
     return out;
 }
 
+/* =========================
+   QUERIES: 3 grupos de POI
+   ========================= */
+
+/** Palácios, castelos, ruínas, monumentos (sem igrejas / natureza) */
 export function buildCulturalPointsQuery(poly: string) {
     return `
 [out:json][timeout:40];
@@ -188,16 +245,61 @@ export function buildCulturalPointsQuery(poly: string) {
 
   /* Monumentos */
   nwr[historic=monument](${poly});
-
-  /* Igrejas */
-  nwr[historic=church](${poly});
-  nwr[amenity=place_of_worship](${poly});
-  nwr[building=church](${poly});
-
-  /* Miradouros */
-  nwr[tourism=viewpoint](${poly});
 );
-out center tags qt;
+out center;
 `;
 }
+
+/** Igrejas / catedrais / capelas / place_of_worship */
+export function buildChurchPointsQuery(poly: string) {
+    return `
+[out:json][timeout:40];
+(
+  /* Church buildings */
+  nwr[building=church](${poly});
+  nwr[building=cathedral](${poly});
+  nwr[building=chapel](${poly});
+
+  /* Historic religious structures */
+  nwr[historic=church](${poly});
+  nwr[historic=chapel](${poly});
+
+  /* Generic place of worship */
+  nwr[amenity=place_of_worship](${poly});
+);
+out center;
+`;
+}
+
+/** Natureza: miradouros + parques/jardins */
+export function buildNaturePointsQuery(poly: string) {
+    return `
+[out:json][timeout:40];
+(
+  /* Miradouros */
+  nwr[tourism=viewpoint](${poly});
+
+  /* Parques e jardins */
+  nwr[leisure=park](${poly});
+  nwr[leisure=garden](${poly});
+  nwr[leisure=recreation_ground](${poly});
+);
+out center;
+`;
+}
+
+/** Junta vários FeatureCollection num só + dedupe */
+export function mergeFeatureCollections(...collections: AnyGeo[]): AnyGeo {
+    const out = { type: "FeatureCollection", features: [] as any[] };
+
+    for (const fc of collections) {
+        if (!fc || fc.type !== "FeatureCollection") continue;
+        for (const f of fc.features || []) {
+            out.features.push(f);
+        }
+    }
+
+    return dedupeByOsmId(out);
+}
+
 runCacheCleanup();

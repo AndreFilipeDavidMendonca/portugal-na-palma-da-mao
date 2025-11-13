@@ -720,23 +720,14 @@ export async function fetchPoiInfo(options: {
                     isViewpoint ? 400 : 1000
                 );
 
-                console.log('Google data ', candidate)
                 if (!candidate?.place_id) {
                     continue;
                 }
 
                 const details = await getPlaceDetailsById(candidate.place_id);
                 if (!details) continue;
-
-                console.log('Google details ', details)
                 // rejeitar cafés/restaurantes/etc. para miradouros
                 if (isViewpoint && isBadViewpointPlace(details)) {
-                    console.log(
-                        "[POI] rejeitado candidato (café/restaurante/etc) para miradouro:",
-                        searchName,
-                        (details as any).name || (details as any).displayName?.text,
-                        (details as any).types
-                    );
                     continue;
                 }
 
@@ -747,12 +738,6 @@ export async function fetchPoiInfo(options: {
 
                 const dist = distanceKm(approximateCoords, candidateCoords);
                 const maxAllowedKm = isViewpoint ? 8 : 60;
-
-                console.log(
-                    `[POI] Google candidate "${searchName}" a ${dist.toFixed(
-                        1
-                    )} km (limite ${maxAllowedKm} km)`
-                );
 
                 if (dist > maxAllowedKm) {
                     continue;
