@@ -13,7 +13,6 @@
 // -------------------------------------------------------------------
 
 import {
-    loadGoogleMaps,
     getPlaceDetailsById,
     photoUrlsFromPlace,
     findPlaceByNameAndPoint,
@@ -98,19 +97,6 @@ const normalizeText = (value?: string | null) =>
         .toLowerCase();
 
 /** overlap simples de tokens entre dois textos */
-const tokenOverlapRatio = (a?: string | null, b?: string | null) => {
-    const tokensA = new Set(normalizeText(a).split(" ").filter(Boolean));
-    const tokensB = new Set(normalizeText(b).split(" ").filter(Boolean));
-    if (!tokensA.size || !tokensB.size) return 0;
-
-    let matches = 0;
-    tokensA.forEach((token) => {
-        if (tokensB.has(token)) matches++;
-    });
-
-    return matches / Math.min(tokensA.size, tokensB.size);
-};
-
 async function safeJson(url: string) {
     const response = await fetch(url, { referrerPolicy: "no-referrer" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
