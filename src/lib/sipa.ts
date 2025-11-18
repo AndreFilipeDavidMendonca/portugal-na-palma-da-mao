@@ -1,204 +1,99 @@
 // src/lib/sipa.ts
-/**
- * Fetch + parse de páginas do SIPA/Monumentos.
- * Extrai blocos de texto relevantes (História, Descrição/Arquitetura, Cronologia/Datação).
- *
- * ⚠️ CORS: Monumentos/SIPA raramente expõe CORS.
- * Defina VITE_CORS_PROXY="https://seu-proxy/?" para contornar no browser.
- *
- * Exemplo de uso:
- *   const r = await fetchFromSIPA({ sipaId: "7075" });
- *   // r => { historyText, architectureText, constructedYear, sourceUrl }
- */
 
-export type SipaResult = {
-    historyText: string | null;
-    architectureText: string | null;
-    constructedYear: string | null; // ano ou intervalo "séc. XV", "1902", etc.
-    sourceUrl: string | null;
+export type SipaDetail = {
+    id?: string | null;
+    slug?: string | null;
+
+    originalName?: string | null;
+    normalizedName?: string | null;
+
+    locality?: string | null;
+    district?: string | null;
+    concelho?: string | null;
+    freguesia?: string | null;
+
+    lat?: number | null;
+    lon?: number | null;
+
+    shortDescription?: string | null;
+    fullDescriptionHtml?: string | null;
+
+    heritageCategory?: string | null;
+    propertyType?: string | null;
+    protectionStatus?: string | null;
+
+    imageUrls?: string[] | null;
+    sourceUrl?: string | null;
+
+    // se já estiveres a mandar extraAttributes do backend:
+    extraAttributes?: Record<string, string> | null;
 };
 
-const PROXY = (import.meta as any).env?.VITE_CORS_PROXY || ""; // ex.: "https://my-proxy.net/?"
-const CACHE_PREFIX = "sipa:cache:";
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 dias
-
-function now() { return Date.now(); }
-function clampStr(s: string) { return s.replace(/\s+/g, " ").trim(); }
-
-function cacheKey(url: string) {
-    let h = 0;
-    for (let i = 0; i < url.length; i++) h = (h * 31 + url.charCodeAt(i)) | 0;
-    return `${CACHE_PREFIX}${h}`;
-}
-function loadCache(url: string): string | null {
-    try {
-        const raw = localStorage.getItem(cacheKey(url));
-        if (!raw) return null;
-        const { savedAt, html } = JSON.parse(raw) as { savedAt: number; html: string };
-        if (now() - savedAt > CACHE_TTL_MS) return null;
-        return html;
-    } catch { return null; }
-}
-function saveCache(url: string, html: string) {
-    try {
-        localStorage.setItem(cacheKey(url), JSON.stringify({ savedAt: now(), html }));
-    } catch {}
-}
-
-/** Tenta fazer fetch com/sem proxy conforme disponibilidade */
-async function fetchHtml(url: string): Promise<string> {
-    // 1) tenta cache
-    const cached = loadCache(url);
-    if (cached) return cached;
-
-    // 2) tenta direto
-    try {
-        const r = await fetch(url, { credentials: "omit" });
-        if (r.ok) {
-            const html = await r.text();
-            saveCache(url, html);
-            return html;
-        }
-    } catch {
-        /* cai para proxy */
-    }
-
-    // 3) tenta via proxy (se existir)
-    if (PROXY) {
-        const proxied = PROXY.endsWith("?") ? `${PROXY}${encodeURIComponent(url)}` : `${PROXY}${url}`;
-        const r2 = await fetch(proxied, { credentials: "omit" });
-        if (!r2.ok) throw new Error(`SIPA proxy HTTP ${r2.status}`);
-        const html2 = await r2.text();
-        saveCache(url, html2);
-        return html2;
-    }
-
-    throw new Error("SIPA: CORS bloqueado e nenhum proxy definido (VITE_CORS_PROXY).");
-}
-
-/** Remove HTML, preserva quebras básicas de parágrafos/listas para leitura */
-function stripHtmlKeepParagraphs(html: string): string {
-    // substitui <br> e <p> por quebras
-    let t = html
-        .replace(/<\s*br\s*\/?>/gi, "\n")
-        .replace(/<\/\s*p\s*>/gi, "\n")
-        .replace(/<\s*p[^>]*>/gi, "");
-    // remove tags restantes
-    t = t.replace(/<[^>]+>/g, "");
-    // decode básico de entidades
-    t = t
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&laquo;|&raquo;/g, '"')
-        .replace(/&[a-zA-Z0-9#]+;/g, " "); // fallback
-    // normaliza espaços e múltiplas quebras
-    t = t.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n");
-    return clampStr(t);
-}
-
-/** Extrai um bloco de texto logo após um título/label conhecido */
-function extractBlockAfterLabel(html: string, labels: string[]): string | null {
-    // procura por headings ou labels (H2/H3/strong/bold) e apanha o bloco seguinte
-    const joined = labels.map(l => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-    const rx = new RegExp(
-        `(?:<h[23][^>]*>\\s*(?:${joined})\\s*<\\/h[23]>|<strong[^>]*>\\s*(?:${joined})\\s*<\\/strong>|<b[^>]*>\\s*(?:${joined})\\s*<\\/b>)` +
-        `([\\s\\S]{0,4000}?)` + // bloco seguinte
-        `(?:<h[23][^>]*>|<strong|<b|$)`,
-        "i"
-    );
-    const m = html.match(rx);
-    if (!m) return null;
-    const blockHtml = m[1] ?? "";
-    const text = stripHtmlKeepParagraphs(blockHtml);
-    return text && text.length > 8 ? text : null;
-}
-
-/** Heurística para apanhar uma datação (ano/século) a partir de blocos */
-function extractDatingFromText(...chunks: Array<string | null>): string | null {
-    const txt = chunks.filter(Boolean).join("\n");
-    if (!txt) return null;
-
-    // exemplos: "século XII", "séc. XV", "Séc. XVIII", "1902", "1319", "1834-1840"
-    const rx = /\b(?:(?:s[eé]c(?:\.|ulo)?)[\sªº]*([ivxlcdm]{1,4}))\b|\b(1[0-9]{3}|20[0-9]{2})(?:\s*[-–]\s*(1[0-9]{3}|20[0-9]{2}))?/gi;
-    const m = rx.exec(txt);
-    if (!m) return null;
-
-    if (m[1]) {
-        // século romano capturado
-        const roman = m[1].toUpperCase();
-        return `séc. ${roman}`;
-    }
-
-    // ano ou intervalo
-    if (m[2] && m[3]) return `${m[2]}–${m[3]}`;
-    if (m[2]) return m[2];
-    return null;
-}
-
-/** Monta URL canónica do SIPA a partir de ID */
-function sipaUrlFromId(id: string) {
-    // URL pública atual (página única de imóvel)
-    return `https://www.monumentos.gov.pt/Site/APP_PagesUser/SIPA.aspx?id=${encodeURIComponent(id)}`;
-}
-
 /**
- * Entrada principal de scraping do SIPA:
- * - passa `sipaId` OU `url` (se já souberes a página exata).
- * - retorna blocos textuais normalizados PT.
+ * Chama o proxy local `/api/monumentos` com uma BBOX pequena
+ * centrada no ponto (lat, lon) e devolve o primeiro monumento.
+ *
+ * A ideia:
+ *  - FE já sabe o ponto (do OSM / Google).
+ *  - A API devolve todos os monumentos oficiais naquela zona.
+ *  - Nós escolhemos o primeiro como "match principal".
  */
-export async function fetchFromSIPA(opts: { sipaId?: string | null; url?: string | null }): Promise<SipaResult> {
-    const url = opts.url || (opts.sipaId ? sipaUrlFromId(opts.sipaId) : null);
-    if (!url) return { historyText: null, architectureText: null, constructedYear: null, sourceUrl: null };
+export async function fetchSipaDetail(options: {
+    name?: string | null; // neste momento não é usado na query, mas deixamos por compatibilidade
+    lat?: number | null;
+    lon?: number | null;
+}): Promise<SipaDetail | null> {
+    const { lat, lon } = options;
 
-    const html = await fetchHtml(url);
+    if (lat == null || lon == null) {
+        console.warn("[fetchSipaDetail] Falta lat/lon – não vou chamar a API");
+        return null;
+    }
 
-    // tenta apanhar blocos por vários nomes possíveis
-    const history = extractBlockAfterLabel(html, [
-        "História",
-        "Historial",
-        "Enquadramento histórico",
-        "Dados históricos"
-    ]);
+    // BBOX pequena à volta do clique (~200m)
+    const deltaLat = 0.002;
+    const deltaLon = 0.002;
 
-    const arch = extractBlockAfterLabel(html, [
-        "Descrição",
-        "Descrição arquitectónica",
-        "Arquitectura",
-        "Características arquitectónicas",
-        "Caracterização"
-    ]);
+    const minX = lon - deltaLon;
+    const maxX = lon + deltaLon;
+    const minY = lat - deltaLat;
+    const maxY = lat + deltaLat;
 
-    const chrono = extractBlockAfterLabel(html, [
-        "Cronologia",
-        "Datação",
-        "Época",
-        "Época de construção"
-    ]);
+    const params = new URLSearchParams();
+    params.set("minX", String(minX));
+    params.set("minY", String(minY));
+    params.set("maxX", String(maxX));
+    params.set("maxY", String(maxY));
+    params.set("limit", "1"); // se o backend ignorar, não faz mal
 
-    const constructedYear = extractDatingFromText(chrono, arch, history);
+    const url = `/api/monumentos?${params.toString()}`;
+    console.log("Fetching Sipa detail via BBOX:", url);
 
-    return {
-        historyText: history || null,
-        architectureText: arch || null,
-        constructedYear: constructedYear || null,
-        sourceUrl: url
-    };
-}
-
-/* ------------------------ Helpers para integração futura ------------------------ */
-
-/**
- * Tenta deduzir um possível ID/URL do SIPA a partir de um link externo,
- * caso encontres nos dados de outras APIs (OTM, Wikidata, etc.).
- */
-export function guessSipaIdFromUrl(u?: string | null): string | null {
-    if (!u) return null;
+    let res: Response;
     try {
-        const url = new URL(u);
-        if (!/monumentos\.gov\.pt$/i.test(url.hostname)) return null;
-        const id = url.searchParams.get("id");
-        return id || null;
-    } catch { return null; }
+        res = await fetch(url);
+    } catch (err) {
+        console.warn("SIPA HTTP fetch error:", err);
+        return null;
+    }
+
+    if (!res.ok) {
+        console.warn("SIPA HTTP error:", res.status, res.statusText);
+        return null;
+    }
+
+    const text = await res.text();
+    console.log("SIPA raw body:", text.slice(0, 300));
+
+    try {
+        const json = JSON.parse(text);
+        const arr = Array.isArray(json) ? json : [json];
+        const first = arr[0] ?? null;
+
+        console.log("SIPA parsed first JSON:", first);
+        return first as SipaDetail | null;
+    } catch (err) {
+        console.error("SIPA JSON parse error:", err);
+        return null;
+    }
 }

@@ -16,6 +16,10 @@ const dlog = (...args: any[]) => { if (DEBUG_POI) console.log("[OVP]", ...args);
 const dgrp = (t: string) => { if (DEBUG_POI) console.groupCollapsed(t); };
 const dgrpEnd = () => { if (DEBUG_POI) console.groupEnd(); };
 
+/* =========================
+   Cache antiga por query (localStorage)
+   ========================= */
+
 type CacheEntry = { key: string; savedAt: number; data: AnyGeo };
 
 const CACHE_KEY_PREFIX = "ovps-cache:";
@@ -81,7 +85,7 @@ function saveCache(q: string, data: AnyGeo) {
         );
         dlog("cache SAVE", key);
     } catch {
-        /* ignore */
+        // ignoramos erros (inclui QuotaExceeded)
     }
 }
 
@@ -122,6 +126,76 @@ async function fetchOverpassOnce(endpoint: string, query: string, signal?: Abort
     const normalized = normalizeToPoints(deduped);
     dlog("features:", normalized?.features?.length ?? 0);
     return normalized;
+}
+
+/* =========================
+   Categoria de POI (__cat)
+   ========================= */
+
+function classifyPoiCategory(props: any): string | null {
+    console.log("classifyPoiCategory props:", props);
+    if (!props) return null;
+
+    const tags =
+        (props.tags && Object.keys(props.tags).length > 0
+            ? props.tags
+            : props) ?? {};
+
+    console.log("classifyPoiCategory tags:", tags);
+
+    // Miradouros
+    if (tags.tourism === "viewpoint") {
+        return "viewpoint";
+    }
+
+    // Parques / jardins / recreio / picnic
+    if (
+        tags.leisure === "park" ||
+        tags.leisure === "garden" ||
+        tags.leisure === "recreation_ground" ||
+        tags.leisure === "picnic_site" ||
+        tags.tourism === "picnic_site"
+    ) {
+        return "park";
+    }
+
+    // Palácios
+    if (
+        tags.historic === "palace" ||
+        tags.building === "palace" ||
+        tags.castle_type === "palace"
+    ) {
+        return "palace";
+    }
+
+    // Castelos
+    if (
+        tags.historic === "castle" ||
+        tags.building === "castle" ||
+        (typeof tags.castle_type === "string" &&
+            /^(castle|fortress)$/i.test(tags.castle_type))
+    ) {
+        return "castle";
+    }
+
+    // Igrejas / templos
+    if (
+        tags.building === "church" ||
+        tags.building === "cathedral" ||
+        tags.building === "chapel" ||
+        tags.historic === "church" ||
+        tags.historic === "chapel" ||
+        tags.amenity === "place_of_worship"
+    ) {
+        return "church";
+    }
+
+    // Monumentos genéricos
+    if (tags.historic === "monument") {
+        return "monument";
+    }
+
+    return null;
 }
 
 /* --------------------- chamada Overpass com retries/backoff --------------- */
@@ -190,17 +264,28 @@ function normalizeToPoints(fc: any) {
     const out = { type: "FeatureCollection", features: [] as any[] };
 
     for (const f of fc.features || []) {
+        const baseProps = f.properties || {};
+        const cat = classifyPoiCategory(baseProps);
+
+        const propsWithCat = {
+            ...baseProps,
+            __cat: baseProps.__cat ?? cat ?? undefined,
+        };
+
         if (f?.geometry?.type === "Point") {
-            out.features.push(f);
+            out.features.push({
+                ...f,
+                properties: propsWithCat,
+            });
             continue;
         }
 
-        const c = f?.properties?.center;
+        const c = baseProps.center;
         if (c && typeof c.lat === "number" && typeof c.lon === "number") {
             out.features.push({
                 type: "Feature",
                 geometry: { type: "Point", coordinates: [c.lon, c.lat] },
-                properties: f.properties || {},
+                properties: propsWithCat,
             });
             continue;
         }
@@ -212,7 +297,7 @@ function normalizeToPoints(fc: any) {
             out.features.push({
                 type: "Feature",
                 geometry: { type: "Point", coordinates: [lon, lat] },
-                properties: f.properties || {},
+                properties: propsWithCat,
             });
         }
     }
@@ -224,7 +309,6 @@ function normalizeToPoints(fc: any) {
    QUERIES: 3 grupos de POI
    ========================= */
 
-/** Palácios, castelos, ruínas, monumentos (sem igrejas / natureza) */
 export function buildCulturalPointsQuery(poly: string) {
     return `
 [out:json][timeout:40];
@@ -250,7 +334,6 @@ out center;
 `;
 }
 
-/** Igrejas / catedrais / capelas / place_of_worship */
 export function buildChurchPointsQuery(poly: string) {
     return `
 [out:json][timeout:40];
@@ -271,7 +354,6 @@ out center;
 `;
 }
 
-/** Natureza: miradouros + parques/jardins */
 export function buildNaturePointsQuery(poly: string) {
     return `
 [out:json][timeout:40];
@@ -283,6 +365,11 @@ export function buildNaturePointsQuery(poly: string) {
   nwr[leisure=park](${poly});
   nwr[leisure=garden](${poly});
   nwr[leisure=recreation_ground](${poly});
+
+  /* Parques / áreas de merendas / picnic */
+  nwr[leisure=picnic_site](${poly});
+  nwr[tourism=picnic_site](${poly});
+  nwr[amenity=picnic_site](${poly});
 );
 out center;
 `;
@@ -300,6 +387,129 @@ export function mergeFeatureCollections(...collections: AnyGeo[]): AnyGeo {
     }
 
     return dedupeByOsmId(out);
+}
+
+/* =========================
+   Cache por categoria (IndexedDB)
+   ========================= */
+
+export type PoiCategory =
+    | "palace"
+    | "castle"
+    | "ruins"
+    | "monument"
+    | "church"
+    | "viewpoint"
+    | "park";
+
+function isFeatureCollection(obj: any): obj is AnyGeo {
+    return obj && obj.type === "FeatureCollection" && Array.isArray(obj.features);
+}
+
+/* ---- IndexedDB helpers ---- */
+
+const DB_NAME = "dot-pt-poi";
+const DB_VERSION = 1;
+const STORE_NAME = "poiCategories";
+
+function openPoiDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: "key" });
+            }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function getPoiCategoryFromDb(key: string): Promise<AnyGeo | null> {
+    try {
+        const db = await openPoiDb();
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.get(key);
+
+            req.onsuccess = () => {
+                const val = req.result as { key: string; data: AnyGeo } | undefined;
+                resolve(val?.data ?? null);
+            };
+            req.onerror = () => reject(req.error);
+        });
+    } catch {
+        return null;
+    }
+}
+
+async function savePoiCategoryToDb(key: string, data: AnyGeo): Promise<void> {
+    if (!isFeatureCollection(data)) return;
+    try {
+        const db = await openPoiDb();
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.put({ key, data });
+
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    } catch {
+        // se falhar, ignoramos — fica só em memória
+    }
+}
+
+/** Faz a query certa + aplica cache por categoria (IndexedDB) */
+export async function fetchPoiCategoryGeoJSON(
+    cat: PoiCategory,
+    poly: string,
+    signal?: AbortSignal
+): Promise<AnyGeo> {
+    const key = `ovps-poi-cat:${cat}`;
+
+    // 1) tentar cache em IndexedDB
+    try {
+        const cached = await getPoiCategoryFromDb(key);
+        if (cached) {
+            dlog("[POI] DB cache HIT:", cat);
+            return cached;
+        }
+    } catch {
+        // se der erro, seguimos para Overpass
+    }
+
+    // 2) escolher query conforme a categoria
+    let query: string;
+    switch (cat) {
+        case "palace":
+        case "castle":
+        case "ruins":
+        case "monument":
+            query = buildCulturalPointsQuery(poly);
+            break;
+        case "church":
+            query = buildChurchPointsQuery(poly);
+            break;
+        case "viewpoint":
+        case "park":
+            query = buildNaturePointsQuery(poly);
+            break;
+        default:
+            query = buildNaturePointsQuery(poly);
+    }
+
+    dlog("[POI] DB cache MISS, a chamar Overpass:", cat);
+    const fc = await overpassQueryToGeoJSON(query, 2, signal);
+
+    // 3) best-effort save em IndexedDB
+    savePoiCategoryToDb(key, fc).catch(() => {});
+
+    return fc;
 }
 
 runCacheCleanup();

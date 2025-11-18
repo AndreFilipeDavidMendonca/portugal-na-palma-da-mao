@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+// src/components/PoiModal.tsx
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
 import "./PoiModal.scss";
@@ -10,7 +11,10 @@ type Props = {
     poi?: any;
 };
 
-/* ---------- Helpers ---------- */
+/* =====================================================================
+   Constantes de dias / horários
+   ===================================================================== */
+
 const DAY_PT: Record<string, string> = {
     Mo: "Segunda",
     Tu: "Terça",
@@ -20,6 +24,7 @@ const DAY_PT: Record<string, string> = {
     Sa: "Sábado",
     Su: "Domingo",
 };
+
 const DAY_SHORT_PT: Record<string, string> = {
     Mo: "Seg",
     Tu: "Ter",
@@ -29,6 +34,7 @@ const DAY_SHORT_PT: Record<string, string> = {
     Sa: "Sáb",
     Su: "Dom",
 };
+
 const DAY_ORDER = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 function expandDayToken(tok: string): string[] {
@@ -46,25 +52,28 @@ function expandDayToken(tok: string): string[] {
 
 function parseOpeningHoursRaw(raw?: string | null): { str?: string; arr?: string[] } {
     if (!raw) return {};
-    // se for JSON de array (guardar vindo do compactOpeningHours)
     try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return { arr: parsed as string[] };
     } catch {
-        // não é JSON — segue
+        // não é JSON, segue como string simples
     }
     return { str: raw };
 }
 
 function isContiguousRange(days: string[]): boolean {
     if (days.length <= 1) return false;
-    const idxs = days.map(d => DAY_ORDER.indexOf(d)).filter(i => i >= 0);
+    const idxs = days.map((d) => DAY_ORDER.indexOf(d)).filter((i) => i >= 0);
     if (idxs.length !== days.length) return false;
     for (let k = 1; k < idxs.length; k++) {
         if (idxs[k] !== idxs[k - 1] + 1) return false;
     }
     return true;
 }
+
+/* =====================================================================
+   Árvores de detalhes (Horário)
+   ===================================================================== */
 
 type TreeNode = string | { title: string; items?: TreeNode[]; open?: boolean };
 
@@ -85,15 +94,17 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 
             {hasChildren && (
                 <div className="dtree__panel">
-                    {/* Se todos os filhos forem strings, renderiza lista simples;
-              caso contrário, renderiza recursivamente sub-<details> */}
-                    {items.every(i => typeof i === "string") ? (
+                    {items.every((i) => typeof i === "string") ? (
                         <ul className="dtree__list">
-                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                            {items.map((it, idx) => (
+                                <DetailsTree key={idx} node={it} level={level + 1} />
+                            ))}
                         </ul>
                     ) : (
                         <div className="dtree__children">
-                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                            {items.map((it, idx) => (
+                                <DetailsTree key={idx} node={it} level={level + 1} />
+                            ))}
                         </div>
                     )}
                 </div>
@@ -105,37 +116,33 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 function uniqueInOrder<T>(arr: T[]): T[] {
     const seen = new Set<T>();
     const out: T[] = [];
-    for (const x of arr) if (!seen.has(x)) { seen.add(x); out.push(x); }
+    for (const x of arr) {
+        if (!seen.has(x)) {
+            seen.add(x);
+            out.push(x);
+        }
+    }
     return out;
 }
 
-/** Formata strings simples do opening_hours em PT legível.
- * Agora coloca “h” no fim das horas: 10:00h–20:00h
- */
-export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): string | null {
+/** Formata opening_hours em PT legível e com “h” nas horas */
+export function formatOpeningHours(raw?: string | null): string | null {
     if (!raw) return null;
 
-    // helper: acrescenta "h" no fim da hora capturada (ex.: "10:00" -> "10:00h")
     const withH = (t: string) => `${t}h`;
 
-    // tenta extrair intervalo de horas
     const timeMatch = raw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
     const timeText = timeMatch ? `${withH(timeMatch[1])}–${withH(timeMatch[2])}` : null;
 
-    // parte de dias (remove o pedaço de horas extraído)
     const daysPart = timeMatch ? raw.replace(timeMatch[0], "").trim() : raw.trim();
-
-    // tokenizar por espaços e vírgulas
     const tokens = daysPart.split(/[,\s]+/).filter(Boolean);
+    const hasPH = tokens.some((t) => t.toUpperCase() === "PH");
 
-    const hasPH = tokens.some(t => t.toUpperCase() === "PH");
-
-    // recolhe dias, expandindo ranges
     let collected: string[] = [];
     for (const t of tokens) {
         const T = t.charAt(0).toUpperCase() + t.slice(1);
         if (/^(Mo|Tu|We|Th|Fr|Sa|Su)$/i.test(T)) {
-            collected.push(T.slice(0,2) === "Mo" ? "Mo" : T.slice(0,2));
+            collected.push(T.slice(0, 2));
         } else if (/^[A-Z][a-z]?-[A-Z][a-z]?$/i.test(T)) {
             const [a, b] = T.split("-");
             collected.push(...expandDayToken(a + "-" + b));
@@ -152,7 +159,7 @@ export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): stri
         const last = collected[collected.length - 1];
         daysText = `de ${DAY_PT[first]} a ${DAY_PT[last]}`;
     } else if (collected.length > 0) {
-        daysText = collected.map(d => DAY_SHORT_PT[d]).join(", ");
+        daysText = collected.map((d) => DAY_SHORT_PT[d]).join(", ");
     }
 
     if (hasPH) {
@@ -161,10 +168,13 @@ export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): stri
 
     if (!daysText && timeText) return timeText;
     if (daysText && timeText) return `${daysText} - ${timeText}`;
-    return daysText || raw; // fallback
+    return daysText || raw;
 }
 
-/* ----- Datas: formatação simpática ----- */
+/* =====================================================================
+   Datas & texto
+   ===================================================================== */
+
 function trimISOToNice(iso?: string | null): string | null {
     if (!iso) return null;
     const s = iso.replace(/^\+/, "");
@@ -184,7 +194,10 @@ function prettifyPtInlineText(s?: string | null): string {
     return out.trim();
 }
 
-function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string | null): string | null {
+function formatBuiltPeriod(
+    period?: PoiInfo["builtPeriod"],
+    inception?: string | null
+): string | null {
     if (period) {
         const start = trimISOToNice(period.start);
         const end = trimISOToNice(period.end);
@@ -198,12 +211,20 @@ function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string |
     return inc ? `c. ${inc}` : null;
 }
 
-/* ----- ReadMore: expande/contrai textos longos ----- */
+/* =====================================================================
+   ReadMore – corta texto e mostra "ver mais"
+   ===================================================================== */
+
 function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     const [open, setOpen] = useState(false);
     if (!text) return null;
+
     const isLong = text.length > clamp;
-    const shown = !isLong || open ? text : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
+    const shown =
+        !isLong || open
+            ? text
+            : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
+
     return (
         <p className="poi-desc">
             {shown}{" "}
@@ -211,8 +232,13 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
                 <button
                     type="button"
                     className="gold-link"
-                    style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
-                    onClick={() => setOpen(v => !v)}
+                    style={{
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        cursor: "pointer",
+                    }}
+                    onClick={() => setOpen((v) => !v)}
                 >
                     {open ? "ver menos" : "ver mais"}
                 </button>
@@ -221,42 +247,47 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     );
 }
 
+/* =====================================================================
+   Componente principal
+   ===================================================================== */
+
 export default function PoiModal({ open, onClose, info }: Props) {
     if (!open || !info) return null;
 
-    // Galeria
-    const gallery = useMemo(() => {
+    const gallery: string[] = (() => {
         const a: string[] = [];
         if (info.image) a.push(info.image);
         for (const u of info.images ?? []) if (u && !a.includes(u)) a.push(u);
         return a;
-    }, [info]);
+    })();
 
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const descPretty = useMemo(() => prettifyPtInlineText(info.description), [info.description]);
-    const histPretty = useMemo(() => prettifyPtInlineText(info.historyText), [info.historyText]);
 
     useEffect(() => {
         if (paused || gallery.length <= 1) return;
-        timerRef.current = setTimeout(() => setActive((i) => (i + 1) % gallery.length), 4000);
-        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-    }, [active, paused, gallery]);
+        timerRef.current = setTimeout(() => {
+            setActive((i) => (i + 1) % gallery.length);
+        }, 4000);
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [active, paused, gallery.length]);
 
     const next = () => setActive((i) => (i + 1) % gallery.length);
     const prev = () => setActive((i) => (i - 1 + gallery.length) % gallery.length);
 
     const title = info.label ?? "Ponto de interesse";
-
-    // Dados
     const hasAnyPhoto = gallery.length > 0;
+
     const rating = (info.ratings ?? [])[0];
     const ohParsed = parseOpeningHoursRaw(info.openingHours?.raw ?? null);
     const ohFallback = formatOpeningHours(ohParsed.str ?? null);
+
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
-    const addHToTimes = (s: string) => s.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h");
+
     const renderStars = (v: number) => {
         const full = Math.floor(v);
         const half = v - full >= 0.5;
@@ -269,8 +300,10 @@ export default function PoiModal({ open, onClose, info }: Props) {
         );
     };
 
-    // Cronologia (sub-linha do título)
     const builtLabel = formatBuiltPeriod(info.builtPeriod, info.inception);
+
+    const descPretty = prettifyPtInlineText(info.description);
+    const histPretty = prettifyPtInlineText(info.historyText);
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
@@ -284,15 +317,17 @@ export default function PoiModal({ open, onClose, info }: Props) {
                     <div className="poi-title-wrap">
                         <h2 className="poi-title">{title}</h2>
                         <div className="poi-subline">
-                            {info.wikipediaUrl ? (
+                            {info.wikipediaUrl && (
                                 <a href={info.wikipediaUrl} target="_blank" rel="noreferrer">
                                     Página Wikipedia
                                 </a>
-                            ) : null}
-                            {builtLabel ? <> · {builtLabel}</> : null}
+                            )}
+                            {builtLabel && <> · {builtLabel}</>}
                         </div>
                     </div>
-                    <button className="poi-close" onClick={onClose} aria-label="Fechar">×</button>
+                    <button className="poi-close" onClick={onClose} aria-label="Fechar">
+                        ×
+                    </button>
                 </header>
 
                 <div className="poi-body">
@@ -313,8 +348,12 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                 />
                                 {gallery.length > 1 && (
                                     <>
-                                        <button className="nav prev" onClick={prev}>‹</button>
-                                        <button className="nav next" onClick={next}>›</button>
+                                        <button className="nav prev" onClick={prev}>
+                                            ‹
+                                        </button>
+                                        <button className="nav next" onClick={next}>
+                                            ›
+                                        </button>
                                     </>
                                 )}
                             </div>
@@ -325,51 +364,40 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                     {/* INFO */}
                     <aside className="poi-side gold-scroll">
-                            <div
-                                style={{
-                                    display: "flex",
-                                    gap: 10,
-                                    flexWrap: "wrap",
-                                    alignItems: "center",
-                                    marginBottom: 8,
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        flexWrap: "wrap",
-                                        alignItems: "center",
-                                        marginBottom: 8,
-                                    }}
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: 10,
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                marginBottom: 8,
+                            }}
+                        >
+                            {website && (
+                                <a
+                                    className="btn-directions"
+                                    href={website}
+                                    target="_blank"
+                                    rel="noreferrer"
                                 >
-                                    {website && (
-                                        <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
-                                            Site oficial
-                                        </a>
-                                    )}
-                                    <a
-                                        className="btn-directions"
-                                        href={
-                                            info?.coords
-                                                ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
-                                                : `https://www.google.com/maps/`
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Direções
-                                    </a>
-                                </div>
-                            </div>
+                                    Site oficial
+                                </a>
+                            )}
+                            <a
+                                className="btn-directions"
+                                href={
+                                    info?.coords
+                                        ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
+                                        : `https://www.google.com/maps/`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Direções
+                            </a>
+                        </div>
 
                         <div className="meta-divider" />
-
-                       {/* {info.oldNames?.length ? (
-                            <>
-                                <strong>Nome anterior:</strong> {info.oldNames[0]}
-                            </>
-                        ) : null}*/}
 
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
@@ -395,84 +423,126 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     <a
                                         className="gold-link"
                                         href={`mailto:${contacts.email.replace(/\s+/g, "")}`}
-                                        target="_self"
                                     >
                                         {contacts.email}
                                     </a>
                                 </div>
                             )}
+
                             {(ohParsed.arr?.length || ohParsed.str || ohFallback) && (
                                 <DetailsTree
                                     node={{
                                         title: "Horário",
-                                        // podes controlar se abre por defeito:
                                         open: false,
-                                        items:
-                                            ohParsed.arr?.length
-                                                ? ohParsed.arr.map(line => (line ? line.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h") : line))
-                                                : (ohFallback
-                                                    ? [ohFallback.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")]
-                                                    : (ohParsed.str ? [ohParsed.str.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")] : []))
+                                        items: ohParsed.arr?.length
+                                            ? ohParsed.arr.map((line) =>
+                                                line
+                                                    ? line.replace(
+                                                        /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                        "$1h"
+                                                    )
+                                                    : line
+                                            )
+                                            : ohFallback
+                                                ? [
+                                                    ohFallback.replace(
+                                                        /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                        "$1h"
+                                                    ),
+                                                ]
+                                                : ohParsed.str
+                                                    ? [
+                                                        ohParsed.str.replace(
+                                                            /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                            "$1h"
+                                                        ),
+                                                    ]
+                                                    : [],
                                     }}
                                 />
                             )}
                         </div>
 
-                        <div className="poi-info-list" style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                            {info.instanceOf?.length ? (
-                                <div><strong>Tipo:</strong> {info.instanceOf.join(" · ")}</div>
-                            ) : null}
-                            {info.locatedIn?.length ? (
-                                <div><strong>Localização:</strong> {info.locatedIn.join(", ")}</div>
-                            ) : null}
-                            {info.heritage?.length ? (
-                                <div><strong>Classificação:</strong> {info.heritage.join(" · ")}</div>
-                            ) : null}
+                        {/* Tipo + Localização (sem Classificação / heritage) */}
+                        <div
+                            className="poi-info-list"
+                            style={{ display: "grid", gap: 6, marginTop: 8 }}
+                        >
+                            {info.instanceOf?.length && (
+                                <div>
+                                    <strong>Tipo:</strong> {info.instanceOf.join(" · ")}
+                                </div>
+                            )}
+                            {info.locatedIn?.length && (
+                                <div>
+                                    <strong>Localização:</strong>{" "}
+                                    {info.locatedIn.join(", ")}
+                                </div>
+                            )}
                         </div>
 
+                        {/* Arquitetura / Materiais / Construção */}
                         {(info.architectureText ||
-                            (info.architectureStyles?.length || info.architects?.length || info.materials?.length) ||
-                            (info.builders?.length) ||
-                            builtLabel) ? (
+                            info.architectureStyles?.length ||
+                            info.architects?.length ||
+                            info.materials?.length ||
+                            info.builders?.length ||
+                            builtLabel) && (
                             <>
-                                {info.architectureText ? (
+                                {info.architectureText && (
                                     <p className="poi-desc">{info.architectureText}</p>
-                                ) : null}
+                                )}
 
-                                <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
-                                    {builtLabel ? (
-                                        <div><strong>Inicio de construção:</strong> {builtLabel}</div>
-                                    ) : null}
-                                    {info.architectureStyles?.length ? (
-                                        <div><strong>Estilo:</strong> {info.architectureStyles.join(" · ")}</div>
-                                    ) : null}
-                                    {info.architects?.length ? (
-                                        <div><strong>Arquiteto(s):</strong> {info.architects.join(", ")}</div>
-                                    ) : null}
-                                    {info.builders?.length ? (
-                                        <div><strong>Construtor/Autor:</strong> {info.builders.join(", ")}</div>
-                                    ) : null}
-                                    {info.materials?.length ? (
-                                        <div><strong>Materiais:</strong> {info.materials.join(", ")}</div>
-                                    ) : null}
+                                <div
+                                    className="poi-info-list"
+                                    style={{ display: "grid", gap: 6 }}
+                                >
+                                    {builtLabel && (
+                                        <div>
+                                            <strong>Início de construção:</strong>{" "}
+                                            {builtLabel}
+                                        </div>
+                                    )}
+                                    {info.architectureStyles?.length && (
+                                        <div>
+                                            <strong>Estilo:</strong>{" "}
+                                            {info.architectureStyles.join(" · ")}
+                                        </div>
+                                    )}
+                                    {info.architects?.length && (
+                                        <div>
+                                            <strong>Arquiteto(s):</strong>{" "}
+                                            {info.architects.join(", ")}
+                                        </div>
+                                    )}
+                                    {info.builders?.length && (
+                                        <div>
+                                            <strong>Construtor/Autor:</strong>{" "}
+                                            {info.builders.join(", ")}
+                                        </div>
+                                    )}
+                                    {info.materials?.length && (
+                                        <div>
+                                            <strong>Materiais:</strong>{" "}
+                                            {info.materials.join(", ")}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="meta-divider" />
                             </>
-                        ) : null}
+                        )}
 
-                        {info.description ? (
-                            <>
-                                <ReadMore text={descPretty} />
-                            </>
-                        ) : null}
+                        {info.description && <ReadMore text={descPretty} />}
 
-                        {info.historyText ? (
+                        {info.historyText && (
                             <>
-                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Histórico</h4>
+                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>
+                                    Histórico
+                                </h4>
                                 <ReadMore text={histPretty} />
                             </>
-                        ) : null}
+                        )}
                     </aside>
                 </div>
             </div>

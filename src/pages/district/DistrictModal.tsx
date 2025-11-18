@@ -1,7 +1,14 @@
 // src/pages/district/DistrictModal.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
 import L from "leaflet";
+import {
+    MapContainer,
+    TileLayer,
+    GeoJSON,
+    Pane,
+    useMap,
+    WMSTileLayer,
+} from "react-leaflet";
 
 import { loadGeo } from "@/lib/geo";
 import {
@@ -20,6 +27,8 @@ import {
     Z_PLACES,
     POI_LABELS,
     type PoiCategory,
+    SIPA_WMS_URL,
+    SIPA_WMS_LAYER,
 } from "@/utils/constants";
 import {
     PoiAreasLayer,
@@ -156,7 +165,7 @@ export default function DistrictModal(props: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    /* ----- Normalização + filtro ----- */
+    /* ----- Normalização + filtro (POIs OSM) ----- */
     const normalizedPoints = useMemo(() => {
         if (!poiPoints) return null;
 
@@ -268,15 +277,15 @@ export default function DistrictModal(props: Props) {
                 const info = await fetchPoiInfo({
                     wikipedia: wp,
                     approx: { name: approxName, lat: approxLat, lon: approxLon },
-                    sourceFeature: selectedPoi, // ← merge direto + override label + validação imagens
+                    sourceFeature: selectedPoi,
                 });
                 if (!alive || reqId !== lastReqRef.current) return;
 
                 setSelectedPoiInfo(info);
 
-                const hasAnyImage = (info?.image || (info?.images?.length ?? 0) > 0);
+                const hasAnyImage = info?.image || (info?.images?.length ?? 0) > 0;
                 const hasTitle = !!info?.label;
-                const hasDesc = !!info?.description && info!.description!.trim().length > 0;
+                const hasDesc = !!info?.description && info.description.trim().length > 0;
                 const shouldOpen = !!(hasTitle || hasDesc || hasAnyImage);
 
                 setShowPoiModal(shouldOpen);
@@ -290,7 +299,9 @@ export default function DistrictModal(props: Props) {
             }
         })();
 
-        return () => { alive = false; };
+        return () => {
+            alive = false;
+        };
     }, [selectedPoi]);
 
     if (!open) return null;
@@ -323,14 +334,28 @@ export default function DistrictModal(props: Props) {
                         preferCanvas
                         style={{ height: "100%", width: "100%" }}
                     >
+                        {/* Base Carto */}
                         <Pane name="districtBase" style={{ zIndex: 200 }}>
                             <TileLayer url={DISTRICT_DETAIL} />
                         </Pane>
 
+                        {/* Labels base */}
                         <Pane name="districtLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
                             <TileLayer url={DISTRICT_LABELS} />
                         </Pane>
 
+                        {/* 🟣 Património oficial (SIPA WMS) */}
+                        <Pane name="sipaMonuments" style={{ zIndex: 300 }}>
+                            <WMSTileLayer
+                                url={SIPA_WMS_URL}
+                                layers={SIPA_WMS_LAYER}
+                                format="image/png"
+                                transparent={true}
+                                version="1.3.0"
+                            />
+                        </Pane>
+
+                        {/* Polígono do distrito selecionado */}
                         {districtFeature && (
                             <GeoJSON
                                 data={districtFeature as any}
@@ -339,30 +364,62 @@ export default function DistrictModal(props: Props) {
                             />
                         )}
 
+                        {/* Rios */}
                         {rivers && (
                             <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
-                                <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5 }} interactive={false} />
-                            </Pane>
-                        )}
-                        {lakes && (
-                            <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
                                 <GeoJSON
-                                    data={lakes as any}
-                                    style={{ color: COLOR_LAKE, weight: 1, fillColor: COLOR_LAKE, fillOpacity: 0.3, opacity: 0.9 }}
+                                    data={rivers as any}
+                                    style={{ color: COLOR_RIVER, weight: 1.5 }}
                                     interactive={false}
                                 />
                             </Pane>
                         )}
+
+                        {/* Lagos */}
+                        {lakes && (
+                            <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
+                                <GeoJSON
+                                    data={lakes as any}
+                                    style={{
+                                        color: COLOR_LAKE,
+                                        weight: 1,
+                                        fillColor: COLOR_LAKE,
+                                        fillOpacity: 0.3,
+                                        opacity: 0.9,
+                                    }}
+                                    interactive={false}
+                                />
+                            </Pane>
+                        )}
+
+                        {/* Linhas férreas */}
                         {rails && (
                             <Pane name="rails" style={{ zIndex: Z_RAIL }}>
-                                <GeoJSON data={rails as any} style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }} interactive={false} />
+                                <GeoJSON
+                                    data={rails as any}
+                                    style={{
+                                        color: COLOR_RAIL,
+                                        weight: 1,
+                                        dashArray: "4,3",
+                                        opacity: 0.9,
+                                    }}
+                                    interactive={false}
+                                />
                             </Pane>
                         )}
+
+                        {/* Estradas */}
                         {roads && (
                             <Pane name="roads" style={{ zIndex: Z_ROADS }}>
-                                <GeoJSON data={roads as any} style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }} interactive={false} />
+                                <GeoJSON
+                                    data={roads as any}
+                                    style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }}
+                                    interactive={false}
+                                />
                             </Pane>
                         )}
+
+                        {/* Picos */}
                         {peaks && (
                             <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
                                 <GeoJSON
@@ -379,8 +436,13 @@ export default function DistrictModal(props: Props) {
                                 />
                             </Pane>
                         )}
+
+                        {/* Cidades / labels de lugares */}
                         {places && (
-                            <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
+                            <Pane
+                                name="places"
+                                style={{ zIndex: Z_PLACES, pointerEvents: "none" }}
+                            >
                                 <GeoJSON
                                     data={places as any}
                                     pointToLayer={(f, latlng) => {
@@ -410,12 +472,14 @@ export default function DistrictModal(props: Props) {
                             </Pane>
                         )}
 
+                        {/* Áreas OSM (parques, etc.) */}
                         {poiAreas && (
                             <Pane name="areas" style={{ zIndex: 430 }}>
                                 <PoiAreasLayer data={poiAreas} />
                             </Pane>
                         )}
 
+                        {/* Pontos OSM normalizados + filtrados */}
                         {filteredPoints && (
                             <Pane name="points" style={{ zIndex: 460 }}>
                                 <PoiPointsLayer
@@ -427,6 +491,7 @@ export default function DistrictModal(props: Props) {
                             </Pane>
                         )}
 
+                        {/* Ajuste de bounds ao distrito */}
                         <FitDistrictBounds feature={districtFeature} />
                     </MapContainer>
                 </div>
@@ -442,13 +507,16 @@ export default function DistrictModal(props: Props) {
                                 <div className="district-meta">
                                     <div>
                                         <strong>População:</strong>{" "}
-                                        {districtInfo.population?.toLocaleString("pt-PT") ?? "—"}
+                                        {districtInfo.population?.toLocaleString("pt-PT") ??
+                                            "—"}
                                     </div>
                                     <div>
-                                        <strong>Concelhos:</strong> {districtInfo.municipalities ?? "—"}
+                                        <strong>Concelhos:</strong>{" "}
+                                        {districtInfo.municipalities ?? "—"}
                                     </div>
                                     <div>
-                                        <strong>Freguesias:</strong> {districtInfo.parishes ?? "—"}
+                                        <strong>Freguesias:</strong>{" "}
+                                        {districtInfo.parishes ?? "—"}
                                     </div>
                                     <div>
                                         <strong>Habitado desde:</strong>{" "}
@@ -457,11 +525,15 @@ export default function DistrictModal(props: Props) {
                                 </div>
 
                                 {districtInfo.description && (
-                                    <p className="district-description">{districtInfo.description}</p>
+                                    <p className="district-description">
+                                        {districtInfo.description}
+                                    </p>
                                 )}
 
                                 {districtInfo.history && (
-                                    <p className="district-history">{districtInfo.history}</p>
+                                    <p className="district-history">
+                                        {districtInfo.history}
+                                    </p>
                                 )}
                             </div>
                         )}
