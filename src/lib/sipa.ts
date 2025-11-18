@@ -30,30 +30,52 @@ export type SipaDetail = {
 };
 
 /**
- * Chama o proxy local `/api/monumentos/resolve` e devolve o detalhe SIPA
- * baseado em nome + coordenadas.
+ * Chama o proxy local `/api/monumentos` com uma BBOX pequena
+ * centrada no ponto (lat, lon) e devolve o primeiro monumento.
+ *
+ * A ideia:
+ *  - FE já sabe o ponto (do OSM / Google).
+ *  - A API devolve todos os monumentos oficiais naquela zona.
+ *  - Nós escolhemos o primeiro como "match principal".
  */
 export async function fetchSipaDetail(options: {
-    name?: string | null;
+    name?: string | null; // neste momento não é usado na query, mas deixamos por compatibilidade
     lat?: number | null;
     lon?: number | null;
 }): Promise<SipaDetail | null> {
-    const { name, lat, lon } = options;
+    const { lat, lon } = options;
 
     if (lat == null || lon == null) {
         console.warn("[fetchSipaDetail] Falta lat/lon – não vou chamar a API");
         return null;
     }
 
+    // BBOX pequena à volta do clique (~200m)
+    const deltaLat = 0.002;
+    const deltaLon = 0.002;
+
+    const minX = lon - deltaLon;
+    const maxX = lon + deltaLon;
+    const minY = lat - deltaLat;
+    const maxY = lat + deltaLat;
+
     const params = new URLSearchParams();
-    if (name) params.set("name", name);
-    params.set("lat", String(lat));
-    params.set("lon", String(lon));
+    params.set("minX", String(minX));
+    params.set("minY", String(minY));
+    params.set("maxX", String(maxX));
+    params.set("maxY", String(maxY));
+    params.set("limit", "1"); // se o backend ignorar, não faz mal
 
-    const url = `/api/monumentos/resolve?${params.toString()}`;
-    console.log("Fetching Sipa detail:", url);
+    const url = `/api/monumentos?${params.toString()}`;
+    console.log("Fetching Sipa detail via BBOX:", url);
 
-    const res = await fetch(url);
+    let res: Response;
+    try {
+        res = await fetch(url);
+    } catch (err) {
+        console.warn("SIPA HTTP fetch error:", err);
+        return null;
+    }
 
     if (!res.ok) {
         console.warn("SIPA HTTP error:", res.status, res.statusText);
@@ -65,8 +87,11 @@ export async function fetchSipaDetail(options: {
 
     try {
         const json = JSON.parse(text);
-        console.log("SIPA parsed JSON:", json);
-        return json as SipaDetail;
+        const arr = Array.isArray(json) ? json : [json];
+        const first = arr[0] ?? null;
+
+        console.log("SIPA parsed first JSON:", first);
+        return first as SipaDetail | null;
     } catch (err) {
         console.error("SIPA JSON parse error:", err);
         return null;

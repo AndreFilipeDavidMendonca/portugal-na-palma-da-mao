@@ -6,10 +6,15 @@
 //
 // Wikipédia:
 //   - descrição, história, arquitetura
-//   - usada apenas para POIs que NÃO são miradouro
+//   - usada apenas para POIs que NÃO são miradouro nem park
+//   - e apenas se o SIPA não trouxer nenhuma descrição útil
 //
 // OSM:
 //   - pode fornecer "nome anterior" e contactos (phone/email/website)
+//
+// SIPA (.pt API):
+//   - apenas a DESCRIÇÃO oficial (short/full) para POIs que NÃO são miradouro nem park
+//   - NÃO altera nome / coords / website / rating / etc. vindos do Google
 // -------------------------------------------------------------------
 
 import {
@@ -18,7 +23,7 @@ import {
     findPlaceByNameAndPoint,
 } from "@/lib/gplaces";
 import { compactOpeningHours } from "@/utils/openingHours";
-import {fetchSipaDetail} from "@/lib/sipa";
+import { fetchSipaDetail } from "@/lib/sipa";
 
 /* =====================================================================
    TIPOS
@@ -65,7 +70,7 @@ export type PoiInfo = {
 
     instanceOf?: string[];
     locatedIn?: string[];
-    heritage?: string[];
+    heritage?: string[]; // já não é preenchido pelo SIPA
     kinds?: string | null;
 
     openingHours?: OpeningHours | null;
@@ -80,6 +85,9 @@ export type PoiInfo = {
     materials?: string[];
     builders?: string[];
     builtPeriod?: BuiltPeriod;
+
+    // mantido para uso futuro, mas já não é preenchido pelo fetchPoiInfo
+    sipaExtraAttributes?: Record<string, string> | null;
 };
 
 /* =====================================================================
@@ -97,7 +105,7 @@ const normalizeText = (value?: string | null) =>
         .trim()
         .toLowerCase();
 
-/** overlap simples de tokens entre dois textos */
+/** safe fetch JSON */
 async function safeJson(url: string) {
     const response = await fetch(url, { referrerPolicy: "no-referrer" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -174,10 +182,10 @@ function buildGoogleSearchNames(
         const zone = zoneCandidate.trim();
         if (zone) {
             if (withoutPrefix) {
-                names.push(`${withoutPrefix} ${zone}`);            // "Portas do Sol Santarém"
-                names.push(`Miradouro ${withoutPrefix} ${zone}`);  // "Miradouro Portas do Sol Santarém"
+                names.push(`${withoutPrefix} ${zone}`);
+                names.push(`Miradouro ${withoutPrefix} ${zone}`);
             }
-            names.push(`${base} ${zone}`);                         // "Miradouro das Portas do Sol Santarém"
+            names.push(`${base} ${zone}`);
             names.push(`${base} ${zone} Portugal`);
         }
     }
@@ -209,7 +217,7 @@ const BAD_VIEWPOINT_TYPES = new Set([
     "car_dealer",
     "ticket_agency",
     "travel_agency",
-    "real_estate_agency"
+    "real_estate_agency",
 ]);
 
 function isBadViewpointPlace(place: any): boolean {
@@ -242,7 +250,6 @@ const WIKIPEDIA_PARSE = (lang: string, title: string) =>
    ===================================================================== */
 
 export type WikipediaTag = { lang: string; title: string };
-
 
 /** usa /page/summary + valida a distância às coords aproximadas */
 export async function fetchFromWikipediaStrict(
@@ -360,7 +367,8 @@ export async function geosearchWikipediaTitleSmart(
 ): Promise<WikipediaTag | null> {
     try {
         const json = await safeJson(WIKIPEDIA_GEOSEARCH(lang, lat, lon, 800));
-        const items: Array<{ title: string; dist?: number }> = json?.query?.geosearch ?? [];
+        const items: Array<{ title: string; dist?: number }> =
+            json?.query?.geosearch ?? [];
         if (!items.length) return null;
 
         const normalize = (v: string) =>
@@ -459,15 +467,13 @@ function featurePrimaryName(feature?: any | null): string | null {
 }
 
 /* =====================================================================
-   GOOGLE PLACES HELPER: textSearch/nearbySearch fallback
-   ===================================================================== */
-
-
-/* =====================================================================
    MERGE HELPERS (Contacts / PoiInfo)
    ===================================================================== */
 
-function mergeContacts(existing?: Contacts | null, incoming?: Contacts | null): Contacts | undefined {
+function mergeContacts(
+    existing?: Contacts | null,
+    incoming?: Contacts | null
+): Contacts | undefined {
     if (!existing && !incoming) return undefined;
 
     return {
@@ -477,7 +483,10 @@ function mergeContacts(existing?: Contacts | null, incoming?: Contacts | null): 
     };
 }
 
-function mergePoiPieces(current: Partial<PoiInfo>, incoming: Partial<PoiInfo>): Partial<PoiInfo> {
+function mergePoiPieces(
+    current: Partial<PoiInfo>,
+    incoming: Partial<PoiInfo>
+): Partial<PoiInfo> {
     const result: Partial<PoiInfo> = { ...current };
 
     const choose = <T,>(next: T | null | undefined, prev: T | null | undefined): T | undefined =>
@@ -514,12 +523,14 @@ function mergePoiPieces(current: Partial<PoiInfo>, incoming: Partial<PoiInfo>): 
         choose(incoming.architectureText, current.architectureText) ??
         result.architectureText;
 
-    // ⬇️ novo: herança / classificação
+    // heritage continua possível, mas já não vem do SIPA neste orquestrador
     if (incoming.heritage && incoming.heritage.length) {
         result.heritage = uniq([...(current.heritage ?? []), ...incoming.heritage]);
     } else if (current.heritage && current.heritage.length) {
         result.heritage = current.heritage;
     }
+
+    // sipaExtraAttributes já não é preenchido aqui — deixamos de mexer nisso
 
     return result;
 }
@@ -545,7 +556,12 @@ export async function fetchPoiInfo(options: {
 
     const sourceFeature = options.sourceFeature || null;
     const poiCategory: string | null = sourceFeature?.properties?.__cat ?? null;
+
     const isViewpoint = poiCategory === "viewpoint";
+    const isPark = poiCategory === "park";
+
+    // Vamos precisar disto para decidir se chamamos Wikipédia
+    let sipaHasText = false;
 
     /* -------------------------------------------------------
        1) GOOGLE — nome oficial, coords, fotos, horário, rating
@@ -567,14 +583,12 @@ export async function fetchPoiInfo(options: {
                     isViewpoint ? 400 : 1000
                 );
 
-                if (!candidate?.place_id) {
-                    continue;
-                }
+                if (!candidate?.place_id) continue;
 
                 const details = await getPlaceDetailsById(candidate.place_id);
                 if (!details) continue;
 
-                // rejeitar cafés/restaurantes/etc. para miradouros
+                // miradouro não pode ser café/restaurante/etc.
                 if (isViewpoint && isBadViewpointPlace(details)) {
                     continue;
                 }
@@ -667,7 +681,7 @@ export async function fetchPoiInfo(options: {
                     description: googleDescription ?? merged.description,
                 });
 
-                // já temos um bom candidato → não precisamos de tentar outros nomes
+                // já encontrámos um bom candidato do Google → não precisamos de tentar outros nomes
                 break;
             }
         }
@@ -679,9 +693,12 @@ export async function fetchPoiInfo(options: {
     const baseCoords = merged.coords ?? approximateCoords ?? null;
 
     /* -------------------------------------------------------
-       2) SIPA — detalhe oficial (descrição, classificação, fotos)
+       2) SIPA (.pt API)
+          - Só quando NÃO é viewpoint nem park
+          - Apenas para descrição (texto oficial).
+          - Nada de classificação, contactos, etc.
        ------------------------------------------------------- */
-    if (baseCoords) {
+    if (!isViewpoint && !isPark && baseCoords) {
         try {
             const sipa = await fetchSipaDetail({
                 name: baseName,
@@ -689,36 +706,30 @@ export async function fetchPoiInfo(options: {
                 lon: baseCoords.lon,
             });
 
-            console.log("SIPA:", sipa);
             if (sipa) {
                 const plainHtml =
-                    (sipa as any).fullDescriptionHtml
-                        ? htmlToPlainText((sipa as any).fullDescriptionHtml)
+                    sipa.fullDescriptionHtml
+                        ? htmlToPlainText(sipa.fullDescriptionHtml)
                         : undefined;
 
+                const hasPlain = !!(plainHtml && plainHtml.trim().length > 0);
+                const hasShort =
+                    !!(sipa.shortDescription && sipa.shortDescription.trim().length > 0);
+
+                const bestDescription =
+                    hasPlain
+                        ? plainHtml
+                        : hasShort
+                            ? sipa.shortDescription
+                            : merged.description;
+
+                if (hasPlain || hasShort) {
+                    sipaHasText = true;
+                }
+
+                // Só mexemos na description; o resto continua 100% Google
                 merged = mergePoiPieces(merged, {
-                    // se o SIPA tiver nome, pode refinar o label
-                    label: (sipa as any).originalName ?? merged.label,
-
-                    // descrição oficial tem prioridade sobre Wikipedia
-                    description:
-                        (sipa as any).shortDescription ?? plainHtml ?? merged.description,
-
-                    image:
-                        (sipa as any).imageUrls?.[0] ??
-                        merged.image,
-                    images: (sipa as any).imageUrls ?? merged.images,
-
-                    // mapeamos classificação para heritage[]
-                    heritage: [
-                        ...(merged.heritage ?? []),
-                        ...(((sipa as any).heritageCategory
-                            ? [(sipa as any).heritageCategory]
-                            : []) as string[]),
-                        ...(((sipa as any).protectionStatus
-                            ? [(sipa as any).protectionStatus]
-                            : []) as string[]),
-                    ],
+                    description: bestDescription,
                 });
             }
         } catch (error) {
@@ -727,11 +738,13 @@ export async function fetchPoiInfo(options: {
     }
 
     /* -------------------------------------------------------
-       3) WIKIPEDIA — texto (exceto para viewpoints)
+       3) WIKIPEDIA — fallback para texto
+          - Só se NÃO for viewpoint nem park
+          - E só se o SIPA não trouxe descrição útil
        ------------------------------------------------------- */
     let wikiTag: { lang: string; title: string } | null = null;
 
-    if (!isViewpoint) {
+    if (!isViewpoint && !isPark && !sipaHasText) {
         if (baseName) {
             const byNamePt = await searchWikipediaTitleByName(baseName, "pt");
             if (byNamePt) wikiTag = byNamePt;
@@ -773,8 +786,14 @@ export async function fetchPoiInfo(options: {
                 }
 
                 if (wikiSummary && Object.keys(wikiSummary).length) {
+                    // Só usamos descrição da Wikipédia se ainda não houver nenhuma
+                    const wikiDesc =
+                        merged.description && merged.description.trim().length > 0
+                            ? undefined
+                            : (wikiSummary.description ?? undefined);
+
                     merged = mergePoiPieces(merged, {
-                        description: wikiSummary.description ?? undefined,
+                        description: wikiDesc,
                         wikipediaUrl: (wikiSummary as any).wikipediaUrl ?? undefined,
                     });
 
@@ -786,21 +805,6 @@ export async function fetchPoiInfo(options: {
                         historyText: sections.history ?? undefined,
                         architectureText: sections.architecture ?? undefined,
                     });
-
-                    if (!sections.history && !sections.architecture) {
-                        const enSections = await fetchWikipediaSections(
-                            "en",
-                            wikiTag.title
-                        );
-                        merged = mergePoiPieces(merged, {
-                            historyText:
-                                merged.historyText ?? enSections.history ?? undefined,
-                            architectureText:
-                                merged.architectureText ??
-                                enSections.architecture ??
-                                undefined,
-                        });
-                    }
                 }
             } catch (error) {
                 console.warn("Wikipedia fetch failed:", error);
@@ -809,7 +813,7 @@ export async function fetchPoiInfo(options: {
     }
 
     /* -------------------------------------------------------
-       4) OSM — overrides suaves (nome antigo + contactos)
+       4) OSM — nome antigo + contactos
        ------------------------------------------------------- */
     if (sourceFeature?.properties) {
         const props = sourceFeature.properties || {};

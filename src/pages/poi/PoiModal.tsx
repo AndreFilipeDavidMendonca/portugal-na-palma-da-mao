@@ -1,3 +1,4 @@
+// src/components/PoiModal.tsx
 import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
@@ -10,7 +11,10 @@ type Props = {
     poi?: any;
 };
 
-/* ---------- Helpers ---------- */
+/* =====================================================================
+   Constantes de dias / horários
+   ===================================================================== */
+
 const DAY_PT: Record<string, string> = {
     Mo: "Segunda",
     Tu: "Terça",
@@ -20,6 +24,7 @@ const DAY_PT: Record<string, string> = {
     Sa: "Sábado",
     Su: "Domingo",
 };
+
 const DAY_SHORT_PT: Record<string, string> = {
     Mo: "Seg",
     Tu: "Ter",
@@ -29,6 +34,7 @@ const DAY_SHORT_PT: Record<string, string> = {
     Sa: "Sáb",
     Su: "Dom",
 };
+
 const DAY_ORDER = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 function expandDayToken(tok: string): string[] {
@@ -50,20 +56,24 @@ function parseOpeningHoursRaw(raw?: string | null): { str?: string; arr?: string
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return { arr: parsed as string[] };
     } catch {
-        // não é JSON, segue
+        // não é JSON, segue como string simples
     }
     return { str: raw };
 }
 
 function isContiguousRange(days: string[]): boolean {
     if (days.length <= 1) return false;
-    const idxs = days.map(d => DAY_ORDER.indexOf(d)).filter(i => i >= 0);
+    const idxs = days.map((d) => DAY_ORDER.indexOf(d)).filter((i) => i >= 0);
     if (idxs.length !== days.length) return false;
     for (let k = 1; k < idxs.length; k++) {
         if (idxs[k] !== idxs[k - 1] + 1) return false;
     }
     return true;
 }
+
+/* =====================================================================
+   Árvores de detalhes (Horário)
+   ===================================================================== */
 
 type TreeNode = string | { title: string; items?: TreeNode[]; open?: boolean };
 
@@ -84,7 +94,7 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 
             {hasChildren && (
                 <div className="dtree__panel">
-                    {items.every(i => typeof i === "string") ? (
+                    {items.every((i) => typeof i === "string") ? (
                         <ul className="dtree__list">
                             {items.map((it, idx) => (
                                 <DetailsTree key={idx} node={it} level={level + 1} />
@@ -106,7 +116,12 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 function uniqueInOrder<T>(arr: T[]): T[] {
     const seen = new Set<T>();
     const out: T[] = [];
-    for (const x of arr) if (!seen.has(x)) { seen.add(x); out.push(x); }
+    for (const x of arr) {
+        if (!seen.has(x)) {
+            seen.add(x);
+            out.push(x);
+        }
+    }
     return out;
 }
 
@@ -121,7 +136,7 @@ export function formatOpeningHours(raw?: string | null): string | null {
 
     const daysPart = timeMatch ? raw.replace(timeMatch[0], "").trim() : raw.trim();
     const tokens = daysPart.split(/[,\s]+/).filter(Boolean);
-    const hasPH = tokens.some(t => t.toUpperCase() === "PH");
+    const hasPH = tokens.some((t) => t.toUpperCase() === "PH");
 
     let collected: string[] = [];
     for (const t of tokens) {
@@ -144,7 +159,7 @@ export function formatOpeningHours(raw?: string | null): string | null {
         const last = collected[collected.length - 1];
         daysText = `de ${DAY_PT[first]} a ${DAY_PT[last]}`;
     } else if (collected.length > 0) {
-        daysText = collected.map(d => DAY_SHORT_PT[d]).join(", ");
+        daysText = collected.map((d) => DAY_SHORT_PT[d]).join(", ");
     }
 
     if (hasPH) {
@@ -156,7 +171,10 @@ export function formatOpeningHours(raw?: string | null): string | null {
     return daysText || raw;
 }
 
-/* ----- Datas & texto ----- */
+/* =====================================================================
+   Datas & texto
+   ===================================================================== */
+
 function trimISOToNice(iso?: string | null): string | null {
     if (!iso) return null;
     const s = iso.replace(/^\+/, "");
@@ -176,7 +194,10 @@ function prettifyPtInlineText(s?: string | null): string {
     return out.trim();
 }
 
-function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string | null): string | null {
+function formatBuiltPeriod(
+    period?: PoiInfo["builtPeriod"],
+    inception?: string | null
+): string | null {
     if (period) {
         const start = trimISOToNice(period.start);
         const end = trimISOToNice(period.end);
@@ -190,12 +211,20 @@ function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string |
     return inc ? `c. ${inc}` : null;
 }
 
-/* ----- ReadMore ----- */
+/* =====================================================================
+   ReadMore – corta texto e mostra "ver mais"
+   ===================================================================== */
+
 function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     const [open, setOpen] = useState(false);
     if (!text) return null;
+
     const isLong = text.length > clamp;
-    const shown = !isLong || open ? text : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
+    const shown =
+        !isLong || open
+            ? text
+            : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
+
     return (
         <p className="poi-desc">
             {shown}{" "}
@@ -203,8 +232,13 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
                 <button
                     type="button"
                     className="gold-link"
-                    style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
-                    onClick={() => setOpen(v => !v)}
+                    style={{
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        cursor: "pointer",
+                    }}
+                    onClick={() => setOpen((v) => !v)}
                 >
                     {open ? "ver menos" : "ver mais"}
                 </button>
@@ -213,10 +247,13 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     );
 }
 
+/* =====================================================================
+   Componente principal
+   ===================================================================== */
+
 export default function PoiModal({ open, onClose, info }: Props) {
     if (!open || !info) return null;
 
-    // Galeria simples
     const gallery: string[] = (() => {
         const a: string[] = [];
         if (info.image) a.push(info.image);
@@ -231,22 +268,23 @@ export default function PoiModal({ open, onClose, info }: Props) {
     useEffect(() => {
         if (paused || gallery.length <= 1) return;
         timerRef.current = setTimeout(() => {
-            setActive(i => (i + 1) % gallery.length);
+            setActive((i) => (i + 1) % gallery.length);
         }, 4000);
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
     }, [active, paused, gallery.length]);
 
-    const next = () => setActive(i => (i + 1) % gallery.length);
-    const prev = () => setActive(i => (i - 1 + gallery.length) % gallery.length);
+    const next = () => setActive((i) => (i + 1) % gallery.length);
+    const prev = () => setActive((i) => (i - 1 + gallery.length) % gallery.length);
 
     const title = info.label ?? "Ponto de interesse";
-
     const hasAnyPhoto = gallery.length > 0;
+
     const rating = (info.ratings ?? [])[0];
     const ohParsed = parseOpeningHoursRaw(info.openingHours?.raw ?? null);
     const ohFallback = formatOpeningHours(ohParsed.str ?? null);
+
     const contacts = info.contacts ?? {};
     const website = info.website ?? contacts.website ?? null;
 
@@ -267,23 +305,11 @@ export default function PoiModal({ open, onClose, info }: Props) {
     const descPretty = prettifyPtInlineText(info.description);
     const histPretty = prettifyPtInlineText(info.historyText);
 
-    // 👉 FICHA SIPA: extraAttributes vindos do backend
-    const sipaExtraMap: Record<string, string> | null =
-        (info as any).sipaExtraAttributes ??
-        (info as any).sipa?.extraAttributes ??
-        null;
-
-    const sipaEntries = sipaExtraMap
-        ? Object.entries(sipaExtraMap).filter(
-            ([, v]) => v != null && String(v).trim() !== ""
-        )
-        : [];
-
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
             <div
                 className="poi-card"
-                onClick={e => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
             >
@@ -338,7 +364,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                     {/* INFO */}
                     <aside className="poi-side gold-scroll">
-                        {/* Ações principais */}
                         <div
                             style={{
                                 display: "flex",
@@ -374,7 +399,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
 
                         <div className="meta-divider" />
 
-                        {/* Rating */}
                         {rating && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
                                 {renderStars(rating.value)}{" "}
@@ -384,7 +408,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             </p>
                         )}
 
-                        {/* Contactos + Horário */}
                         <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
                             {contacts.phone && (
                                 <div>
@@ -411,37 +434,36 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     node={{
                                         title: "Horário",
                                         open: false,
-                                        items:
-                                            ohParsed.arr?.length
-                                                ? ohParsed.arr.map(line =>
-                                                    line
-                                                        ? line.replace(
-                                                            /(\b\d{1,2}:\d{2}\b)(?!h)/g,
-                                                            "$1h"
-                                                        )
-                                                        : line
-                                                )
-                                                : ohFallback
+                                        items: ohParsed.arr?.length
+                                            ? ohParsed.arr.map((line) =>
+                                                line
+                                                    ? line.replace(
+                                                        /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                        "$1h"
+                                                    )
+                                                    : line
+                                            )
+                                            : ohFallback
+                                                ? [
+                                                    ohFallback.replace(
+                                                        /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                        "$1h"
+                                                    ),
+                                                ]
+                                                : ohParsed.str
                                                     ? [
-                                                        ohFallback.replace(
+                                                        ohParsed.str.replace(
                                                             /(\b\d{1,2}:\d{2}\b)(?!h)/g,
                                                             "$1h"
                                                         ),
                                                     ]
-                                                    : ohParsed.str
-                                                        ? [
-                                                            ohParsed.str.replace(
-                                                                /(\b\d{1,2}:\d{2}\b)(?!h)/g,
-                                                                "$1h"
-                                                            ),
-                                                        ]
-                                                        : [],
+                                                    : [],
                                     }}
                                 />
                             )}
                         </div>
 
-                        {/* Tipo / Localização / Classificação */}
+                        {/* Tipo + Localização (sem Classificação / heritage) */}
                         <div
                             className="poi-info-list"
                             style={{ display: "grid", gap: 6, marginTop: 8 }}
@@ -453,31 +475,11 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             )}
                             {info.locatedIn?.length && (
                                 <div>
-                                    <strong>Localização:</strong> {info.locatedIn.join(", ")}
-                                </div>
-                            )}
-                            {info.heritage?.length && (
-                                <div>
-                                    <strong>Classificação:</strong>{" "}
-                                    {info.heritage.join(" · ")}
+                                    <strong>Localização:</strong>{" "}
+                                    {info.locatedIn.join(", ")}
                                 </div>
                             )}
                         </div>
-
-                        {/* 👉 Ficha SIPA */}
-                        {sipaEntries.length > 0 && (
-                            <div style={{ marginTop: 10 }}>
-                                <DetailsTree
-                                    node={{
-                                        title: "Ficha técnica SIPA (monumentos.gov.pt)",
-                                        open: false,
-                                        items: sipaEntries.map(
-                                            ([k, v]) => `${k}: ${v}`
-                                        ),
-                                    }}
-                                />
-                            </div>
-                        )}
 
                         {/* Arquitetura / Materiais / Construção */}
                         {(info.architectureText ||
@@ -531,7 +533,6 @@ export default function PoiModal({ open, onClose, info }: Props) {
                             </>
                         )}
 
-                        {/* Descrição & Histórico */}
                         {info.description && <ReadMore text={descPretty} />}
 
                         {info.historyText && (

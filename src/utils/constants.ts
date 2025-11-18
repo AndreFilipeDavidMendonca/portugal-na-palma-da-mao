@@ -33,7 +33,6 @@ export const CATEGORY_COLORS: Record<PoiCategory, string> = {
     church: "#3890dc",
     viewpoint: "#ae7710",
     park: "#2E7D32",
-    protected_area: "#66BB6A",
 };
 
 // === Categorias de POI ===
@@ -45,7 +44,6 @@ export type PoiCategory =
     | "church"
     | "viewpoint"
     | "park"
-    | "protected_area";
 
 // === Labels ===
 export const POI_LABELS: Record<PoiCategory, string> = {
@@ -56,7 +54,6 @@ export const POI_LABELS: Record<PoiCategory, string> = {
     church: "Igrejas",
     viewpoint: "Miradouros",
     park: "Parques",
-    protected_area: "Áreas protegidas",
 };
 
 // === Lista para UI (filtros) ===
@@ -68,11 +65,8 @@ export const POI_CATEGORIES: { key: PoiCategory; label: string; kind: "node" | "
     { key: "church", label: POI_LABELS.church, kind: "node" },
     { key: "viewpoint", label: POI_LABELS.viewpoint, kind: "node" },
     { key: "park", label: POI_LABELS.park, kind: "area" },
-    /*{ key: "protected_area", label: POI_LABELS.protected_area, kind: "area" },*/
 ];
 
-// === Defaults ===
-export const DEFAULT_POI_TYPES: Readonly<PoiCategory[]> = [];
 
 // === Cores e Z-index das camadas ===
 export const COLOR_RIVER = "#1E88E5";

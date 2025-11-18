@@ -6,11 +6,8 @@ import L from "leaflet";
 import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
 import {
-    buildCulturalPointsQuery,
-    buildNaturePointsQuery,
-    buildChurchPointsQuery,
+    fetchPoiCategoryGeoJSON,
     mergeFeatureCollections,
-    overpassQueryToGeoJSON,
 } from "@/lib/overpass";
 import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
 import { getDistrictKeyFromFeature } from "@/utils/geo";
@@ -18,13 +15,14 @@ import { filterPointsInsideDistrict } from "@/lib/spatial";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
+import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 type AnyGeo = any;
 
 export default function Home() {
     // ----- Estado base -----
-    const [ptGeo, setPtGeo] = useState<AnyGeo>(null);
-    const [districtsGeo, setDistrictsGeo] = useState<AnyGeo>(null);
+    const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
+    const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
     // Mundo visível sem repetição
     const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
@@ -34,19 +32,26 @@ export default function Home() {
 
     // ----- POIs (Overpass, scope: PT) -----
     const [poiAllPT, setPoiAllPT] = useState<AnyGeo | null>(null);
+    const [poisLoading, setPoisLoading] = useState(false);
 
     // ----- Modal de Distrito -----
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeDistrict, setActiveDistrict] = useState<any | null>(null);
 
-    // Cache de POIs por distrito
+    // POIs do distrito ativo (state em vez de useMemo pesado)
+    const [poiForActive, setPoiForActive] = useState<AnyGeo | null>(null);
+
+    // Loading específico do distrito selecionado
+    const [districtLoading, setDistrictLoading] = useState(false);
+
+    // Cache de POIs por distrito (em memória)
     const poiCacheRef = useRef(new Map<string, AnyGeo>());
 
     // Map ref
     const mapRef = useRef<L.Map | null>(null);
 
     // =========================
-    //   Carregamento de dados
+    //   Carregamento de dados base (Portugal + distritos)
     // =========================
     useEffect(() => {
         let aborted = false;
@@ -68,7 +73,7 @@ export default function Home() {
     }, []);
 
     // =========================
-    //   Carregar todos os POIs PT (3 queries)
+    //   Carregar todos os POIs PT (por categoria, com cache por categoria)
     // =========================
     useEffect(() => {
         if (!ptGeo) return;
@@ -80,24 +85,36 @@ export default function Home() {
         }
 
         const controller = new AbortController();
+        setPoisLoading(true);
 
-        const qCultural = buildCulturalPointsQuery(poly);
-        const qChurches = buildChurchPointsQuery(poly);
-        const qNature = buildNaturePointsQuery(poly);
+        const categories: PoiCategory[] = [
+            "palace",
+            "castle",
+            "ruins",
+            "monument",
+            "church",
+            "viewpoint",
+            "park",
+        ];
 
-        Promise.all([
-            overpassQueryToGeoJSON(qCultural, 2, controller.signal),
-            overpassQueryToGeoJSON(qChurches, 2, controller.signal),
-            overpassQueryToGeoJSON(qNature, 2, controller.signal),
-        ])
-            .then(([culturalFC, churchesFC, natureFC]) => {
+        Promise.all(
+            categories.map((cat) =>
+                fetchPoiCategoryGeoJSON(cat, poly, controller.signal)
+            )
+        )
+            .then((collections) => {
                 if (controller.signal.aborted) return;
-                const merged = mergeFeatureCollections(culturalFC, churchesFC, natureFC);
+                const merged = mergeFeatureCollections(...collections);
                 setPoiAllPT(merged);
             })
             .catch((e) => {
-                if (e?.name !== "AbortError") console.error("[overpass] falhou:", e);
+                if (e?.name !== "AbortError") {
+                    console.error("[overpass] falhou:", e);
+                }
                 setPoiAllPT(null);
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setPoisLoading(false);
             });
 
         return () => controller.abort();
@@ -121,6 +138,8 @@ export default function Home() {
     function openDistrictModal(feature: any) {
         setActiveDistrict(feature);
         setIsModalOpen(true);
+        setDistrictLoading(true);
+        setPoiForActive(null); // limpa POIs antigos do distrito anterior
     }
 
     // nome → feature (para a barra do topo)
@@ -158,25 +177,56 @@ export default function Home() {
     function handleCloseModal() {
         setIsModalOpen(false);
         setActiveDistrict(null);
+        setPoiForActive(null);
+        setDistrictLoading(false);
         if (mapRef.current && ptGeo) fitGeoJSONBoundsTight(mapRef.current, ptGeo);
     }
 
     // =========================
-    //   POIs do distrito ativo
+    //   POIs do distrito ativo (cálculo pesado fora do render)
     // =========================
-    const poiForActive = useMemo(() => {
-        if (!activeDistrict || !poiAllPT) return null;
+    useEffect(() => {
+        if (!isModalOpen) {
+            setDistrictLoading(false);
+            return;
+        }
+
+        if (!activeDistrict || !poiAllPT) {
+            setPoiForActive(null);
+            setDistrictLoading(false);
+            return;
+        }
+
         const key = getDistrictKeyFromFeature(activeDistrict);
-        if (!key) return null;
+        if (!key) {
+            setPoiForActive(null);
+            setDistrictLoading(false);
+            return;
+        }
 
+        // cache em memória
         const hit = poiCacheRef.current.get(key);
-        if (hit) return hit;
+        if (hit) {
+            setPoiForActive(hit);
+            setDistrictLoading(false);
+            return;
+        }
 
-        const filtered = filterPointsInsideDistrict(poiAllPT, activeDistrict);
-        const safe = filtered || { type: "FeatureCollection", features: [] };
-        poiCacheRef.current.set(key, safe);
-        return safe;
-    }, [activeDistrict, poiAllPT]);
+        setDistrictLoading(true);
+
+        // empurrar o trabalho pesado para depois do paint (spinner)
+        const handle = window.setTimeout(() => {
+            const filtered = filterPointsInsideDistrict(poiAllPT, activeDistrict);
+            const safe = filtered || { type: "FeatureCollection", features: [] };
+            poiCacheRef.current.set(key, safe);
+            setPoiForActive(safe);
+            setDistrictLoading(false);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(handle);
+        };
+    }, [activeDistrict, poiAllPT, isModalOpen]);
 
     // =========================
     //         Map utils
@@ -230,7 +280,7 @@ export default function Home() {
     //    Loading / Overlay
     // =========================
     const dataReady = Boolean(ptGeo && districtsGeo && poiAllPT);
-    const showOverlay = !dataReady;
+    const showOverlay = !dataReady || poisLoading;
 
     // =========================
     //          Render
@@ -239,7 +289,13 @@ export default function Home() {
         <>
             {showOverlay && <LoadingOverlay message="A carregar os seus dados" />}
 
-           {/* {!isModalOpen && (
+            {/* Spinner enquanto o distrito selecionado prepara os POIs */}
+            <SpinnerOverlay
+                open={districtLoading}
+                message="A carregar distrito…"
+            />
+
+            {!isModalOpen && (
                 <div className="top-district-filter">
                     <div className="tdf-inner">
                         <TopDistrictFilter
@@ -249,7 +305,7 @@ export default function Home() {
                         />
                     </div>
                 </div>
-            )}*/}
+            )}
 
             <div className="map-shell">
                 <MapContainer
@@ -295,7 +351,7 @@ export default function Home() {
             </div>
 
             <DistrictModal
-                open={isModalOpen}
+                open={isModalOpen && !districtLoading} // 👈 só abre quando os POIs do distrito estiverem prontos
                 onClose={handleCloseModal}
                 districtFeature={activeDistrict}
                 selectedTypes={selectedPoiTypes}

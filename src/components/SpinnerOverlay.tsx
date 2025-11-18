@@ -15,13 +15,13 @@ type Props = {
 };
 
 export default function SpinnerOverlay({
-                                           open,
-                                           message = "A carregar…",
-                                           zIndex = 10000,
-                                           blur = 6,
-                                           backdropOpacity = 0.45,
-                                           onClickBackdrop,
-                                       }: Props) {
+       open,
+       message = "A carregar…",
+       zIndex = 10000,
+       blur = 6,
+       backdropOpacity = 0.45,
+       onClickBackdrop,
+   }: Props) {
     if (!open) return null;
 
     return (
