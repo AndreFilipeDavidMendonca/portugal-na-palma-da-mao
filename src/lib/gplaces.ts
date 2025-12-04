@@ -408,8 +408,7 @@ function pickPreferredPrefixCandidate(
             // @ts-ignore
             const rn = (r._normName as string) || normalizeForMatch(r.name || "");
             if (!rn.startsWith(prefix + " ")) return false;
-            const hasToken = baseTokens.some((t) => rn.includes(t));
-            return hasToken;
+            return baseTokens.some((t) => rn.includes(t));
         });
 
         if (!candidates.length) return null;

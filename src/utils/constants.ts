@@ -1,3 +1,5 @@
+// src/utils/constants.ts
+
 // === Tiles (Home e Modal) ===
 export const WORLD_BASE =
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png";
@@ -69,7 +71,6 @@ export const COLOR_RAIL = "#616161";
 export const COLOR_ROAD = "#F57C00";
 export const COLOR_PEAK = "#6D4C41";
 
-// === Z-index das camadas ===
 export const Z_RIVERS = 420;
 export const Z_LAKES = 422;
 export const Z_RAIL = 424;
