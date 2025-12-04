@@ -332,7 +332,6 @@ export default function Home() {
                     <div className="tdf-inner">
                         <TopDistrictFilter
                             allNames={districtNames}
-                            poiGeo={null} // pesquisa só por distrito (POIs vêm do modal)
                             onPick={handlePickFromTop}
                         />
                     </div>
