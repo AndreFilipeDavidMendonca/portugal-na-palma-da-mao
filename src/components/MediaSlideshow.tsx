@@ -87,7 +87,7 @@ export default function MediaSlideshow({
         return (
             <div className="slideshow">
                 <div className="slideshow__empty">
-                    Ainda não adicionaste imagens ou vídeos para este distrito.
+                    Ainda não adicionaste imagens ou vídeos aqui.
                 </div>
             </div>
         );

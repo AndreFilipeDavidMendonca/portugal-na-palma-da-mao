@@ -1,0 +1,267 @@
+:root {
+  --poi-bar-h: 50px;
+}
+
+/* ===========================
+   Barra de filtros (POI)
+=========================== */
+.poi-filter {
+  background: var(--bg-panel);
+  border-bottom: 2px solid var(--gold-dark);
+
+  &--top {
+    position: sticky;
+    top: 0;
+    z-index: 9000;
+  }
+
+  &__inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    min-height: var(--poi-bar-h);
+
+    /* deixa a dropdown sair para fora da barra */
+    overflow: visible;
+  }
+}
+
+/* LOGO */
+.poi-logo {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: var(--poi-bar-h);
+  margin-right: clamp(8px, 1vw, 16px);
+}
+
+.poi-logo img {
+  height: calc(var(--poi-bar-h) - 9px);
+  width: auto;
+  object-fit: contain;
+  transform: scale(1.35);
+  transform-origin: left center;
+  filter: brightness(1.05) saturate(1.1);
+  transition: transform .25s ease;
+}
+
+.poi-logo:hover img {
+  transform: scale(1.4);
+}
+
+/* ===========================
+   Chips base
+=========================== */
+.poi-chip {
+  --chip-fs: clamp(14px, 1.5vw, 17px);
+  --chip-px: clamp(7px, 0.9vw, 12px);
+  --chip-py: clamp(2px, 0.6vw, 5px);
+  --chip-gap: clamp(5px, 0.8vw, 9px);
+  --chip-minh: clamp(30px, 3.8vh, 38px);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chip-gap);
+  padding: var(--chip-py) var(--chip-px);
+  min-height: var(--chip-minh);
+  border: 1.3px solid var(--gold-dark);
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--bg-panel);
+  font-family: var(--font-title, "Cormorant Garamond", serif);
+  font-size: var(--chip-fs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+          color .15s ease,
+          background-color .15s ease,
+          border-color .15s ease,
+          box-shadow .15s ease;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .poi-chip__icon {
+    width: 1.2em;
+    height: 1.2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-1.5px);
+
+    svg {
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+    }
+
+    svg [fill] { fill: currentColor !important; }
+    svg [stroke] { stroke: currentColor !important; }
+  }
+
+  .poi-chip__label {
+    line-height: 1;
+    display: inline-block;
+    transform: translateY(-1px);
+  }
+
+  .poi-chip__count {
+    margin-left: 3px;
+    font-style: normal;
+    font-size: clamp(13px, 1.3vw, 16px);
+    line-height: 1;
+    opacity: 0.95;
+    font-weight: 500;
+    transform: translateY(-1px);
+  }
+
+  &:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .12);
+    border-color: var(--gold-strong);
+  }
+
+  &.poi-chip--on {
+    background: var(--gold-strong);
+    border: 1.3px solid var(--gold-dark);
+    box-shadow:
+            0 0 0 2px var(--gold-dark),
+            0 0 6px rgba(179, 143, 59, .28);
+  }
+}
+
+/* ===========================
+   Grupo (Cultura / Natureza)
+=========================== */
+.poi-group {
+  position: relative; /* anchor da dropdown */
+  display: inline-flex;
+  align-items: center;
+}
+
+/* botão que abre a dropdown (reutiliza o chip) */
+.poi-chip--group {
+  .poi-chip__arrow {
+    margin-left: 6px;
+    font-size: 0.9em;
+    transform: translateY(-1px);
+  }
+}
+
+.poi-chip--group-open {
+  background: var(--gold-strong);
+}
+
+/* ===========================
+   Dropdown do grupo
+=========================== */
+.poi-group-dropdown {
+  position: absolute;
+  top: calc(100% + 6px); /* logo por baixo do chip */
+  left: 0;
+
+  box-sizing: border-box;
+  min-width: 220px;
+  max-width: 260px;
+  padding: 8px;
+  border-radius: 14px;
+
+  /* mesma linguagem da barra */
+  background: var(--bg-panel);
+  border: 2px solid var(--gold-dark);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+
+  display: flex;
+  flex-direction: column;   /* chips na vertical */
+  gap: 6px;
+
+  z-index: 9999;
+  overflow: visible;
+
+  .poi-chip {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 4px 10px;
+    min-height: 30px;
+    border-radius: 10px;
+
+    font-size: 0.95rem;
+    --chip-fs: 0.95rem;
+
+    justify-content: flex-start;
+    box-shadow: none;
+  }
+
+  .poi-chip.poi-chip--on {
+    box-shadow: none;
+  }
+
+  .poi-chip__count {
+    font-size: 0.8rem;
+  }
+}
+
+/* ===========================
+   Botões Limpar / Fechar
+=========================== */
+.poi-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.btn-clear {
+  margin-left: 8px;
+  padding: 5px 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+          background-color .2s ease,
+          color .2s ease;
+
+  &:hover {
+    background: var(--gold);
+    color: var(--bg-panel);
+  }
+}
+
+.gold-close {
+  margin-left: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--gold-dark);
+  background-color: var(--gold);
+  color: var(--bg-deep);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+          background-color .25s ease,
+          border-color .25s ease,
+          color .25s ease,
+          box-shadow .25s ease;
+
+  &:hover {
+    background-color: var(--gold-strong);
+    border-color: var(--gold);
+    color: var(--bg-panel);
+    box-shadow: 0 0 10px rgba(215, 178, 90, .5);
+  }
+}

@@ -23,7 +23,7 @@ import {
     type PoiCategory,
 } from "@/utils/constants";
 import { PoiAreasLayer, PoiPointsLayer } from "@/features/map/PoiLayers";
-import PoiFilter from "@/features/filters/PoiFilter";
+import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
@@ -153,6 +153,17 @@ export default function DistrictModal(props: Props) {
     const [showGallery, setShowGallery] = useState(false);
 
     /* ----- carregar districtInfo “conteúdo” (via API) ----- */
+    // reset de estado local quando o modal fecha
+    useEffect(() => {
+        if (!open) {
+            setShowGallery(false);
+            setEditingDistrict(false);
+            setDistrictError(null);
+            setSelectedPoi(null);
+            setSelectedPoiInfo(null);
+        }
+    }, [open]);
+
     useEffect(() => {
         let alive = true;
 
@@ -220,7 +231,6 @@ export default function DistrictModal(props: Props) {
 
         setEditingDistrict(false);
         setDistrictError(null);
-        setShowGallery(false);
     }, [districtInfo, districtFeature]);
 
     /* ----- lazy load camadas geográficas ----- */
@@ -691,21 +701,12 @@ export default function DistrictModal(props: Props) {
                         </MapContainer>
                     ) : (
                         <section className="district-gallery-left gold-scroll">
-                            {mediaUrls.length > 0 ? (
-                                <div className="district-gallery-main">
-                                    <MediaSlideshow
-                                        items={mediaUrls}
-                                        title={distName || districtNameFallback}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="district-gallery-main district-gallery-main--empty">
-                                    <p className="district-gallery-empty">
-                                        Ainda não adicionaste imagens ou vídeos para este
-                                        distrito.
-                                    </p>
-                                </div>
-                            )}
+                            <div className="district-gallery-main">
+                                <MediaSlideshow
+                                    items={mediaUrls}
+                                    title={distName || districtNameFallback}
+                                />
+                            </div>
 
                             {editingDistrict && districtInfo?.id && (
                                 <div className="district-gallery-editor">
@@ -784,7 +785,7 @@ export default function DistrictModal(props: Props) {
                                 className="district-videos-toggle"
                                 onClick={toggleGallery}
                             >
-                                {showGallery ? "Fechar galeria" : "Vídeos / galeria"}
+                                {showGallery ? "Fechar galeria" : "Galeria"}
                             </button>
                         </div>
 
