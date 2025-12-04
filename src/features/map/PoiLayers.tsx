@@ -75,7 +75,6 @@ export function getPoiCategory(f: any): PoiCategory | null {
     const amenity     = tag(p, "amenity");
     const tourism     = tag(p, "tourism");
     const leisure     = tag(p, "leisure");
-    const boundary    = tag(p, "boundary");
     const route       = tag(p, "route");
 
     if (historic === "palace" || building === "palace" || castle_type === "palace")

@@ -35,7 +35,6 @@ import "./DistrictModal.scss";
 import {
     updateDistrict,
     type DistrictUpdatePayload,
-    uploadDistrictFiles,
     fetchDistrictById
 } from "@/lib/api";
 import {
@@ -334,7 +333,7 @@ export default function DistrictModal(props: Props) {
                 const hasAnyImage = !!(info?.image || (info?.images?.length ?? 0) > 0);
                 const hasTitle = !!info?.label;
                 const hasDesc = !!info?.description && info!.description!.trim().length > 0;
-                const shouldOpen = !!(hasTitle || hasDesc || hasAnyImage);
+                const shouldOpen = (hasTitle || hasDesc || hasAnyImage);
 
                 setShowPoiModal(shouldOpen);
             } catch (e) {
