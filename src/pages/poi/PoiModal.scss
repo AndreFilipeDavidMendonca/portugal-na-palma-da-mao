@@ -5,7 +5,6 @@
 /* Variáveis locais do componente */
 .poi-card {
   --modal-h: min(92vh, 1080px);
-  --carousel-h: clamp(480px, 62vh, 780px);
 }
 
 /* Backdrop e centragem */
@@ -79,7 +78,7 @@
 .poi-subline {
   font-size: 1rem;
   color: var(--muted);
-  padding: 5px 26px;
+  padding: 5px 26px 0 0;
 
   a {
     color: var(--gold);
@@ -87,8 +86,14 @@
     font-weight: 600;
     transition: color .25s ease, text-shadow .25s ease;
 
-    &:hover { color: var(--gold-strong); text-shadow: 0 0 6px rgba(241,210,122,.6); }
-    &:active { color: var(--gold); text-shadow: none; }
+    &:hover {
+      color: var(--gold-strong);
+      text-shadow: 0 0 6px rgba(241,210,122,.6);
+    }
+    &:active {
+      color: var(--gold);
+      text-shadow: none;
+    }
   }
 }
 
@@ -102,7 +107,7 @@
   background: var(--bg-panel-2);
 }
 
-/* ===== Carrossel ===== */
+/* ===== Coluna media ===== */
 .poi-media {
   position: relative;
   border-right: 1px solid var(--border);
@@ -110,59 +115,11 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   padding: 8px 0 16px;
-}
-
-.slideshow {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  max-height: var(--carousel-h);
-  padding: 18px 22px 28px;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.poi-slide {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-  border-radius: 12px;
-  background: var(--bg-panel-2);
-  padding: 12px;
-  box-sizing: border-box;
-  transition: opacity 0.4s ease;
-}
-
-/* Controles do slideshow */
-.nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 2.4rem;
-  background: rgba(0, 0, 0, .3);
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  padding: 0 10px;
-  border-radius: 6px;
-  transition: background .2s;
-
-  &:hover { background: rgba(0, 0, 0, .5); }
-}
-.nav.prev { left: 8px; }
-.nav.next { right: 8px; }
-
-/* Sem fotografias */
-.no-photo {
-  color: var(--muted);
-  font-family: var(--font-title), serif;
-  font-size: clamp(14px, 1.4vw, 18px);
-  opacity: .9;
+  gap: 8px;
+  overflow-y: auto;
 }
 
 /* ===== Coluna info ===== */
@@ -171,7 +128,7 @@
   overflow: auto;
 }
 
-.poi-desc{
+.poi-desc {
   color: var(--muted);
   margin: 12px 0 10px 0;
   text-transform: none;
@@ -190,31 +147,17 @@
   gap: 8px;
 }
 
-/* Link dourado — contactos */
+/* Link dourado — contactos / read more */
 .gold-link {
   color: var(--gold);
   font-weight: 500;
   text-decoration: none;
   transition: color 0.2s ease, text-shadow 0.2s ease;
 
-  &:hover { color: #fff4ce; text-shadow: 0 0 6px rgba(215, 178, 90, 0.45); }
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  color: var(--gold);
-  padding: 12px 10px;
-  border-radius: 999px;
-  text-decoration: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  &:hover { border-color: var(--gold); background: var(--bg-panel-2); }
+  &:hover {
+    color: #fff4ce;
+    text-shadow: 0 0 6px rgba(215, 178, 90, 0.45);
+  }
 }
 
 /* Botões principais */
@@ -268,28 +211,6 @@
   font-size: clamp(14px, 1.6vw, 18px);
   font-weight: 700;
 }
-
-/* Lista de horários (sem marcadores + capitalizada) */
-.poi-side .hours-list {
-  list-style: none;        /* remove os pontos */
-  margin: 6px 0 0 0;
-  padding-left: 0;
-}
-.poi-side .hours-list li {
-  text-transform: capitalize; /* Segunda-Feira, Terça-Feira, ... */
-  line-height: 1.7;
-}
-
-/* Tags e metadados */
-.poi-tags {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--border);
-}
-.poi-tag-row dt { opacity: .9; }
-.poi-tag-row dd { margin: 0; color: var(--gold); word-break: break-word; }
 
 /* Divisor */
 .poi-side .meta-divider {
@@ -350,11 +271,70 @@
 
 .dtree__leaf {
   line-height: 1.7;
-  text-transform: capitalize; /* mantém estilo dos horários */
+  text-transform: capitalize;
 }
 
 .dtree__children > .dtree {
   margin-top: 8px;
+}
+
+/* ===== Edição ===== */
+.poi-edit-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: inherit;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #111;
+  color: #f0f0f0;
+}
+
+.poi-edit-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #111;
+  color: #f0f0f0;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.poi-edit-label {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.poi-edit-btn,
+.poi-save-btn {
+  border-radius: 999px;
+  padding: 4px 12px;
+  border: 1px solid #e0b15a;
+  background: #1f1a10;
+  color: #f7e3b5;
+  cursor: pointer;
+  font-size: 0.8rem;
+
+  &:hover {
+    background: #2b2113;
+  }
+}
+
+.poi-save-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.poi-error {
+  margin-bottom: 8px;
+  color: #ff8080;
+  font-size: 0.85rem;
+}
+
+.poi-media-uploader {
+  padding: 12px 20px 0 20px;
 }
 
 /* ===== Responsivo ===== */
@@ -362,5 +342,11 @@
   .poi-body {
     grid-template-columns: 1fr;
     height: calc(var(--modal-h) - 72px);
+  }
+
+  .poi-media {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-y: auto;
   }
 }

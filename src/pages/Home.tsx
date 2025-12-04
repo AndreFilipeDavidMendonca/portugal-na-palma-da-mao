@@ -5,48 +5,100 @@ import L from "leaflet";
 
 import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-import {
-    buildCulturalPointsQuery,
-    buildNaturePointsQuery,
-    buildChurchPointsQuery,
-    mergeFeatureCollections,
-    overpassQueryToGeoJSON,
-} from "@/lib/overpass";
+
 import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
-import { getDistrictKeyFromFeature } from "@/utils/geo";
-import { filterPointsInsideDistrict } from "@/lib/spatial";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
+import {
+    fetchDistricts,
+    fetchPois,
+    type DistrictDto,
+    type PoiDto,
+} from "@/lib/api";
+import { filterPointsInsideDistrict } from "@/lib/spatial";
 
 type AnyGeo = any;
 
+// Converte array de PoiDto em FeatureCollection de pontos
+function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
+    return {
+        type: "FeatureCollection",
+        features: pois.map((p) => ({
+            type: "Feature",
+            geometry: {
+                type: "Point",
+                // ⚠️ Ordem [lon, lat]
+                coordinates: [p.lon, p.lat],
+            },
+            properties: {
+                // id do próprio POI (backend)
+                id: p.id,
+                poiId: p.id, // 👈 extra, se quiseres usar explicitamente poi_id
+
+                districtId: p.districtId,
+                name: p.name,
+                namePt: p.namePt ?? p.name,
+                category: p.category,
+                subcategory: p.subcategory,
+                description: p.description,
+                wikipediaUrl: p.wikipediaUrl,
+                sipaId: p.sipaId,
+                externalOsmId: p.externalOsmId,
+                source: p.source,
+
+                image: p.image,
+                images: p.images ?? [],
+
+                // para o DistrictModal considerar como “útil”
+                historic: p.category || "poi",
+                tags: {
+                    category: p.category,
+                    subcategory: p.subcategory,
+                },
+            },
+        })),
+    };
+}
+
 export default function Home() {
-    // ----- Estado base -----
-    const [ptGeo, setPtGeo] = useState<AnyGeo>(null);
-    const [districtsGeo, setDistrictsGeo] = useState<AnyGeo>(null);
+    // ----- Geo base -----
+    const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
+    const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
     // Mundo visível sem repetição
-    const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
+    const WORLD_BOUNDS = L.latLngBounds(
+        [-85.05112878, -180],
+        [85.05112878, 180]
+    );
+
+    // ----- Distritos (API) -----
+    const [districtDtos, setDistrictDtos] = useState<DistrictDto[]>([]);
+    const [loadingDistricts, setLoadingDistricts] = useState(false);
 
     // ----- Filtros POI -----
-    const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(new Set());
-
-    // ----- POIs (Overpass, scope: PT) -----
-    const [poiAllPT, setPoiAllPT] = useState<AnyGeo | null>(null);
+    const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(
+        new Set()
+    );
 
     // ----- Modal de Distrito -----
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [activeDistrict, setActiveDistrict] = useState<any | null>(null);
+    const [activeDistrictFeature, setActiveDistrictFeature] = useState<any | null>(
+        null
+    );
 
-    // Cache de POIs por distrito
-    const poiCacheRef = useRef(new Map<string, AnyGeo>());
+    // POIs do distrito ativo (já em GeoJSON, recortados ao polígono)
+    const [activeDistrictPois, setActiveDistrictPois] = useState<AnyGeo | null>(
+        null
+    );
+    const [loadingDistrictPois, setLoadingDistrictPois] = useState(false);
+    const poisReqRef = useRef(0);
 
     // Map ref
     const mapRef = useRef<L.Map | null>(null);
 
     // =========================
-    //   Carregamento de dados
+    //   Carregamento de dados base
     // =========================
     useEffect(() => {
         let aborted = false;
@@ -68,62 +120,39 @@ export default function Home() {
     }, []);
 
     // =========================
-    //   Carregar todos os POIs PT (3 queries)
+    //   Carregar distritos via API
     // =========================
     useEffect(() => {
-        if (!ptGeo) return;
-
-        const poly = geoToOverpassPoly(ptGeo);
-        if (!poly) {
-            console.warn("[overpass] poly não gerada");
-            return;
-        }
-
-        const controller = new AbortController();
-
-        const qCultural = buildCulturalPointsQuery(poly);
-        const qChurches = buildChurchPointsQuery(poly);
-        const qNature = buildNaturePointsQuery(poly);
-
-        Promise.all([
-            overpassQueryToGeoJSON(qCultural, 2, controller.signal),
-            overpassQueryToGeoJSON(qChurches, 2, controller.signal),
-            overpassQueryToGeoJSON(qNature, 2, controller.signal),
-        ])
-            .then(([culturalFC, churchesFC, natureFC]) => {
-                if (controller.signal.aborted) return;
-                const merged = mergeFeatureCollections(culturalFC, churchesFC, natureFC);
-                setPoiAllPT(merged);
+        let alive = true;
+        setLoadingDistricts(true);
+        fetchDistricts()
+            .then((ds) => {
+                if (!alive) return;
+                setDistrictDtos(ds);
             })
             .catch((e) => {
-                if (e?.name !== "AbortError") console.error("[overpass] falhou:", e);
-                setPoiAllPT(null);
+                console.error("[api] Falha a carregar distritos:", e);
+            })
+            .finally(() => {
+                if (alive) setLoadingDistricts(false);
             });
 
-        return () => controller.abort();
-    }, [ptGeo]);
+        return () => {
+            alive = false;
+        };
+    }, []);
 
-    // =========================
-    //       Handlers UI
-    // =========================
-    function togglePoiType(k: PoiCategory) {
-        setSelectedPoiTypes((prev) => {
-            const next = new Set(prev);
-            next.has(k) ? next.delete(k) : next.add(k);
-            return next;
-        });
-    }
+    // nome → DTO de distrito
+    const districtDtoByName = useMemo(() => {
+        const m = new Map<string, DistrictDto>();
+        for (const d of districtDtos) {
+            if (d.namePt) m.set(d.namePt, d);
+            if (d.name) m.set(d.name, d);
+        }
+        return m;
+    }, [districtDtos]);
 
-    function clearPoiTypes() {
-        setSelectedPoiTypes(new Set());
-    }
-
-    function openDistrictModal(feature: any) {
-        setActiveDistrict(feature);
-        setIsModalOpen(true);
-    }
-
-    // nome → feature (para a barra do topo)
+    // nome → feature (shapes do mapa)
     const featureByName = useMemo(() => {
         const m = new Map<string, any>();
         if (districtsGeo?.features) {
@@ -146,6 +175,78 @@ export default function Home() {
         [featureByName]
     );
 
+    // =========================
+    //       Handlers UI
+    // =========================
+    function togglePoiType(k: PoiCategory) {
+        setSelectedPoiTypes((prev) => {
+            const next = new Set(prev);
+            next.has(k) ? next.delete(k) : next.add(k);
+            return next;
+        });
+    }
+
+    function clearPoiTypes() {
+        setSelectedPoiTypes(new Set());
+    }
+
+    // carrega POIs da API para um dado feature de distrito
+    async function loadPoisForDistrictFeature(feature: any) {
+        if (!feature?.properties) {
+            setActiveDistrictPois(null);
+            return;
+        }
+
+        const name =
+            feature.properties.name ||
+            feature.properties.NAME ||
+            feature.properties["name:pt"];
+
+        if (!name) {
+            setActiveDistrictPois(null);
+            return;
+        }
+
+        const dto = districtDtoByName.get(name);
+        if (!dto) {
+            console.warn("[Home] Não encontrei DistrictDto para nome:", name);
+            setActiveDistrictPois(null);
+            return;
+        }
+
+        const reqId = ++poisReqRef.current;
+        setLoadingDistrictPois(true);
+        setActiveDistrictPois(null);
+
+        try {
+            // 👉 Agora buscamos TODOS os POIs
+            const pois = await fetchPois();
+            if (reqId !== poisReqRef.current) return; // pedido ultrapassado
+
+            const allGeo = poiDtosToGeoJSON(pois);
+
+            // 👉 recorta pelo polígono do distrito para não mostrar pontos fora
+            const clipped =
+                filterPointsInsideDistrict(allGeo, feature) ??
+                { type: "FeatureCollection", features: [] };
+
+            setActiveDistrictPois(clipped);
+        } catch (e) {
+            console.error("[api] Falha a carregar POIs do distrito:", e);
+            if (reqId === poisReqRef.current) {
+                setActiveDistrictPois(null);
+            }
+        } finally {
+            if (reqId === poisReqRef.current) setLoadingDistrictPois(false);
+        }
+    }
+
+    async function openDistrictModal(feature: any) {
+        setActiveDistrictFeature(feature);
+        setIsModalOpen(true);
+        await loadPoisForDistrictFeature(feature);
+    }
+
     // Pick vindo do topo: centra e abre modal
     function handlePickFromTop(name: string) {
         const f = featureByName.get(name);
@@ -157,26 +258,10 @@ export default function Home() {
     // Fechar modal: recenter
     function handleCloseModal() {
         setIsModalOpen(false);
-        setActiveDistrict(null);
+        setActiveDistrictFeature(null);
+        setActiveDistrictPois(null);
         if (mapRef.current && ptGeo) fitGeoJSONBoundsTight(mapRef.current, ptGeo);
     }
-
-    // =========================
-    //   POIs do distrito ativo
-    // =========================
-    const poiForActive = useMemo(() => {
-        if (!activeDistrict || !poiAllPT) return null;
-        const key = getDistrictKeyFromFeature(activeDistrict);
-        if (!key) return null;
-
-        const hit = poiCacheRef.current.get(key);
-        if (hit) return hit;
-
-        const filtered = filterPointsInsideDistrict(poiAllPT, activeDistrict);
-        const safe = filtered || { type: "FeatureCollection", features: [] };
-        poiCacheRef.current.set(key, safe);
-        return safe;
-    }, [activeDistrict, poiAllPT]);
 
     // =========================
     //         Map utils
@@ -197,7 +282,8 @@ export default function Home() {
             const currentZoom = map.getZoom();
             if (currentZoom > 6) map.setZoom(4);
 
-            const topbar = document.querySelector<HTMLElement>(".top-district-filter");
+            const topbar =
+                document.querySelector<HTMLElement>(".top-district-filter");
             const topH = topbar?.offsetHeight ?? 0;
 
             const SIDE_PAD = 10;
@@ -229,7 +315,7 @@ export default function Home() {
     // =========================
     //    Loading / Overlay
     // =========================
-    const dataReady = Boolean(ptGeo && districtsGeo && poiAllPT);
+    const dataReady = Boolean(ptGeo && districtsGeo && !loadingDistricts);
     const showOverlay = !dataReady;
 
     // =========================
@@ -237,14 +323,16 @@ export default function Home() {
     // =========================
     return (
         <>
-            {showOverlay && <LoadingOverlay message="A carregar os seus dados" />}
+            {showOverlay && (
+                <LoadingOverlay message="A carregar o mapa de Portugal…" />
+            )}
 
             {!isModalOpen && (
                 <div className="top-district-filter">
                     <div className="tdf-inner">
                         <TopDistrictFilter
                             allNames={districtNames}
-                            poiGeo={poiAllPT}
+                            poiGeo={null} // pesquisa só por distrito (POIs vêm do modal)
                             onPick={handlePickFromTop}
                         />
                     </div>
@@ -267,7 +355,10 @@ export default function Home() {
                     minZoom={2}
                     style={{ height: "100vh", width: "100vw" }}
                 >
-                    <Pane name="worldBase" style={{ zIndex: 200, pointerEvents: "none" }}>
+                    <Pane
+                        name="worldBase"
+                        style={{ zIndex: 200, pointerEvents: "none" }}
+                    >
                         <TileLayer
                             url={WORLD_BASE}
                             attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -275,7 +366,10 @@ export default function Home() {
                         />
                     </Pane>
 
-                    <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
+                    <Pane
+                        name="worldLabels"
+                        style={{ zIndex: 210, pointerEvents: "none" }}
+                    >
                         <TileLayer
                             url={WORLD_LABELS}
                             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -297,46 +391,18 @@ export default function Home() {
             <DistrictModal
                 open={isModalOpen}
                 onClose={handleCloseModal}
-                districtFeature={activeDistrict}
+                districtFeature={activeDistrictFeature}
                 selectedTypes={selectedPoiTypes}
                 onToggleType={togglePoiType}
                 onClearTypes={clearPoiTypes}
-                poiPoints={poiForActive}
+                poiPoints={activeDistrictPois}
                 population={null}
             />
+
+            {/* loading específico dos POIs do distrito */}
+            {loadingDistrictPois && (
+                <LoadingOverlay message="A carregar pontos de interesse do distrito…" />
+            )}
         </>
     );
-}
-
-/** Converte GeoJSON em poly:"lat lon ..." para Overpass */
-function geoToOverpassPoly(geo: any): string | null {
-    const rings: number[][][] = [];
-    const pushFeature = (f: any) => {
-        const g = f.geometry || f;
-        if (!g) return;
-        if (g.type === "Polygon") {
-            if (Array.isArray(g.coordinates?.[0])) rings.push(g.coordinates[0]);
-        } else if (g.type === "MultiPolygon") {
-            for (const poly of g.coordinates || []) {
-                if (Array.isArray(poly?.[0])) rings.push(poly[0]);
-            }
-        }
-    };
-
-    if (geo?.type === "FeatureCollection") {
-        for (const f of geo.features || []) pushFeature(f);
-    } else if (geo?.type === "Feature") {
-        pushFeature(geo);
-    } else if (geo) {
-        pushFeature(geo);
-    }
-
-    if (!rings.length) return null;
-    const parts: string[] = [];
-    for (const ring of rings) {
-        for (const [lng, lat] of ring) {
-            parts.push(`${lat} ${lng}`);
-        }
-    }
-    return `poly:"${parts.join(" ")}"`;
 }

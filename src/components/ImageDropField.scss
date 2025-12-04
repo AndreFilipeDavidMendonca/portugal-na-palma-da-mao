@@ -1,0 +1,99 @@
+.imgdrop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  color: #f6f3d9;
+
+  &__label {
+    font-size: 13px;
+    color: #f6f3d9;
+  }
+
+  &__zone {
+    position: relative;
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.22);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+
+    &--hover {
+      border-color: #ffd54f;
+      background: rgba(255, 213, 79, 0.08);
+    }
+  }
+
+  &__input {
+    display: none;
+  }
+
+  &__content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__icon {
+    font-size: 20px;
+  }
+
+  &__text {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  &__hint {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+
+  &__exts {
+    margin-left: auto;
+    font-size: 11px;
+    opacity: 0.7;
+    white-space: nowrap;
+  }
+
+  &__list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    max-height: 140px;
+    overflow: auto;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  &__name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__remove {
+    border: none;
+    background: transparent;
+    color: #ffcc80;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+
+    &:hover {
+      color: #ffab40;
+    }
+  }
+}

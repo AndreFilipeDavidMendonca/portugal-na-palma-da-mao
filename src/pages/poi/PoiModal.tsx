@@ -1,6 +1,9 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
+import ImageDropField from "@/components/ImageDropField";
+import { updatePoi } from "@/lib/api";
+import MediaSlideshow from "@/components/MediaSlideshow";
 import "./PoiModal.scss";
 
 type Props = {
@@ -8,6 +11,14 @@ type Props = {
     onClose: () => void;
     info: PoiInfo | null;
     poi?: any;
+    onSaved?: (patch: {
+        id: number;
+        name?: string | null;
+        namePt?: string | null;
+        description?: string | null;
+        image?: string | null;
+        images?: string[] | null;
+    }) => void;
 };
 
 /* ---------- Helpers ---------- */
@@ -46,12 +57,11 @@ function expandDayToken(tok: string): string[] {
 
 function parseOpeningHoursRaw(raw?: string | null): { str?: string; arr?: string[] } {
     if (!raw) return {};
-    // se for JSON de array (guardar vindo do compactOpeningHours)
     try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return { arr: parsed as string[] };
     } catch {
-        // não é JSON — segue
+        // não é JSON
     }
     return { str: raw };
 }
@@ -85,15 +95,17 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 
             {hasChildren && (
                 <div className="dtree__panel">
-                    {/* Se todos os filhos forem strings, renderiza lista simples;
-              caso contrário, renderiza recursivamente sub-<details> */}
                     {items.every(i => typeof i === "string") ? (
                         <ul className="dtree__list">
-                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                            {items.map((it, idx) => (
+                                <DetailsTree key={idx} node={it} level={level + 1} />
+                            ))}
                         </ul>
                     ) : (
                         <div className="dtree__children">
-                            {items.map((it, idx) => <DetailsTree key={idx} node={it} level={level + 1} />)}
+                            {items.map((it, idx) => (
+                                <DetailsTree key={idx} node={it} level={level + 1} />
+                            ))}
                         </div>
                     )}
                 </div>
@@ -105,37 +117,33 @@ function DetailsTree({ node, level = 0 }: { node: TreeNode; level?: number }) {
 function uniqueInOrder<T>(arr: T[]): T[] {
     const seen = new Set<T>();
     const out: T[] = [];
-    for (const x of arr) if (!seen.has(x)) { seen.add(x); out.push(x); }
+    for (const x of arr) {
+        if (!seen.has(x)) {
+            seen.add(x);
+            out.push(x);
+        }
+    }
     return out;
 }
 
-/** Formata strings simples do opening_hours em PT legível.
- * Agora coloca “h” no fim das horas: 10:00h–20:00h
- */
 export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): string | null {
     if (!raw) return null;
 
-    // helper: acrescenta "h" no fim da hora capturada (ex.: "10:00" -> "10:00h")
     const withH = (t: string) => `${t}h`;
 
-    // tenta extrair intervalo de horas
     const timeMatch = raw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
     const timeText = timeMatch ? `${withH(timeMatch[1])}–${withH(timeMatch[2])}` : null;
 
-    // parte de dias (remove o pedaço de horas extraído)
     const daysPart = timeMatch ? raw.replace(timeMatch[0], "").trim() : raw.trim();
-
-    // tokenizar por espaços e vírgulas
     const tokens = daysPart.split(/[,\s]+/).filter(Boolean);
 
     const hasPH = tokens.some(t => t.toUpperCase() === "PH");
 
-    // recolhe dias, expandindo ranges
     let collected: string[] = [];
     for (const t of tokens) {
         const T = t.charAt(0).toUpperCase() + t.slice(1);
         if (/^(Mo|Tu|We|Th|Fr|Sa|Su)$/i.test(T)) {
-            collected.push(T.slice(0,2) === "Mo" ? "Mo" : T.slice(0,2));
+            collected.push(T.slice(0, 2) === "Mo" ? "Mo" : T.slice(0, 2));
         } else if (/^[A-Z][a-z]?-[A-Z][a-z]?$/i.test(T)) {
             const [a, b] = T.split("-");
             collected.push(...expandDayToken(a + "-" + b));
@@ -161,10 +169,9 @@ export function formatOpeningHours(raw?: string | null, _locale = "pt-PT"): stri
 
     if (!daysText && timeText) return timeText;
     if (daysText && timeText) return `${daysText} - ${timeText}`;
-    return daysText || raw; // fallback
+    return daysText || raw;
 }
 
-/* ----- Datas: formatação simpática ----- */
 function trimISOToNice(iso?: string | null): string | null {
     if (!iso) return null;
     const s = iso.replace(/^\+/, "");
@@ -198,12 +205,12 @@ function formatBuiltPeriod(period?: PoiInfo["builtPeriod"], inception?: string |
     return inc ? `c. ${inc}` : null;
 }
 
-/* ----- ReadMore: expande/contrai textos longos ----- */
 function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     const [open, setOpen] = useState(false);
     if (!text) return null;
     const isLong = text.length > clamp;
-    const shown = !isLong || open ? text : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
+    const shown =
+        !isLong || open ? text : text.slice(0, clamp).replace(/\s+\S*$/, "") + "…";
     return (
         <p className="poi-desc">
             {shown}{" "}
@@ -211,7 +218,12 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
                 <button
                     type="button"
                     className="gold-link"
-                    style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
+                    style={{
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        cursor: "pointer",
+                    }}
                     onClick={() => setOpen(v => !v)}
                 >
                     {open ? "ver menos" : "ver mais"}
@@ -221,167 +233,277 @@ function ReadMore({ text, clamp = 420 }: { text: string; clamp?: number }) {
     );
 }
 
-export default function PoiModal({ open, onClose, info }: Props) {
+/* =========================
+   MODAL
+   ========================= */
+export default function PoiModal({ open, onClose, info, poi, onSaved }: Props) {
     if (!open || !info) return null;
 
-    // Galeria
-    const gallery = useMemo(() => {
-        const a: string[] = [];
-        if (info.image) a.push(info.image);
-        for (const u of info.images ?? []) if (u && !a.includes(u)) a.push(u);
-        return a;
-    }, [info]);
+    // Estado local / edição
+    const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
+    const [editing, setEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const [active, setActive] = useState(0);
-    const [paused, setPaused] = useState(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const descPretty = useMemo(() => prettifyPtInlineText(info.description), [info.description]);
-    const histPretty = useMemo(() => prettifyPtInlineText(info.historyText), [info.historyText]);
+    const [titleInput, setTitleInput] = useState("");
+    const [descInput, setDescInput] = useState("");
+    const [imagesList, setImagesList] = useState<string[]>([]);
 
     useEffect(() => {
-        if (paused || gallery.length <= 1) return;
-        timerRef.current = setTimeout(() => setActive((i) => (i + 1) % gallery.length), 4000);
-        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-    }, [active, paused, gallery]);
+        setLocalInfo(info);
+        setEditing(false);
+        setErrorMsg(null);
 
-    const next = () => setActive((i) => (i + 1) % gallery.length);
-    const prev = () => setActive((i) => (i - 1 + gallery.length) % gallery.length);
+        if (!info) {
+            setTitleInput("");
+            setDescInput("");
+            setImagesList([]);
+            return;
+        }
 
-    const title = info.label ?? "Ponto de interesse";
+        setTitleInput(info.label ?? "");
+        setDescInput(info.description ?? "");
 
-    // Dados
-    const hasAnyPhoto = gallery.length > 0;
-    const rating = (info.ratings ?? [])[0];
-    const ohParsed = parseOpeningHoursRaw(info.openingHours?.raw ?? null);
+        const gal: string[] = [];
+        if (info.image) gal.push(info.image);
+        for (const u of info.images ?? []) if (u && !gal.includes(u)) gal.push(u);
+        setImagesList(gal);
+    }, [info]);
+
+    if (!localInfo) return null;
+    const usedInfo = localInfo;
+
+    // lista de media (imagens + vídeos) para o slideshow
+    const mediaUrls = useMemo(() => {
+        const urls: string[] = [];
+        const push = (u?: string | null) => {
+            if (!u) return;
+            if (urls.includes(u)) return;
+            urls.push(u);
+        };
+        push(usedInfo.image);
+        for (const u of usedInfo.images ?? []) push(u);
+        return urls;
+    }, [usedInfo]);
+
+    const descPretty = useMemo(
+        () => prettifyPtInlineText(usedInfo.description),
+        [usedInfo.description]
+    );
+    const histPretty = useMemo(
+        () => prettifyPtInlineText(usedInfo.historyText),
+        [usedInfo.historyText]
+    );
+
+    const title = usedInfo.label ?? "Ponto de interesse";
+    const rating = (usedInfo.ratings ?? [])[0];
+    const ohParsed = parseOpeningHoursRaw(usedInfo.openingHours?.raw ?? null);
     const ohFallback = formatOpeningHours(ohParsed.str ?? null);
-    const contacts = info.contacts ?? {};
-    const website = info.website ?? contacts.website ?? null;
-    const addHToTimes = (s: string) => s.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h");
-    const renderStars = (v: number) => {
-        const full = Math.floor(v);
-        const half = v - full >= 0.5;
-        return (
-            <span aria-label={`Rating ${v} em 5`}>
-                {"★".repeat(full)}
-                {half ? "☆" : ""}
-                {"☆".repeat(5 - full - (half ? 1 : 0))}
-            </span>
-        );
-    };
+    const contacts = usedInfo.contacts ?? {};
+    const website = usedInfo.website ?? contacts.website ?? null;
+    const builtLabel = formatBuiltPeriod(usedInfo.builtPeriod, usedInfo.inception);
 
-    // Cronologia (sub-linha do título)
-    const builtLabel = formatBuiltPeriod(info.builtPeriod, info.inception);
+    const poiId: number | null =
+        typeof poi?.properties?.id === "number" ? poi.properties.id : null;
+
+    const handleSave = async () => {
+        if (!poiId) {
+            setErrorMsg("Não foi possível identificar o POI (id em falta).");
+            return;
+        }
+
+        const imageLines = imagesList;
+        const primaryImage = imageLines[0] ?? null;
+
+        setSaving(true);
+        setErrorMsg(null);
+
+        try {
+            const updated = await updatePoi(poiId, {
+                name: titleInput || null,
+                namePt: titleInput || null,
+                description: descInput || null,
+                image: primaryImage,
+                images: imageLines.length > 0 ? imageLines : null,
+            });
+
+            const newInfo: PoiInfo = {
+                ...usedInfo,
+                label: (updated.namePt ?? updated.name ?? titleInput) || usedInfo.label,
+                description: updated.description ?? descInput,
+                image: updated.image ?? primaryImage ?? usedInfo.image ?? null,
+                images: updated.images ?? imageLines,
+            };
+
+            setLocalInfo(newInfo);
+            setEditing(false);
+
+            if (onSaved) {
+                onSaved({
+                    id: poiId,
+                    name: updated.name,
+                    namePt: updated.namePt,
+                    description: updated.description,
+                    image: updated.image,
+                    images: updated.images,
+                });
+            }
+        } catch (e: any) {
+            setErrorMsg(e?.message || "Falha ao guardar alterações.");
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
             <div
                 className="poi-card"
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
             >
                 <header className="poi-header">
                     <div className="poi-title-wrap">
-                        <h2 className="poi-title">{title}</h2>
+                        <h2 className="poi-title">
+                            {editing ? (
+                                <input
+                                    className="poi-edit-input"
+                                    value={titleInput}
+                                    onChange={e => setTitleInput(e.target.value)}
+                                    placeholder="Título do ponto de interesse"
+                                />
+                            ) : (
+                                title
+                            )}
+                        </h2>
                         <div className="poi-subline">
-                            {info.wikipediaUrl ? (
-                                <a href={info.wikipediaUrl} target="_blank" rel="noreferrer">
+                            {usedInfo.wikipediaUrl ? (
+                                <a
+                                    href={usedInfo.wikipediaUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
                                     Página Wikipedia
                                 </a>
                             ) : null}
                             {builtLabel ? <> · {builtLabel}</> : null}
                         </div>
                     </div>
-                    <button className="poi-close" onClick={onClose} aria-label="Fechar">×</button>
+
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {poiId && (
+                            <button
+                                className="poi-edit-btn"
+                                type="button"
+                                onClick={() => {
+                                    setEditing(v => !v);
+                                    setErrorMsg(null);
+                                }}
+                            >
+                                {editing ? "Cancelar" : "Editar"}
+                            </button>
+                        )}
+                        {editing && (
+                            <button
+                                className="poi-save-btn"
+                                type="button"
+                                disabled={saving}
+                                onClick={handleSave}
+                            >
+                                {saving ? "A guardar..." : "Guardar"}
+                            </button>
+                        )}
+                        <button
+                            className="poi-close"
+                            onClick={onClose}
+                            aria-label="Fechar"
+                            type="button"
+                        >
+                            ×
+                        </button>
+                    </div>
                 </header>
 
                 <div className="poi-body">
-                    {/* SLIDESHOW */}
-                    <section
-                        className="poi-media"
-                        onMouseEnter={() => setPaused(true)}
-                        onMouseLeave={() => setPaused(false)}
-                    >
-                        {hasAnyPhoto ? (
-                            <div className="slideshow">
-                                <img
-                                    key={gallery[active]}
-                                    src={gallery[active]}
-                                    alt={title}
-                                    className="poi-slide"
-                                    loading="lazy"
+                    {/* MEDIA (slideshow reutilizável) */}
+                    <section className="poi-media gold-scroll">
+                        <MediaSlideshow items={mediaUrls} title={title} />
+
+                        {editing && (
+                            <div className="poi-media-uploader">
+                                <ImageDropField
+                                    label="Imagens / vídeos"
+                                    images={imagesList}
+                                    onChange={setImagesList}
+                                    mode="media"   // ← isto permite mp4 / webm / mov / etc.
                                 />
-                                {gallery.length > 1 && (
-                                    <>
-                                        <button className="nav prev" onClick={prev}>‹</button>
-                                        <button className="nav next" onClick={next}>›</button>
-                                    </>
-                                )}
                             </div>
-                        ) : (
-                            <div className="no-photo">Sem fotografias</div>
                         )}
                     </section>
 
                     {/* INFO */}
                     <aside className="poi-side gold-scroll">
-                            <div
-                                style={{
-                                    display: "flex",
-                                    gap: 10,
-                                    flexWrap: "wrap",
-                                    alignItems: "center",
-                                    marginBottom: 8,
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        flexWrap: "wrap",
-                                        alignItems: "center",
-                                        marginBottom: 8,
-                                    }}
+                        {errorMsg && <div className="poi-error">{errorMsg}</div>}
+
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: 10,
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                marginBottom: 8,
+                            }}
+                        >
+                            {website && (
+                                <a
+                                    className="btn-directions"
+                                    href={website}
+                                    target="_blank"
+                                    rel="noreferrer"
                                 >
-                                    {website && (
-                                        <a className="btn-directions" href={website} target="_blank" rel="noreferrer">
-                                            Site oficial
-                                        </a>
-                                    )}
-                                    <a
-                                        className="btn-directions"
-                                        href={
-                                            info?.coords
-                                                ? `https://www.google.com/maps/search/?api=1&query=${info.coords.lat},${info.coords.lon}`
-                                                : `https://www.google.com/maps/`
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Direções
-                                    </a>
-                                </div>
-                            </div>
+                                    Site oficial
+                                </a>
+                            )}
+                            <a
+                                className="btn-directions"
+                                href={
+                                    usedInfo?.coords
+                                        ? `https://www.google.com/maps/search/?api=1&query=${usedInfo.coords.lat},${usedInfo.coords.lon}`
+                                        : `https://www.google.com/maps/`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Direções
+                            </a>
+                        </div>
 
                         <div className="meta-divider" />
 
-                       {/* {info.oldNames?.length ? (
-                            <>
-                                <strong>Nome anterior:</strong> {info.oldNames[0]}
-                            </>
-                        ) : null}*/}
-
-                        {rating && (
+                        {rating && !editing && (
                             <p className="poi-desc" style={{ marginTop: 0 }}>
-                                {renderStars(rating.value)}{" "}
+                                {(() => {
+                                    const v = rating.value;
+                                    const full = Math.floor(v);
+                                    const half = v - full >= 0.5;
+                                    return (
+                                        <span aria-label={`Rating ${v} em 5`}>
+                                            {"★".repeat(full)}
+                                            {half ? "☆" : ""}
+                                            {"☆".repeat(5 - full - (half ? 1 : 0))}
+                                        </span>
+                                    );
+                                })()}{" "}
                                 <span style={{ opacity: 0.85, marginLeft: 6 }}>
                                     {rating.value.toFixed(1)}
                                 </span>
                             </p>
                         )}
 
+                        {/* Contactos / Horários */}
                         <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
-                            {contacts.phone && (
+                            {contacts.phone && !editing && (
                                 <div>
                                     <strong>Telefone:</strong>{" "}
                                     <a href={`tel:${contacts.phone}`} className="gold-link">
@@ -389,7 +511,7 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     </a>
                                 </div>
                             )}
-                            {contacts.email && (
+                            {contacts.email && !editing && (
                                 <div>
                                     <strong>Email:</strong>{" "}
                                     <a
@@ -401,78 +523,70 @@ export default function PoiModal({ open, onClose, info }: Props) {
                                     </a>
                                 </div>
                             )}
-                            {(ohParsed.arr?.length || ohParsed.str || ohFallback) && (
+                            {(ohParsed.arr?.length || ohParsed.str || ohFallback) && !editing && (
                                 <DetailsTree
                                     node={{
                                         title: "Horário",
-                                        // podes controlar se abre por defeito:
                                         open: false,
-                                        items:
-                                            ohParsed.arr?.length
-                                                ? ohParsed.arr.map(line => (line ? line.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h") : line))
-                                                : (ohFallback
-                                                    ? [ohFallback.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")]
-                                                    : (ohParsed.str ? [ohParsed.str.replace(/(\b\d{1,2}:\d{2}\b)(?!h)/g, "$1h")] : []))
+                                        items: ohParsed.arr?.length
+                                            ? ohParsed.arr.map(line =>
+                                                line
+                                                    ? line.replace(
+                                                        /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                        "$1h"
+                                                    )
+                                                    : line
+                                            )
+                                            : ohFallback
+                                                ? [
+                                                    ohFallback.replace(
+                                                        /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                        "$1h"
+                                                    ),
+                                                ]
+                                                : ohParsed.str
+                                                    ? [
+                                                        ohParsed.str.replace(
+                                                            /(\b\d{1,2}:\d{2}\b)(?!h)/g,
+                                                            "$1h"
+                                                        ),
+                                                    ]
+                                                    : [],
                                     }}
                                 />
                             )}
                         </div>
 
-                        <div className="poi-info-list" style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                            {info.instanceOf?.length ? (
-                                <div><strong>Tipo:</strong> {info.instanceOf.join(" · ")}</div>
-                            ) : null}
-                            {info.locatedIn?.length ? (
-                                <div><strong>Localização:</strong> {info.locatedIn.join(", ")}</div>
-                            ) : null}
-                            {info.heritage?.length ? (
-                                <div><strong>Classificação:</strong> {info.heritage.join(" · ")}</div>
-                            ) : null}
+                        {/* Descrição / História */}
+                        <div style={{ marginTop: 8 }}>
+                            {editing ? (
+                                <>
+                                    <label className="poi-edit-label">Descrição</label>
+                                    <textarea
+                                        className="poi-edit-textarea"
+                                        rows={10}
+                                        value={descInput}
+                                        onChange={e => setDescInput(e.target.value)}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    {usedInfo.description && <ReadMore text={descPretty} />}
+
+                                    {usedInfo.historyText && (
+                                        <>
+                                            <h4
+                                                className="poi-subtitle"
+                                                style={{ marginTop: 12 }}
+                                            >
+                                                Histórico
+                                            </h4>
+                                            <ReadMore text={histPretty} />
+                                        </>
+                                    )}
+                                </>
+                            )}
                         </div>
-
-                        {(info.architectureText ||
-                            (info.architectureStyles?.length || info.architects?.length || info.materials?.length) ||
-                            (info.builders?.length) ||
-                            builtLabel) ? (
-                            <>
-                                {info.architectureText ? (
-                                    <p className="poi-desc">{info.architectureText}</p>
-                                ) : null}
-
-                                <div className="poi-info-list" style={{ display: "grid", gap: 6 }}>
-                                    {builtLabel ? (
-                                        <div><strong>Inicio de construção:</strong> {builtLabel}</div>
-                                    ) : null}
-                                    {info.architectureStyles?.length ? (
-                                        <div><strong>Estilo:</strong> {info.architectureStyles.join(" · ")}</div>
-                                    ) : null}
-                                    {info.architects?.length ? (
-                                        <div><strong>Arquiteto(s):</strong> {info.architects.join(", ")}</div>
-                                    ) : null}
-                                    {info.builders?.length ? (
-                                        <div><strong>Construtor/Autor:</strong> {info.builders.join(", ")}</div>
-                                    ) : null}
-                                    {info.materials?.length ? (
-                                        <div><strong>Materiais:</strong> {info.materials.join(", ")}</div>
-                                    ) : null}
-                                </div>
-
-                                <div className="meta-divider" />
-                            </>
-                        ) : null}
-
-                        {info.description ? (
-                            <>
-                                <ReadMore text={descPretty} />
-                            </>
-                        ) : null}
-
-                        {info.historyText ? (
-                            <>
-                                <h4 className="poi-subtitle" style={{ marginTop: 12 }}>Histórico</h4>
-                                <ReadMore text={histPretty} />
-                            </>
-                        ) : null}
                     </aside>
                 </div>
             </div>

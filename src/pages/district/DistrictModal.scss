@@ -1,35 +1,35 @@
-/* src/pages/district/DistrictModal.scss */
-
 .district-modal.theme-dark {
   position: fixed;
   inset: 0;
-  z-index: 5000; /* acima do Leaflet */
+  z-index: 5000;
   display: grid;
-  grid-template-rows: auto 1fr; /* topo (filtros) + conteúdo */
+  grid-template-rows: auto 1fr;
   background: var(--bg-deep);
   color: var(--gold);
   overflow: hidden;
 
   .poi-top {
-    /* a barra já tem o estilo via .poi-filter; isto só garante layout */
+    /* já estilizado via PoiFilter */
   }
 
   .modal-content {
     display: grid;
     grid-template-columns: 1fr clamp(420px, 28vw, 560px);
-    min-height: 0; /* evita overflow */
+    min-height: 0;
   }
 
-  .left-map {
+  /* lado esquerdo (mapa OU slideshow) */
+  .left-pane {
     position: relative;
     min-height: 0;
-
-    .leaflet-container {
-      height: 100% !important;
-      width: 100% !important;
-    }
   }
 
+  .left-pane .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+  }
+
+  /* painel direito (sempre o mesmo) */
   .right-panel {
     background: var(--bg-panel) !important;
     color: var(--gold);
@@ -40,24 +40,126 @@
   .right-inner {
     padding: 22px 20px 24px;
 
-    h1 {
-      margin: 0 0 6px 0;
-      color: var(--gold);
-      font-weight: 600;
-      font-size: 3rem;
-      letter-spacing: .5px;
-      text-transform: capitalize;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
-    }
-
     .place-label span {
       color: var(--gold);
       text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
     }
 
+    /* header distrito + botões */
+    .district-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+
+    .district-header-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .district-title {
+      margin: 0;
+      color: var(--gold);
+      font-weight: 600;
+      font-size: 3rem;
+      letter-spacing: .5px;
+      text-transform: capitalize;
+    }
+
+    .district-name-input {
+      width: 70%;
+      font-size: 2.2rem;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 12px;
+      color: var(--gold);
+      outline: none;
+    }
+
+    .district-header-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .district-btn {
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--gold);
+      transition:
+              background 0.15s ease,
+              border-color 0.15s ease,
+              color 0.15s ease;
+
+      &--ghost {
+        border-color: #e0b15a;
+        background: #1f1a10;
+
+        &:hover {
+          background: #2a2112;
+        }
+      }
+
+      &--primary {
+        border-color: #e0b15a;
+        background: #e0b15a;
+        color: #1b140a;
+
+        &:hover {
+          background: #f1c875;
+        }
+      }
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: default;
+      }
+    }
+
+    .district-header-subrow {
+      display: flex;
+      justify-content: flex-start;
+      margin: 8px 0 4px;
+    }
+
+    .district-videos-toggle {
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      border: 1px solid #e0b15a;
+      background: #1f1a10;
+      color: #f7e3b5;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+
+      &:hover {
+        background: #2a2112;
+      }
+    }
+
+    .district-error {
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #ffb4a2;
+      background: rgba(128, 40, 40, 0.25);
+      color: #ffd4c8;
+      font-size: 0.8rem;
+    }
+
     .district-info {
-      margin-top: 16px;
+      margin-top: 10px;
       line-height: 1.55;
       color: var(--muted);
 
@@ -72,6 +174,39 @@
         }
       }
 
+      .district-meta-input {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.8rem;
+        color: var(--gold);
+        min-width: 60px;
+      }
+
+      .district-text-blocks {
+        margin-top: 6px;
+      }
+
+      .district-label {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 2px;
+      }
+
+      .district-textarea {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #1b140a;
+        color: var(--gold);
+        font-size: 0.88rem;
+        padding: 6px 8px;
+        resize: vertical;
+        margin-bottom: 8px;
+      }
+
       .district-description {
         margin: 6px 0 10px;
         color: var(--gold);
@@ -82,26 +217,73 @@
         font-size: 0.95rem;
         color: var(--muted);
       }
+
+      .district-gallery-text {
+        margin-top: 14px;
+        border-top: 1px dashed var(--border);
+        padding-top: 8px;
+      }
+
+      .district-gallery-title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--gold-strong);
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .district-gallery-empty {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
     }
   }
 
-  /* Overlay de loading com blur e verde profundo */
+  /* Galeria no lado esquerdo em modo expandido */
+  .district-gallery-left {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px 18px;
+    box-sizing: border-box;
+    background: var(--bg-panel-2);
+    overflow: auto;
+  }
+
+  .district-gallery-main {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #111;
+    min-height: 320px;
+    max-height: 520px;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+  }
+
+  .district-gallery-main--empty {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .district-gallery-editor {
+    margin-top: 10px;
+  }
+
+  /* Overlay de loading */
   .poi-preloader {
     position: fixed;
     inset: 0;
     z-index: 99999;
     display: grid;
     place-items: center;
-
-    /* tom verde intenso com mais presença */
-    background: rgba(12, 42, 26, 0.45); /* verde mais denso, opacidade ~45% */
+    background: rgba(12, 42, 26, 0.45);
     backdrop-filter: blur(6px) saturate(130%) brightness(0.9);
     -webkit-backdrop-filter: blur(6px) saturate(130%) brightness(0.9);
-
     transition: opacity 0.18s ease, visibility 0.18s ease;
   }
 
-  /* Spinner “anel” dourado */
   .spinner {
     width: 46px;
     height: 46px;
@@ -109,8 +291,23 @@
     border: 3px solid rgba(215, 178, 90, 0.3);
     border-top-color: var(--gold);
     animation: spin 0.9s linear infinite;
-    box-shadow: 0 0 16px rgba(215, 178, 90, 0.3),
-    0 0 4px rgba(215, 178, 90, 0.15) inset;
+    box-shadow:
+            0 0 16px rgba(215, 178, 90, 0.3),
+            0 0 4px rgba(215, 178, 90, 0.15) inset;
   }
 }
 
+/* Quando a galeria está aberta, ajustamos a largura das colunas:
+   mais espaço para o slideshow + right side ligeiramente mais largo
+*/
+.district-modal.theme-dark.district-modal--gallery-open {
+  .modal-content {
+    grid-template-columns: minmax(420px, 1.4fr) minmax(420px, 1.1fr);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

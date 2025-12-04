@@ -9,6 +9,7 @@ import ruinsSvgRaw     from "@/assets/icons/ruins.svg?raw";
 import churchSvgRaw    from "@/assets/icons/church.svg?raw";
 import viewpointSvgRaw from "@/assets/icons/viewpoint.svg?raw";
 import parkSvgRaw      from "@/assets/icons/park.svg?raw";
+import trailSvgRaw      from "@/assets/icons/trail.svg?raw";
 
 // Garante que tudo pinta a partir de currentColor (remove fills rígidos)
 function normalizeSvg(svg: string) {
@@ -31,7 +32,7 @@ export const POI_ICON_SVG_RAW: Record<PoiCategory, string> = {
     viewpoint:      normalizeSvg(viewpointSvgRaw),
     // áreas não usam ícone (mantemos vazio)
     park:           normalizeSvg(parkSvgRaw),
-    protected_area: "",
+    trail:           normalizeSvg(trailSvgRaw),
 };
 
 export const DEFAULT_ICON_SIZE: [number, number]   = [22, 22];

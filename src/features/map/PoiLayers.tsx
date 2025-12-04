@@ -26,7 +26,48 @@ function getName(p: any) {
    ========================= */
 export function getPoiCategory(f: any): PoiCategory | null {
     const p = f?.properties || {};
+    const tags = p.tags ?? {};
 
+    // 1) NOVO: categoria vinda do backend (.pt)
+    const rawCat: string | undefined =
+        (typeof p.category === "string" && p.category) ||
+        (typeof tags.category === "string" && tags.category) ||
+        (typeof p.historic === "string" && p.historic) ||
+        (typeof tags.historic === "string" && tags.historic) ||
+        undefined;
+
+    if (rawCat) {
+        const c = rawCat.toLowerCase();
+
+        switch (c) {
+            case "castle":
+                return "castle";
+            case "palace":
+                return "palace";
+            case "monument":
+                return "monument";
+            case "ruins":
+            case "ruin":
+                return "ruins";
+            case "church":
+            case "chapel":
+            case "igreja":
+                return "church";
+            case "viewpoint":
+            case "miradouro":
+                return "viewpoint";
+            case "park":
+            case "garden":
+            case "jardim":
+                return "park";
+            case "trail":
+            case "trilho":
+            case "hiking":
+                return "trail";
+        }
+    }
+
+    // 2) LEGADO: inferir a partir de tags tipo OSM (se alguma vez vierem)
     const historic    = tag(p, "historic");
     const building    = tag(p, "building");
     const castle_type = tag(p, "castle_type");
@@ -35,27 +76,32 @@ export function getPoiCategory(f: any): PoiCategory | null {
     const tourism     = tag(p, "tourism");
     const leisure     = tag(p, "leisure");
     const boundary    = tag(p, "boundary");
+    const route       = tag(p, "route");
 
     if (historic === "palace" || building === "palace" || castle_type === "palace")
-        return "palace" as PoiCategory;
+        return "palace";
 
     if (
-        historic === "castle" || building === "castle" ||
-        castle_type === "castle" || castle_type === "fortress"
-    ) return "castle" as PoiCategory;
+        historic === "castle" ||
+        building === "castle" ||
+        castle_type === "castle" ||
+        castle_type === "fortress"
+    )
+        return "castle";
 
-    if (historic === "ruins" && ruins === "castle") return "ruins" as PoiCategory;
+    if (historic === "ruins" && ruins === "castle") return "ruins";
 
-    if (historic === "monument") return "monument" as PoiCategory;
-    if (historic === "ruins")    return "ruins" as PoiCategory;
+    if (historic === "monument") return "monument";
+    if (historic === "ruins")    return "ruins";
 
     if (historic === "church" || amenity === "place_of_worship" || building === "church")
-        return "church" as PoiCategory;
+        return "church";
 
-    if (tourism === "viewpoint") return "viewpoint" as PoiCategory;
+    if (tourism === "viewpoint") return "viewpoint";
 
-    if (leisure === "park")            return "park" as PoiCategory;
-    if (boundary === "protected_area") return "protected_area" as PoiCategory;
+    if (leisure === "park")            return "park";
+
+    if (route === "hiking" || route === "foot") return "trail";
 
     return null;
 }
@@ -103,7 +149,9 @@ function useMapZoom(): number {
     React.useEffect(() => {
         const onZoom = () => setZoom(map.getZoom());
         map.on("zoomend", onZoom);
-        return () => { map.off("zoomend", onZoom); };
+        return () => {
+            map.off("zoomend", onZoom);
+        };
     }, [map]);
 
     return zoom;
@@ -164,7 +212,7 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
 }
 
 /* =========================
-   Camada de Pontos (sem modal/fetch)
+   Camada de Pontos
    ========================= */
 export function PoiPointsLayer({
                                    data,
@@ -184,7 +232,9 @@ export function PoiPointsLayer({
 
     const nothingSelected = !selectedTypes || selectedTypes.size === 0;
 
-    const key = `${Array.from(selectedTypes ?? []).sort().join(",")}|mode:${showSvg ? "svg" : "pin"}|z:${zoom}|n:${nonce}`;
+    const key = `${Array.from(selectedTypes ?? [])
+        .sort()
+        .join(",")}|mode:${showSvg ? "svg" : "pin"}|z:${zoom}|n:${nonce}`;
 
     return (
         <GeoJSON

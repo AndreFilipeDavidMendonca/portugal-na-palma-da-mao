@@ -3,13 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import logo from "@/assets/logo.png";
 import "./TopDistrictFilter.scss";
 
-import PoiModal from "@/pages/poi/PoiModal";
-import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-import SpinnerOverlay from "@/components/SpinnerOverlay";
-
 type Props = {
     allNames: string[];
-    poiGeo: any | null;            // 👈 todos os POIs PT vindos do Home
     onPick: (name: string) => void;
     placeholder?: string;
 };
@@ -25,50 +20,6 @@ function norm(s?: string | null) {
         .toLowerCase();
 }
 
-function featureName(f: any): string | null {
-    const p = f?.properties ?? {};
-    const tags = p.tags ?? {};
-    return (
-        p["name:pt"] ||
-        p.name ||
-        p["name:en"] ||
-        tags["name:pt"] ||
-        tags.name ||
-        tags["name:en"] ||
-        null
-    );
-}
-
-function isUsefulPoiFeature(props: any): boolean {
-    const tags = props.tags ?? {};
-    const hasRefs =
-        props.wikipedia ||
-        props["wikipedia:pt"] ||
-        props["wikipedia:en"] ||
-        props.wikidata ||
-        props["wikidata:id"] ||
-        props.website ||
-        props["contact:website"] ||
-        props.image ||
-        props["wikimedia_commons"] ||
-        tags.wikipedia ||
-        tags.wikidata ||
-        tags.website ||
-        tags.image;
-
-    const hasType =
-        props.historic ||
-        props.building ||
-        props.castle_type ||
-        props.amenity ||
-        props.tourism ||
-        props.leisure ||
-        props.boundary;
-
-    return Boolean(hasRefs || hasType);
-}
-
-/* === fuzzy match por tokens e subsequência === */
 const STOPWORDS = new Set([
     "o", "a", "os", "as", "um", "uma", "uns", "umas",
     "de", "do", "da", "dos", "das", "d", "e",
@@ -141,15 +92,12 @@ function scoreNameFlexible(name: string, query: string): number {
     return Math.max(1, score);
 }
 
-type SearchItem =
-    | { kind: "district"; name: string }
-    | { kind: "poi"; name: string; feature: any };
+type SearchItem = { kind: "district"; name: string };
 
 export default function TopDistrictFilter({
                                               allNames,
-                                              poiGeo,
                                               onPick,
-                                              placeholder = "Procurar distrito, local ou ponto de interesse…",
+                                              placeholder = "Procurar distrito…",
                                           }: Props) {
     const [open, setOpen] = useState(false);
 
@@ -162,28 +110,10 @@ export default function TopDistrictFilter({
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const listRef = useRef<HTMLUListElement | null>(null);
 
-    // ---------- índice (distritos + POIs) ----------
+    // ---------- índice (só distritos) ----------
     const searchIndex = useMemo<SearchItem[]>(() => {
-        const out: SearchItem[] = [];
-
-        // distritos
-        for (const n of allNames) {
-            out.push({ kind: "district", name: n });
-        }
-
-        // POIs
-        if (poiGeo?.features) {
-            for (const f of poiGeo.features) {
-                const name = featureName(f);
-                if (!name) continue;
-                const props = { ...(f.properties || {}), tags: f.properties?.tags ?? {} };
-                if (!isUsefulPoiFeature(props)) continue;
-                out.push({ kind: "poi", name, feature: f });
-            }
-        }
-
-        return out;
-    }, [allNames, poiGeo]);
+        return allNames.map((n) => ({ kind: "district", name: n }));
+    }, [allNames]);
 
     // ---------- resultados ----------
     const filtered = useMemo(() => {
@@ -193,10 +123,10 @@ export default function TopDistrictFilter({
 
         return searchIndex
             .map(it => {
-                const score = scoreNameFlexible(it.name, qRaw) + (it.kind === "poi" ? 5 : 0);
+                const score = scoreNameFlexible(it.name, qRaw);
                 return { it, score };
             })
-            .filter(x => x.score >= 60)
+            .filter(x => x.score >= 40)
             .sort((a, b) => b.score - a.score)
             .slice(0, 30)
             .map(x => x.it);
@@ -250,149 +180,78 @@ export default function TopDistrictFilter({
         }
     }
 
-    // ---------- PoiModal local ----------
-    const [poiOpen, setPoiOpen] = useState(false);
-    const [poiInfo, setPoiInfo] = useState<PoiInfo | null>(null);
-    const [poiFeature, setPoiFeature] = useState<any | null>(null);
-    const [loadingPoi, setLoadingPoi] = useState(false);
-    const poiReqRef = useRef(0);
-
-    async function openPoiFromFeature(f: any) {
-        setPoiFeature(f);
-        setPoiInfo(null);
-        setPoiOpen(false);
-        setLoadingPoi(true);
-        const reqId = ++poiReqRef.current;
-
-        try {
-            const wp: string | null =
-                f.properties.wikipedia ??
-                f.properties["wikipedia:pt"] ??
-                f.properties["wikipedia:en"] ??
-                null;
-
-            const approxName = featureName(f);
-            const approxLat = f.geometry?.coordinates?.[1];
-            const approxLon = f.geometry?.coordinates?.[0];
-
-            const info = await fetchPoiInfo({
-                wikipedia: wp,
-                approx: { name: approxName, lat: approxLat, lon: approxLon },
-                sourceFeature: f,
-            });
-
-            if (reqId !== poiReqRef.current) return;
-
-            if (!info) {
-                setPoiInfo(null);
-                setPoiOpen(false);
-                return;
-            }
-
-            setPoiInfo(info);
-            setPoiOpen(true);
-        } catch {
-            setPoiInfo(null);
-            setPoiOpen(false);
-        } finally {
-            if (reqId === poiReqRef.current) setLoadingPoi(false);
-        }
-    }
-
     function handlePick(item: SearchItem) {
         setOpen(false);
         setPreviewQuery(null);
         setTypedQuery(item.name);
-
-        if (item.kind === "district") {
-            onPick(item.name);
-            return;
-        }
-        if (item.kind === "poi") {
-            openPoiFromFeature(item.feature);
-        }
+        onPick(item.name);
     }
 
     return (
-        <>
-            <div className="tdf-wrap" ref={wrapRef}>
-                <div className="tdf-logo">
-                    <img src={logo} alt=".pt" />
-                </div>
+        <div className="tdf-wrap" ref={wrapRef}>
+            <div className="tdf-logo">
+                <img src={logo} alt=".pt" />
+            </div>
 
-                <span className="tdf-label">Pesquisar</span>
+            <span className="tdf-label">Pesquisar</span>
 
-                <div className="tdf-inputbox">
-                    <input
-                        className="tdf-input"
-                        value={inputValue}
-                        placeholder={placeholder}
-                        onChange={(e) => {
-                            setTypedQuery(e.target.value);
-                            setPreviewQuery(null);
-                            setOpen(true);
-                            setActiveIdx(0);
-                        }}
-                        onFocus={() => setOpen(true)}
-                        onKeyDown={onKeyDown}
-                    />
+            <div className="tdf-inputbox">
+                <input
+                    className="tdf-input"
+                    value={inputValue}
+                    placeholder={placeholder}
+                    onChange={(e) => {
+                        setTypedQuery(e.target.value);
+                        setPreviewQuery(null);
+                        setOpen(true);
+                        setActiveIdx(0);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    onKeyDown={onKeyDown}
+                />
 
-                    {open && filtered.length > 0 && (
-                        <ul
-                            className="tdf-list gold-scroll"
-                            role="listbox"
-                            ref={listRef}
-                        >
-                            {filtered.map((item, i) => (
-                                <li
-                                    key={`${item.kind}:${item.name}:${i}`}
-                                    role="option"
-                                    aria-selected={i === activeIdx}
-                                    className={`tdf-item ${i === activeIdx ? "is-active" : ""}`}
-                                    onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        handlePick(item);
-                                    }}
-                                    onMouseEnter={() => {
-                                        setActiveIdx(i);
-                                        setPreviewQuery(item.name);
-                                    }}
-                                >
-                                    {item.name}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
-                {inputValue && (
-                    <button
-                        className="btn-clear"
-                        onClick={() => {
-                            setTypedQuery("");
-                            setPreviewQuery(null);
-                            setOpen(false);
-                            setActiveIdx(0);
-                            onPick("");
-                        }}
+                {open && filtered.length > 0 && (
+                    <ul
+                        className="tdf-list gold-scroll"
+                        role="listbox"
+                        ref={listRef}
                     >
-                        Limpar
-                    </button>
+                        {filtered.map((item, i) => (
+                            <li
+                                key={`${item.kind}:${item.name}:${i}`}
+                                role="option"
+                                aria-selected={i === activeIdx}
+                                className={`tdf-item ${i === activeIdx ? "is-active" : ""}`}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handlePick(item);
+                                }}
+                                onMouseEnter={() => {
+                                    setActiveIdx(i);
+                                    setPreviewQuery(item.name);
+                                }}
+                            >
+                                {item.name}
+                            </li>
+                        ))}
+                    </ul>
                 )}
             </div>
 
-            <PoiModal
-                open={poiOpen}
-                info={poiInfo}
-                poi={poiFeature}
-                onClose={() => {
-                    setPoiOpen(false);
-                    setPoiInfo(null);
-                    setPoiFeature(null);
-                }}
-            />
-
-            {loadingPoi && <SpinnerOverlay open={loadingPoi} message="A carregar…" />}
-        </>
+            {inputValue && (
+                <button
+                    className="btn-clear"
+                    onClick={() => {
+                        setTypedQuery("");
+                        setPreviewQuery(null);
+                        setOpen(false);
+                        setActiveIdx(0);
+                        onPick(""); // limpa seleção de distrito no Home
+                    }}
+                >
+                    Limpar
+                </button>
+            )}
+        </div>
     );
 }
