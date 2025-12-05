@@ -35,12 +35,16 @@ import "./DistrictModal.scss";
 import {
     updateDistrict,
     type DistrictUpdatePayload,
-    fetchDistrictById
+    fetchDistrictById,
 } from "@/lib/api";
 import {
     fetchDistrictInfo,
     type DistrictInfo,
 } from "@/lib/districtInfo";
+import {
+    searchWikimediaImagesByName,
+    loadFirstValidImages,
+} from "@/lib/wikimedia";
 
 type AnyGeo = any;
 
@@ -115,12 +119,12 @@ export default function DistrictModal(props: Props) {
         onPoiUpdated,
     } = props;
 
-
     /* ====== Estado POI seleccionado ====== */
     const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
     const [selectedPoiInfo, setSelectedPoiInfo] = useState<PoiInfo | null>(null);
     const [showPoiModal, setShowPoiModal] = useState(false);
     const [loadingPoi, setLoadingPoi] = useState(false);
+    const [loadingGallery, setLoadingGallery] = useState(false);
     const lastReqRef = useRef(0);
 
     /* ====== Layers / filtros ====== */
@@ -142,9 +146,11 @@ export default function DistrictModal(props: Props) {
     // campos editáveis
     const [distName, setDistName] = useState<string>("");
     const [distPopulation, setDistPopulation] = useState<string>("");
-    const [distMunicipalities, setDistMunicipalities] = useState<string>("");
+    const [distMunicipalities, setDistMunicipalities] =
+        useState<string>("");
     const [distParishes, setDistParishes] = useState<string>("");
-    const [distInhabitedSince, setDistInhabitedSince] = useState<string>("");
+    const [distInhabitedSince, setDistInhabitedSince] =
+        useState<string>("");
     const [distDescription, setDistDescription] = useState<string>("");
     const [distHistory, setDistHistory] = useState<string>("");
     const [distMedia, setDistMedia] = useState<string[]>([]);
@@ -152,8 +158,6 @@ export default function DistrictModal(props: Props) {
     // galeria ON/OFF
     const [showGallery, setShowGallery] = useState(false);
 
-    /* ----- carregar districtInfo “conteúdo” (via API) ----- */
-    // reset de estado local quando o modal fecha
     useEffect(() => {
         if (!open) {
             setShowGallery(false);
@@ -206,13 +210,13 @@ export default function DistrictModal(props: Props) {
                     : ""
             );
             setDistMunicipalities(
-                districtInfo.municipalities != null
-                    ? String(districtInfo.municipalities)
+                (districtInfo as any).municipalities != null
+                    ? String((districtInfo as any).municipalities)
                     : ""
             );
             setDistParishes(
-                districtInfo.parishes != null
-                    ? String(districtInfo.parishes)
+                (districtInfo as any).parishes != null
+                    ? String((districtInfo as any).parishes)
                     : ""
             );
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
@@ -235,11 +239,19 @@ export default function DistrictModal(props: Props) {
 
     /* ----- lazy load camadas geográficas ----- */
     useEffect(() => {
-        const safeLoad = async (path: string, set: (v: any) => void, already: any) => {
+        const safeLoad = async (
+            path: string,
+            set: (v: any) => void,
+            already: any
+        ) => {
             if (already) return;
             try {
                 const gj = await loadGeo(path);
-                if (gj && (gj.type === "FeatureCollection" || gj.type === "Feature")) set(gj);
+                if (
+                    gj &&
+                    (gj.type === "FeatureCollection" || gj.type === "Feature")
+                )
+                    set(gj);
                 else set(null);
             } catch {
                 set(null);
@@ -269,7 +281,8 @@ export default function DistrictModal(props: Props) {
                     props.label ||
                     null;
 
-                if (!name || typeof name !== "string" || name.trim() === "") return null;
+                if (!name || typeof name !== "string" || name.trim() === "")
+                    return null;
 
                 const nf = { ...f, properties: { ...props } as any };
 
@@ -291,7 +304,9 @@ export default function DistrictModal(props: Props) {
         const allCats = Object.keys(POI_LABELS) as PoiCategory[];
         for (const c of allCats) counts[c] = 0;
         for (const f of normalizedPoints?.features ?? []) {
-            const cat = (f.properties as any).__cat as PoiCategory | undefined;
+            const cat = (f.properties as any).__cat as
+                | PoiCategory
+                | undefined;
             if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
         }
         return counts;
@@ -300,9 +315,12 @@ export default function DistrictModal(props: Props) {
     /* ----- Aplicar filtros por seleção ----- */
     const filteredPoints = useMemo(() => {
         if (!normalizedPoints) return null;
-        if (!selectedTypes || selectedTypes.size === 0) return normalizedPoints;
+        if (!selectedTypes || selectedTypes.size === 0)
+            return normalizedPoints;
         const feats = normalizedPoints.features.filter((f: any) => {
-            const cat = (f.properties as any).__cat as PoiCategory | undefined;
+            const cat = (f.properties as any).__cat as
+                | PoiCategory
+                | undefined;
             return cat ? selectedTypes.has(cat) : false;
         });
         return { ...normalizedPoints, features: feats };
@@ -340,10 +358,14 @@ export default function DistrictModal(props: Props) {
 
                 setSelectedPoiInfo(info);
 
-                const hasAnyImage = !!(info?.image || (info?.images?.length ?? 0) > 0);
+                const hasAnyImage = !!(
+                    info?.image || (info?.images?.length ?? 0) > 0
+                );
                 const hasTitle = !!info?.label;
-                const hasDesc = !!info?.description && info!.description!.trim().length > 0;
-                const shouldOpen = (hasTitle || hasDesc || hasAnyImage);
+                const hasDesc =
+                    !!info?.description &&
+                    info!.description!.trim().length > 0;
+                const shouldOpen = hasTitle || hasDesc || hasAnyImage;
 
                 setShowPoiModal(shouldOpen);
             } catch (e) {
@@ -352,7 +374,8 @@ export default function DistrictModal(props: Props) {
                 setSelectedPoiInfo(null);
                 setShowPoiModal(false);
             } finally {
-                if (alive && reqId === lastReqRef.current) setLoadingPoi(false);
+                if (alive && reqId === lastReqRef.current)
+                    setLoadingPoi(false);
             }
         })();
 
@@ -422,13 +445,13 @@ export default function DistrictModal(props: Props) {
                     : ""
             );
             setDistMunicipalities(
-                districtInfo.municipalities != null
-                    ? String(districtInfo.municipalities)
+                (districtInfo as any).municipalities != null
+                    ? String((districtInfo as any).municipalities)
                     : ""
             );
             setDistParishes(
-                districtInfo.parishes != null
-                    ? String(districtInfo.parishes)
+                (districtInfo as any).parishes != null
+                    ? String((districtInfo as any).parishes)
                     : ""
             );
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
@@ -442,7 +465,8 @@ export default function DistrictModal(props: Props) {
     };
 
     const districtNameFallback =
-        (districtFeature?.properties?.name as string | undefined) || "Distrito";
+        (districtFeature?.properties?.name as string | undefined) ||
+        "Distrito";
 
     // detecta vídeos mesmo quando o URL é blob:...#name=ficheiro.mp4
     const isVideoUrl = (url: string) => {
@@ -469,57 +493,108 @@ export default function DistrictModal(props: Props) {
         (showGallery ? " district-modal--gallery-open" : "");
 
     const toggleGallery = () => {
-        if (!showGallery) {
-            setShowGallery(true);
-
-            // lazy-load dos ficheiros apenas quando abrimos a galeria
-            if (districtInfo?.id && (!distMedia || distMedia.length === 0)) {
-                (async () => {
-                    try {
-                        const dto = await fetchDistrictById(districtInfo.id!);
-                        const filesFromApi = dto.files ?? [];
-
-                        setDistMedia(filesFromApi);
-
-                        // opcional: sincronizar districtInfo com o que veio da API
-                        setDistrictInfo((prev) =>
-                            prev
-                                ? {
-                                    ...prev,
-                                    population:
-                                        dto.population ?? prev.population,
-                                    municipalities:
-                                        dto.municipalitiesCount ??
-                                        prev.municipalities,
-                                    parishes:
-                                        dto.parishesCount ?? prev.parishes,
-                                    inhabited_since:
-                                        dto.inhabitedSince ??
-                                        prev.inhabited_since,
-                                    description:
-                                        dto.description ?? prev.description,
-                                    history:
-                                        dto.history ?? prev.history,
-                                    files: filesFromApi,
-                                }
-                                : prev
-                        );
-                    } catch (e) {
-                        console.warn(
-                            "[DistrictModal] Falha a carregar media do distrito",
-                            e
-                        );
-                    }
-                })();
-            }
-        } else {
-            // fechar galeria -> manténs o que já tinhas
+        // FECHAR
+        if (showGallery) {
             setShowGallery(false);
             setEditingDistrict(false);
             setDistrictError(null);
+            setLoadingGallery(false);
+            return;
         }
-    };
 
+        // ABRIR → preparar media + spinner
+        setLoadingGallery(true);
+
+        (async () => {
+            try {
+                let dbFiles: string[] = [];
+
+                // 1) ir ao BE buscar ficheiros atuais do distrito
+                if (districtInfo?.id) {
+                    const dto = await fetchDistrictById(districtInfo.id);
+                    dbFiles = dto.files ?? [];
+
+                    setDistrictInfo(prev =>
+                        prev
+                            ? {
+                                ...prev,
+                                population: dto.population ?? prev.population,
+                                municipalities:
+                                    dto.municipalitiesCount ??
+                                    (prev as any).municipalities,
+                                parishes:
+                                    dto.parishesCount ??
+                                    (prev as any).parishes,
+                                inhabited_since:
+                                    dto.inhabitedSince ??
+                                    prev.inhabited_since,
+                                description:
+                                    dto.description ?? prev.description,
+                                history: dto.history ?? prev.history,
+                                files: dbFiles,
+                            }
+                            : prev
+                    );
+                }
+
+                // 2) Wikimedia → procurar por nome do distrito
+                const nameForSearch =
+                    distName ||
+                    districtInfo?.namePt ||
+                    districtInfo?.name ||
+                    districtNameFallback;
+
+                const wikiRaw = await searchWikimediaImagesByName(nameForSearch, 20);
+
+                // primeiro filtramos as do Wikimedia
+                const wikiValid =
+                    wikiRaw.length > 0
+                        ? await loadFirstValidImages(wikiRaw, 5)
+                        : [];
+
+                // 3) merge BD + Wikimedia (sem duplicados)
+                const merged = Array.from(
+                    new Set<string>([...dbFiles, ...wikiValid])
+                );
+
+                setDistMedia(merged);
+                setShowGallery(true);
+
+                // 4) Se houver novas (presentes no merged e não em dbFiles) → gravar na BD
+                if (districtInfo?.id) {
+                    const novos = merged.filter(u => !dbFiles.includes(u));
+                    if (novos.length > 0) {
+                        try {
+                            const updated = await updateDistrict(districtInfo.id, {
+                                // mantemos os ficheiros existentes + novos
+                                files: merged,
+                            });
+
+                            setDistrictInfo(prev =>
+                                prev
+                                    ? {
+                                        ...prev,
+                                        files: updated.files ?? merged,
+                                    }
+                                    : prev
+                            );
+                        } catch (e) {
+                            console.warn(
+                                "[DistrictModal] Falha ao atualizar ficheiros do distrito",
+                                e
+                            );
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("[DistrictModal] Falha a preparar galeria", e);
+                setDistMedia([]);
+                setShowGallery(true);
+            } finally {
+                setLoadingGallery(false);
+            }
+        })();
+    };
     if (!open) {
         return null;
     }
@@ -714,7 +789,9 @@ export default function DistrictModal(props: Props) {
                                         label="Imagens / vídeos do distrito"
                                         images={distMedia}
                                         onChange={setDistMedia}
-                                        mode="media"
+                                        // se o teu ImageDropField só aceita "image" | "video",
+                                        // deixa "image" aqui, porque estamos a gravar apenas URLs.
+                                        mode="image"
                                     />
                                 </div>
                             )}
@@ -732,7 +809,9 @@ export default function DistrictModal(props: Props) {
                                     <input
                                         className="district-name-input"
                                         value={distName}
-                                        onChange={(e) => setDistName(e.target.value)}
+                                        onChange={(e) =>
+                                            setDistName(e.target.value)
+                                        }
                                     />
                                 ) : (
                                     <h1 className="district-title">
@@ -743,8 +822,8 @@ export default function DistrictModal(props: Props) {
                                 )}
                             </div>
                             <div className="district-header-actions">
-                                {showGallery && (
-                                    editingDistrict ? (
+                                {showGallery &&
+                                    (editingDistrict ? (
                                         <>
                                             <button
                                                 type="button"
@@ -769,12 +848,13 @@ export default function DistrictModal(props: Props) {
                                         <button
                                             type="button"
                                             className="district-btn district-btn--ghost"
-                                            onClick={() => setEditingDistrict(true)}
+                                            onClick={() =>
+                                                setEditingDistrict(true)
+                                            }
                                         >
                                             Editar
                                         </button>
-                                    )
-                                )}
+                                    ))}
                             </div>
                         </div>
 
@@ -790,7 +870,9 @@ export default function DistrictModal(props: Props) {
                         </div>
 
                         {districtError && (
-                            <div className="district-error">{districtError}</div>
+                            <div className="district-error">
+                                {districtError}
+                            </div>
                         )}
 
                         {/* Resumo / texto */}
@@ -870,7 +952,9 @@ export default function DistrictModal(props: Props) {
                                             rows={4}
                                             value={distDescription}
                                             onChange={(e) =>
-                                                setDistDescription(e.target.value)
+                                                setDistDescription(
+                                                    e.target.value
+                                                )
                                             }
                                         />
 
@@ -882,7 +966,9 @@ export default function DistrictModal(props: Props) {
                                             rows={6}
                                             value={distHistory}
                                             onChange={(e) =>
-                                                setDistHistory(e.target.value)
+                                                setDistHistory(
+                                                    e.target.value
+                                                )
                                             }
                                         />
                                     </>
@@ -929,8 +1015,11 @@ export default function DistrictModal(props: Props) {
                 }}
             />
 
-            {loadingPoi && (
-                <SpinnerOverlay open={loadingPoi} message="A carregar…" />
+            {(loadingPoi || loadingGallery) && (
+                <SpinnerOverlay
+                    open={loadingPoi || loadingGallery}
+                    message={loadingPoi ? "A carregar…" : "A carregar galeria…"}
+                />
             )}
         </div>
     );

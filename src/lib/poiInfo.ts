@@ -1,10 +1,6 @@
 // src/lib/poiInfo.ts
 
-// -------------------------------------------------------------------
-// Fonte ÚNICA de dados: GeoJSON vindo do backend .pt
-//   - o feature já traz: nome, descrição, imagens, wikipedia, contactos, etc.
-//   - aqui só fazemos o mapeamento -> PoiInfo
-// -------------------------------------------------------------------
+import { searchWikimediaImagesByName } from "@/lib/wikimedia";
 
 /* =====================================================================
    TIPOS
@@ -72,7 +68,7 @@ export type PoiInfo = {
    HELPERS
    ===================================================================== */
 
-const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
+const uniq = <T,>(arr: T[]): T[] => Array.from(new Set(arr));
 
 function hasAnyUsefulField(p: Partial<PoiInfo>): boolean {
     return !!(
@@ -91,11 +87,17 @@ function hasAnyUsefulField(p: Partial<PoiInfo>): boolean {
    ORQUESTRADOR: fetchPoiInfo
    ===================================================================== */
 
-export async function fetchPoiInfo(options: {
+type FetchPoiInfoOpts = {
     wikipedia?: string | null; // mantido só para compatibilidade
-    approx?: { name?: string | null; lat?: number | null; lon?: number | null } | null;
+    approx?: {
+        name?: string | null;
+        lat?: number | null;
+        lon?: number | null;
+    } | null;
     sourceFeature?: any | null;
-}): Promise<PoiInfo | null> {
+};
+
+export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo | null> {
     const sourceFeature = options.sourceFeature || null;
     const approx = options.approx || null;
 
@@ -136,37 +138,66 @@ export async function fetchPoiInfo(options: {
         null;
 
     // ----------------------------------------
-    // Imagens
+    // Imagens da BD (GeoJSON)
     // ----------------------------------------
     const imagesRaw = props.images ?? [];
-    const images: string[] = Array.isArray(imagesRaw)
-        ? uniq(imagesRaw.filter(Boolean))
+    const dbImages: string[] = Array.isArray(imagesRaw)
+        ? imagesRaw.filter((x: unknown): x is string => !!x && typeof x === "string")
         : [];
 
-    const image: string | null =
-        props.image ??
-        (images.length > 0 ? images[0] : null);
+    const mainImageFromProps: string | null =
+        props.image && typeof props.image === "string"
+            ? props.image
+            : dbImages.length > 0
+                ? dbImages[0]
+                : null;
 
     // ----------------------------------------
     // Contacts (se vierem no GeoJSON)
     // ----------------------------------------
-    const phone: string | null = props.phone ?? null;
-    const email: string | null = props.email ?? null;
-    const website: string | null = props.website ?? null;
+    const phone: string | null =
+        typeof props.phone === "string" ? props.phone : null;
+    const email: string | null =
+        typeof props.email === "string" ? props.email : null;
+    const website: string | null =
+        typeof props.website === "string" ? props.website : null;
 
     const contacts: Contacts | null =
         phone || email || website
             ? { phone, email, website }
             : null;
 
+    // ----------------------------------------------------------------
+    //  EXTRA: Imagens do Wikimedia por nome do POI
+    // ----------------------------------------------------------------
+    let wikimediaImages: string[] = [];
+
+    if (label && label.trim().length >= 3) {
+        try {
+            wikimediaImages = await searchWikimediaImagesByName(label, 10);
+        } catch (e) {
+            console.warn("[PoiInfo] falha ao obter imagens do Wikimedia", e);
+        }
+    }
+
+    // merge: BD + Wikimedia, sem duplicados e com a principal primeiro
+    const mergedImages = uniq<string>([
+        ...(mainImageFromProps ? [mainImageFromProps] : []),
+        ...dbImages,
+        ...wikimediaImages,
+    ]);
+
+    const finalImage: string | null =
+        mergedImages.length > 0 ? mergedImages[0] : null;
+
     // ----------------------------------------
-    // Montar PoiInfo
+    // Montar PoiInfo (já com imagens fundidas)
     // ----------------------------------------
     const poi: Partial<PoiInfo> = {
         label,
         description: props.description ?? null,
-        image,
-        images,
+        image: finalImage,
+        images: mergedImages,
         coords,
         wikipediaUrl: props.wikipediaUrl ?? null,
         wikidataId: props.wikidataId ?? null,

@@ -30,7 +30,7 @@ export const CATEGORY_COLORS: Record<PoiCategory, string> = {
     church: "#3890dc",
     viewpoint: "#ae7710",
     park: "#2E7D32",
-    trail: "#e6f1e6", // <-- novo, verde-escuro natural
+    trail: "#4ced4c", // <-- novo, verde-escuro natural
 };
 
 // === Labels legíveis ===

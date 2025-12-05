@@ -244,31 +244,38 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 16px 18px 18px;
+    padding: 20px 18px 18px;
     box-sizing: border-box;
     background: var(--bg-panel-2);
-    overflow: auto;
+    overflow: hidden; // sem scroll aqui
   }
 
   .district-gallery-main {
     position: relative;
-    border-radius: 14px;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+
+    border-radius: 18px;
     overflow: hidden;
-    background: #111;
-    min-height: 320px;
-    max-height: 520px;
+
+    /* já não queremos a "div preta" */
+    background: transparent;
+
     display: flex;
     align-items: stretch;
     justify-content: center;
   }
 
-  .district-gallery-main--empty {
-    align-items: center;
-    justify-content: center;
+  /* garante que o slideshow ocupa TODO o espaço da moldura */
+  .district-gallery-main .slideshow {
+    width: 100%;
+    height: 100%;
   }
 
-  .district-gallery-editor {
-    margin-top: 10px;
+  /* opcional: um bocadinho de margem para respirar */
+  .district-gallery-main .slideshow__frame {
+    border-radius: 18px;
   }
 
   /* Overlay de loading */
