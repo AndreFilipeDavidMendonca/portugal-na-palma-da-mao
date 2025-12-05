@@ -358,16 +358,34 @@ export default function DistrictModal(props: Props) {
                 });
                 if (!alive || reqId !== lastReqRef.current) return;
 
+                if (!info) {
+                    setSelectedPoiInfo(null);
+                    setShowPoiModal(false);
+                    return;
+                }
+
                 setSelectedPoiInfo(info);
 
-                const hasAnyImage = !!(
-                    info?.image || (info?.images?.length ?? 0) > 0
-                );
-                const hasTitle = !!info?.label;
+                // ---------- lógica "carrega 3 e abre" ----------
+                const imgList = [
+                    info.image,
+                    ...(info.images ?? []),
+                ].filter((u): u is string => !!u);
+
+                const hasAnyImage = imgList.length > 0;
+                const has3OrMoreImages = imgList.length >= 3;
+
+                const hasTitle = !!info.label;
                 const hasDesc =
-                    !!info?.description &&
-                    info!.description!.trim().length > 0;
-                const shouldOpen = hasTitle || hasDesc || hasAnyImage;
+                    !!info.description && info.description.trim().length > 0;
+
+                // regra:
+                // - se houver ≥3 imagens → só abrimos quando esse estado estiver pronto (que já está aqui)
+                // - se houver <3 imagens → abrimos na mesma se houver texto ou 1 imagem
+                const shouldOpen =
+                    has3OrMoreImages
+                        ? (hasTitle || hasDesc || hasAnyImage)
+                        : (hasTitle || hasDesc || hasAnyImage);
 
                 setShowPoiModal(shouldOpen);
             } catch (e) {
@@ -376,8 +394,9 @@ export default function DistrictModal(props: Props) {
                 setSelectedPoiInfo(null);
                 setShowPoiModal(false);
             } finally {
-                if (alive && reqId === lastReqRef.current)
+                if (alive && reqId === lastReqRef.current) {
                     setLoadingPoi(false);
+                }
             }
         })();
 
