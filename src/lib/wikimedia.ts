@@ -97,9 +97,9 @@ function filterBadCommonsImages(imgs: CommonsImage[]): CommonsImage[] {
         // tira SVG quase sempre icónico
         if (base.endsWith(".svg")) return false;
 
-        if (badKeywords.some((kw) => base.includes(kw))) return false;
+        return !badKeywords.some((kw) => base.includes(kw));
 
-        return true;
+
     });
 }
 
