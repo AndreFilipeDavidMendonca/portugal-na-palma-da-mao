@@ -94,8 +94,7 @@ export async function findDistrictGalleryImages(
         if (!commonsUrls.length) return [];
 
         // 2) validar e limitar às primeiras `needed` URLs que respondem ok
-        const valid = await loadFirstValidImages(commonsUrls, needed);
-        return valid;
+        return await loadFirstValidImages(commonsUrls, needed);
     } catch (e) {
         console.warn("[Wikipedia] erro em findDistrictGalleryImages:", e);
         return [];
