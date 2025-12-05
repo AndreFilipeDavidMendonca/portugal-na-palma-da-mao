@@ -41,12 +41,17 @@ import {
     fetchDistrictInfo,
     type DistrictInfo,
 } from "@/lib/districtInfo";
-import {
-    searchWikimediaImagesByName,
-    loadFirstValidImages,
-} from "@/lib/wikimedia";
+import { getDistrictCommonsGallery } from "@/lib/wikimedia";
 
 type AnyGeo = any;
+
+/* ---------- helpers locais ---------- */
+
+const uniqStrings = (arr: string[]): string[] =>
+    Array.from(new Set(arr.filter(Boolean)));
+
+const isPoiCategory = (val: any): val is PoiCategory =>
+    val != null && Object.prototype.hasOwnProperty.call(POI_LABELS, val);
 
 /* ---------- Fit Bounds ---------- */
 function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
@@ -97,9 +102,6 @@ type Props = {
     }) => void;
 };
 
-const isPoiCategory = (val: any): val is PoiCategory =>
-    val != null && Object.prototype.hasOwnProperty.call(POI_LABELS, val);
-
 export default function DistrictModal(props: Props) {
     const {
         open,
@@ -146,11 +148,9 @@ export default function DistrictModal(props: Props) {
     // campos editáveis
     const [distName, setDistName] = useState<string>("");
     const [distPopulation, setDistPopulation] = useState<string>("");
-    const [distMunicipalities, setDistMunicipalities] =
-        useState<string>("");
+    const [distMunicipalities, setDistMunicipalities] = useState<string>("");
     const [distParishes, setDistParishes] = useState<string>("");
-    const [distInhabitedSince, setDistInhabitedSince] =
-        useState<string>("");
+    const [distInhabitedSince, setDistInhabitedSince] = useState<string>("");
     const [distDescription, setDistDescription] = useState<string>("");
     const [distHistory, setDistHistory] = useState<string>("");
     const [distMedia, setDistMedia] = useState<string[]>([]);
@@ -158,6 +158,7 @@ export default function DistrictModal(props: Props) {
     // galeria ON/OFF
     const [showGallery, setShowGallery] = useState(false);
 
+    /* ===== reset ao fechar ===== */
     useEffect(() => {
         if (!open) {
             setShowGallery(false);
@@ -168,6 +169,7 @@ export default function DistrictModal(props: Props) {
         }
     }, [open]);
 
+    /* ===== carregar districtInfo por nome ===== */
     useEffect(() => {
         let alive = true;
 
@@ -468,12 +470,6 @@ export default function DistrictModal(props: Props) {
         (districtFeature?.properties?.name as string | undefined) ||
         "Distrito";
 
-    // detecta vídeos mesmo quando o URL é blob:...#name=ficheiro.mp4
-    const isVideoUrl = (url: string) => {
-        const namePart = url.split("#name=")[1] ?? url;
-        return /\.(mp4|webm|ogg|mov|m4v)$/i.test(namePart);
-    };
-
     const mediaUrls = useMemo(() => {
         const uniq: string[] = [];
         for (const u of distMedia ?? []) {
@@ -481,11 +477,16 @@ export default function DistrictModal(props: Props) {
             if (!uniq.includes(u)) uniq.push(u);
         }
 
-        const videos = uniq.filter(isVideoUrl);
-        const images = uniq.filter((u) => !isVideoUrl(u));
+        const isVideoUrlLocal = (url: string) => {
+            const namePart = url.split("#name=")[1] ?? url;
+            return /\.(mp4|webm|ogg|mov|m4v)$/i.test(namePart);
+        };
 
-        // vídeos primeiro
-        return [...videos, ...images];
+        const videos = uniq.filter(isVideoUrlLocal);
+        const images = uniq.filter((u) => !isVideoUrlLocal(u));
+
+        // vídeos primeiro e cap geral a 10
+        return [...videos, ...images].slice(0, 10);
     }, [distMedia]);
 
     const rootClass =
@@ -514,7 +515,7 @@ export default function DistrictModal(props: Props) {
                     const dto = await fetchDistrictById(districtInfo.id);
                     dbFiles = dto.files ?? [];
 
-                    setDistrictInfo(prev =>
+                    setDistrictInfo((prev) =>
                         prev
                             ? {
                                 ...prev,
@@ -537,64 +538,105 @@ export default function DistrictModal(props: Props) {
                     );
                 }
 
-                // 2) Wikimedia → procurar por nome do distrito
+                // 2) Wikimedia – nome a usar na pesquisa
                 const nameForSearch =
                     distName ||
                     districtInfo?.namePt ||
                     districtInfo?.name ||
                     districtNameFallback;
 
-                const wikiRaw = await searchWikimediaImagesByName(nameForSearch, 20);
+                // 2a) primeiro batch rápido (até 3 fotos) → assim que houver, abrimos a galeria
+                const firstCommons = await getDistrictCommonsGallery(
+                    nameForSearch,
+                    3
+                );
 
-                // primeiro filtramos as do Wikimedia
-                const wikiValid =
-                    wikiRaw.length > 0
-                        ? await loadFirstValidImages(wikiRaw, 5)
-                        : [];
-
-                // 3) merge BD + Wikimedia (sem duplicados)
-                const merged = Array.from(
-                    new Set<string>([...dbFiles, ...wikiValid])
+                let merged = uniqStrings([...dbFiles, ...firstCommons]).slice(
+                    0,
+                    10
                 );
 
                 setDistMedia(merged);
                 setShowGallery(true);
+                setLoadingGallery(false); // tira overlay assim que temos o primeiro batch
 
-                // 4) Se houver novas (presentes no merged e não em dbFiles) → gravar na BD
-                if (districtInfo?.id) {
-                    const novos = merged.filter(u => !dbFiles.includes(u));
-                    if (novos.length > 0) {
-                        try {
-                            const updated = await updateDistrict(districtInfo.id, {
-                                // mantemos os ficheiros existentes + novos
-                                files: merged,
-                            });
+                // 2b) Em background, tentar completar até 10 fotos
+                if (merged.length < 10) {
+                    try {
+                        const fullCommons = await getDistrictCommonsGallery(
+                            nameForSearch,
+                            10
+                        );
+                        const mergedFull = uniqStrings([
+                            ...dbFiles,
+                            ...fullCommons,
+                        ]).slice(0, 10);
 
-                            setDistrictInfo(prev =>
-                                prev
-                                    ? {
-                                        ...prev,
-                                        files: updated.files ?? merged,
-                                    }
-                                    : prev
-                            );
-                        } catch (e) {
-                            console.warn(
-                                "[DistrictModal] Falha ao atualizar ficheiros do distrito",
-                                e
-                            );
+                        if (mergedFull.length > merged.length) {
+                            merged = mergedFull;
+                            setDistMedia(mergedFull);
+
+                            // actualizar BD se houver novidades
+                            if (districtInfo?.id) {
+                                try {
+                                    const updated = await updateDistrict(
+                                        districtInfo.id,
+                                        { files: mergedFull }
+                                    );
+                                    setDistrictInfo((prev) =>
+                                        prev
+                                            ? {
+                                                ...prev,
+                                                files:
+                                                    updated.files ??
+                                                    mergedFull,
+                                            }
+                                            : prev
+                                    );
+                                } catch (e) {
+                                    console.warn(
+                                        "[DistrictModal] Falha ao atualizar ficheiros do distrito (batch completo)",
+                                        e
+                                    );
+                                }
+                            }
                         }
+                    } catch (e) {
+                        console.warn(
+                            "[DistrictModal] Falha batch completo da galeria",
+                            e
+                        );
+                    }
+                } else if (districtInfo?.id) {
+                    // já temos 10 (BD + firstCommons) → sincronizar BD se necessário
+                    try {
+                        const updated = await updateDistrict(districtInfo.id, {
+                            files: merged,
+                        });
+                        setDistrictInfo((prev) =>
+                            prev
+                                ? {
+                                    ...prev,
+                                    files: updated.files ?? merged,
+                                }
+                                : prev
+                        );
+                    } catch (e) {
+                        console.warn(
+                            "[DistrictModal] Falha ao atualizar ficheiros do distrito (batch inicial)",
+                            e
+                        );
                     }
                 }
             } catch (e) {
                 console.warn("[DistrictModal] Falha a preparar galeria", e);
                 setDistMedia([]);
                 setShowGallery(true);
-            } finally {
                 setLoadingGallery(false);
             }
         })();
     };
+
     if (!open) {
         return null;
     }
@@ -789,8 +831,6 @@ export default function DistrictModal(props: Props) {
                                         label="Imagens / vídeos do distrito"
                                         images={distMedia}
                                         onChange={setDistMedia}
-                                        // se o teu ImageDropField só aceita "image" | "video",
-                                        // deixa "image" aqui, porque estamos a gravar apenas URLs.
                                         mode="image"
                                     />
                                 </div>
