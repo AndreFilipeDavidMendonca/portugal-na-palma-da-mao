@@ -7,7 +7,7 @@ async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> 
     if (res.status === 204) return null as unknown as T;
 
     const text = await res.text();
-    let data: any = null;
+    let data: any;
 
     // evita crash se vier HTML/texto
     try {
