@@ -1,11 +1,9 @@
-// src/pages/Home.tsx
 import { MapContainer, TileLayer, Pane } from "react-leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 
 import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-
 import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -13,29 +11,26 @@ import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
 import {
     fetchDistricts,
     fetchPois,
+    fetchCurrentUser,
     type DistrictDto,
     type PoiDto,
+    type CurrentUserDto,
 } from "@/lib/api";
 import { filterPointsInsideDistrict } from "@/lib/spatial";
 
 type AnyGeo = any;
 
-// Converte array de PoiDto em FeatureCollection de pontos
+const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
+
 function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
     return {
         type: "FeatureCollection",
         features: pois.map((p) => ({
             type: "Feature",
-            geometry: {
-                type: "Point",
-                // ⚠️ Ordem [lon, lat]
-                coordinates: [p.lon, p.lat],
-            },
+            geometry: { type: "Point", coordinates: [p.lon, p.lat] },
             properties: {
-                // id do próprio POI (backend)
                 id: p.id,
-                poiId: p.id, // 👈 extra, se quiseres usar explicitamente poi_id
-
+                poiId: p.id,
                 districtId: p.districtId,
                 name: p.name,
                 namePt: p.namePt ?? p.name,
@@ -46,16 +41,10 @@ function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
                 sipaId: p.sipaId,
                 externalOsmId: p.externalOsmId,
                 source: p.source,
-
                 image: p.image,
                 images: p.images ?? [],
-
-                // para o DistrictModal considerar como “útil”
                 historic: p.category || "poi",
-                tags: {
-                    category: p.category,
-                    subcategory: p.subcategory,
-                },
+                tags: { category: p.category, subcategory: p.subcategory },
             },
         })),
     };
@@ -66,15 +55,12 @@ export default function Home() {
     const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
     const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
-    // Mundo visível sem repetição
-    const WORLD_BOUNDS = L.latLngBounds(
-        [-85.05112878, -180],
-        [85.05112878, 180]
-    );
-
     // ----- Distritos (API) -----
     const [districtDtos, setDistrictDtos] = useState<DistrictDto[]>([]);
     const [loadingDistricts, setLoadingDistricts] = useState(false);
+
+    // ----- Utilizador atual (guest => null) -----
+    const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
 
     // ----- Filtros POI -----
     const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(
@@ -87,7 +73,7 @@ export default function Home() {
         null
     );
 
-    // POIs do distrito ativo (já em GeoJSON, recortados ao polígono)
+    // POIs do distrito ativo (GeoJSON recortado)
     const [activeDistrictPois, setActiveDistrictPois] = useState<AnyGeo | null>(
         null
     );
@@ -97,8 +83,41 @@ export default function Home() {
     // Map ref
     const mapRef = useRef<L.Map | null>(null);
 
+    // ✅ tem de estar DENTRO do Home porque usa setCurrentUser
+    async function refreshUser() {
+        const u = await fetchCurrentUser().catch(() => null);
+        setCurrentUser(u);
+    }
+
     // =========================
-    //   Carregamento de dados base
+    //   Carregar utilizador atual (role) — NÃO BLOQUEIA HOME
+    // =========================
+    useEffect(() => {
+        let alive = true;
+
+        fetchCurrentUser()
+            .then((u) => {
+                if (!alive) return;
+                setCurrentUser(u); // u pode ser null (guest)
+            })
+            .catch((e) => {
+                console.warn("[api] /api/me falhou (não é 401 normal):", e);
+                if (!alive) return;
+                setCurrentUser(null);
+            });
+
+        return () => {
+            alive = false;
+        };
+    }, []);
+
+    const isAdmin = useMemo(
+        () => currentUser?.role?.toLowerCase() === "admin",
+        [currentUser]
+    );
+
+    // =========================
+    //   Carregamento de Geo base
     // =========================
     useEffect(() => {
         let aborted = false;
@@ -125,24 +144,20 @@ export default function Home() {
     useEffect(() => {
         let alive = true;
         setLoadingDistricts(true);
+
         fetchDistricts()
             .then((ds) => {
                 if (!alive) return;
                 setDistrictDtos(ds);
             })
-            .catch((e) => {
-                console.error("[api] Falha a carregar distritos:", e);
-            })
-            .finally(() => {
-                if (alive) setLoadingDistricts(false);
-            });
+            .catch((e) => console.error("[api] Falha a carregar distritos:", e))
+            .finally(() => alive && setLoadingDistricts(false));
 
         return () => {
             alive = false;
         };
     }, []);
 
-    // nome → DTO de distrito
     const districtDtoByName = useMemo(() => {
         const m = new Map<string, DistrictDto>();
         for (const d of districtDtos) {
@@ -152,7 +167,6 @@ export default function Home() {
         return m;
     }, [districtDtos]);
 
-    // nome → feature (shapes do mapa)
     const featureByName = useMemo(() => {
         const m = new Map<string, any>();
         if (districtsGeo?.features) {
@@ -175,9 +189,6 @@ export default function Home() {
         [featureByName]
     );
 
-    // =========================
-    //       Handlers UI
-    // =========================
     function togglePoiType(k: PoiCategory) {
         setSelectedPoiTypes((prev) => {
             const next = new Set(prev);
@@ -190,7 +201,6 @@ export default function Home() {
         setSelectedPoiTypes(new Set());
     }
 
-    // carrega POIs da API para um dado feature de distrito
     async function loadPoisForDistrictFeature(feature: any) {
         if (!feature?.properties) {
             setActiveDistrictPois(null);
@@ -201,7 +211,6 @@ export default function Home() {
             feature.properties.name ||
             feature.properties.NAME ||
             feature.properties["name:pt"];
-
         if (!name) {
             setActiveDistrictPois(null);
             return;
@@ -219,23 +228,20 @@ export default function Home() {
         setActiveDistrictPois(null);
 
         try {
-            // 👉 Agora buscamos TODOS os POIs
             const pois = await fetchPois();
-            if (reqId !== poisReqRef.current) return; // pedido ultrapassado
+            if (reqId !== poisReqRef.current) return;
 
             const allGeo = poiDtosToGeoJSON(pois);
-
-            // 👉 recorta pelo polígono do distrito para não mostrar pontos fora
             const clipped =
-                filterPointsInsideDistrict(allGeo, feature) ??
-                { type: "FeatureCollection", features: [] };
+                filterPointsInsideDistrict(allGeo, feature) ?? {
+                    type: "FeatureCollection",
+                    features: [],
+                };
 
             setActiveDistrictPois(clipped);
         } catch (e) {
             console.error("[api] Falha a carregar POIs do distrito:", e);
-            if (reqId === poisReqRef.current) {
-                setActiveDistrictPois(null);
-            }
+            if (reqId === poisReqRef.current) setActiveDistrictPois(null);
         } finally {
             if (reqId === poisReqRef.current) setLoadingDistrictPois(false);
         }
@@ -247,7 +253,6 @@ export default function Home() {
         await loadPoisForDistrictFeature(feature);
     }
 
-    // Pick vindo do topo: centra e abre modal
     function handlePickFromTop(name: string) {
         const f = featureByName.get(name);
         if (!f) return;
@@ -255,7 +260,6 @@ export default function Home() {
         openDistrictModal(f);
     }
 
-    // Fechar modal: recenter
     function handleCloseModal() {
         setIsModalOpen(false);
         setActiveDistrictFeature(null);
@@ -263,9 +267,6 @@ export default function Home() {
         if (mapRef.current && ptGeo) fitGeoJSONBoundsTight(mapRef.current, ptGeo);
     }
 
-    // =========================
-    //         Map utils
-    // =========================
     function onMapReadyNoArg() {
         const map = mapRef.current;
         if (!map) return;
@@ -286,14 +287,10 @@ export default function Home() {
                 document.querySelector<HTMLElement>(".top-district-filter");
             const topH = topbar?.offsetHeight ?? 0;
 
-            const SIDE_PAD = 10;
-            const TOP_PAD = topH + 50;
-            const BOT_PAD = 10;
-
             map.fitBounds(bounds, {
                 animate,
-                paddingTopLeft: [SIDE_PAD, TOP_PAD],
-                paddingBottomRight: [SIDE_PAD, BOT_PAD],
+                paddingTopLeft: [10, topH + 50],
+                paddingBottomRight: [10, 10],
                 maxZoom: 3,
             });
 
@@ -312,15 +309,10 @@ export default function Home() {
         if (b.isValid()) map.fitBounds(b.pad(0.08), { animate: true });
     }
 
-    // =========================
-    //    Loading / Overlay
-    // =========================
+    // overlay depende só de geo + distritos (user NÃO conta)
     const dataReady = Boolean(ptGeo && districtsGeo && !loadingDistricts);
     const showOverlay = !dataReady;
 
-    // =========================
-    //          Render
-    // =========================
     return (
         <>
             {showOverlay && (
@@ -333,6 +325,8 @@ export default function Home() {
                         <TopDistrictFilter
                             allNames={districtNames}
                             onPick={handlePickFromTop}
+                            currentUser={currentUser}
+                            onLoggedOut={refreshUser}
                         />
                     </div>
                 </div>
@@ -354,10 +348,7 @@ export default function Home() {
                     minZoom={2}
                     style={{ height: "100vh", width: "100vw" }}
                 >
-                    <Pane
-                        name="worldBase"
-                        style={{ zIndex: 200, pointerEvents: "none" }}
-                    >
+                    <Pane name="worldBase" style={{ zIndex: 200, pointerEvents: "none" }}>
                         <TileLayer
                             url={WORLD_BASE}
                             attribution='&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -396,9 +387,9 @@ export default function Home() {
                 onClearTypes={clearPoiTypes}
                 poiPoints={activeDistrictPois}
                 population={null}
+                isAdmin={isAdmin}
             />
 
-            {/* loading específico dos POIs do distrito */}
             {loadingDistrictPois && (
                 <LoadingOverlay message="A carregar pontos de interesse do distrito…" />
             )}

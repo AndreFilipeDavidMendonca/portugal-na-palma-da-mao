@@ -1,10 +1,75 @@
-// src/lib/api.ts
+export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085";
 
-export const API_BASE =
-    import.meta.env.VITE_API_BASE ?? "http://localhost:8085";
+/* ========= helpers ========= */
+async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+    const res = await fetch(input, init);
+
+    if (res.status === 204) return null as unknown as T;
+
+    const text = await res.text();
+    let data: any = null;
+
+    // evita crash se vier HTML/texto
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        data = text || null;
+    }
+
+    if (!res.ok) {
+        const msg =
+            (data && typeof data === "object" && (data.message || data.error)) ||
+            (typeof data === "string" && data) ||
+            `Erro HTTP ${res.status}`;
+        throw new Error(msg);
+    }
+
+    return data as T;
+}
+
+/* ========= Auth / Utilizador atual ========= */
+export type CurrentUserDto = {
+    id: string;
+    email: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    role: string; // "ADMIN" | "USER"
+};
+
+/** Guest => null (não lança erro) */
+export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
+    const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+
+    if (res.status === 401) return null;
+
+    if (!res.ok) {
+        throw new Error(`Falha a carregar utilizador atual (status ${res.status})`);
+    }
+
+    return res.json();
+}
+
+/** Backend espera x-www-form-urlencoded */
+export async function login(email: string, password: string) {
+    const res = await fetch(`${API_BASE}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: email.trim(), password }),
+    });
+
+    if (!res.ok) throw new Error(`Login falhou (status ${res.status})`);
+    return res.json(); // ou fetchCurrentUser() se preferires
+}
+
+export async function logout(): Promise<void> {
+    await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        credentials: "include",
+    });
+}
 
 /* ========= POIs ========= */
-
 export type PoiDto = {
     id: number;
     districtId: number | null;
@@ -24,15 +89,11 @@ export type PoiDto = {
 };
 
 export async function fetchPois(): Promise<PoiDto[]> {
-    const res = await fetch(`${API_BASE}/api/pois`);
-    if (!res.ok) throw new Error("Falha a carregar POIs");
-    return res.json();
+    return jsonFetch<PoiDto[]>(`${API_BASE}/api/pois`);
 }
 
 export async function fetchPoiById(id: number): Promise<PoiDto> {
-    const res = await fetch(`${API_BASE}/api/pois/${id}`);
-    if (!res.ok) throw new Error("Falha a carregar POI");
-    return res.json();
+    return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`);
 }
 
 export type PoiUpdatePayload = {
@@ -43,23 +104,16 @@ export type PoiUpdatePayload = {
     images?: string[] | null;
 };
 
-export async function updatePoi(
-    id: number,
-    body: PoiUpdatePayload
-): Promise<PoiDto> {
-    const res = await fetch(`${API_BASE}/api/pois/${id}`, {
+export async function updatePoi(id: number, body: PoiUpdatePayload): Promise<PoiDto> {
+    return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(body),
     });
-    if (!res.ok) {
-        throw new Error(`Falha ao atualizar POI (status ${res.status})`);
-    }
-    return res.json();
 }
 
 /* ========= Distritos ========= */
-
 export type DistrictDto = {
     id: number;
     code: string;
@@ -74,15 +128,15 @@ export type DistrictDto = {
     history: string | null;
     municipalitiesCount: number | null;
     parishesCount: number | null;
-
-    // aqui guardamos as URLs ("/api/districts/{id}/files/{fileId}")
     files: string[];
 };
 
 export async function fetchDistricts(): Promise<DistrictDto[]> {
-    const res = await fetch(`${API_BASE}/api/districts`);
-    if (!res.ok) throw new Error("Falha a carregar distritos");
-    return res.json();
+    return jsonFetch<DistrictDto[]>(`${API_BASE}/api/districts`);
+}
+
+export async function fetchDistrictById(id: number): Promise<DistrictDto> {
+    return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`);
 }
 
 export type DistrictUpdatePayload = {
@@ -97,59 +151,11 @@ export type DistrictUpdatePayload = {
     files?: string[] | null;
 };
 
-export async function updateDistrict(
-    id: number,
-    body: DistrictUpdatePayload
-): Promise<DistrictDto> {
-    const res = await fetch(`${API_BASE}/api/districts/${id}`, {
+export async function updateDistrict(id: number, body: DistrictUpdatePayload): Promise<DistrictDto> {
+    return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(body),
     });
-    if (!res.ok) {
-        throw new Error(`Falha ao atualizar distrito (status ${res.status})`);
-    }
-    return res.json();
-}
-
-/* ========= Ficheiros de distrito ========= */
-
-export type DistrictFileDto = {
-    id: number;
-    districtId: number;
-    fileName: string;
-    contentType: string;
-    url: string;            // /api/districts/{districtId}/files/{id}
-    base64Content?: string; // opcional, caso o backend envie
-};
-
-export async function uploadDistrictFiles(
-    districtId: number,
-    files: File[]
-): Promise<DistrictFileDto[]> {
-    const formData = new FormData();
-    for (const f of files) {
-        formData.append("files", f);
-    }
-
-    const res = await fetch(`${API_BASE}/api/districts/${districtId}/files`, {
-        method: "POST",
-        body: formData, // NÃO pôr Content-Type, o browser trata disso
-    });
-
-    if (!res.ok) {
-        throw new Error(
-            `Falha ao fazer upload de ficheiros (status ${res.status})`
-        );
-    }
-
-    return res.json();
-}
-
-export async function fetchDistrictById(id: number): Promise<DistrictDto> {
-    const res = await fetch(`${API_BASE}/api/districts/${id}`);
-    if (!res.ok) {
-        throw new Error(`Falha a carregar distrito (status ${res.status})`);
-    }
-    return res.json();
 }

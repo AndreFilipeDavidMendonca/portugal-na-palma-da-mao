@@ -1,5 +1,3 @@
-// src/pages/district/DistrictModal.tsx
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -100,6 +98,9 @@ type Props = {
         image?: string | null;
         images?: string[] | null;
     }) => void;
+
+    /** Apenas admins podem editar distrito / galeria */
+    isAdmin?: boolean;
 };
 
 export default function DistrictModal(props: Props) {
@@ -119,6 +120,7 @@ export default function DistrictModal(props: Props) {
         peaks: peaksProp = null,
         places: placesProp = null,
         onPoiUpdated,
+        isAdmin = false,
     } = props;
 
     /* ====== Estado POI seleccionado ====== */
@@ -366,27 +368,17 @@ export default function DistrictModal(props: Props) {
 
                 setSelectedPoiInfo(info);
 
-                // ---------- lógica "carrega 3 e abre" ----------
                 const imgList = [
                     info.image,
                     ...(info.images ?? []),
                 ].filter((u): u is string => !!u);
 
                 const hasAnyImage = imgList.length > 0;
-                const has3OrMoreImages = imgList.length >= 3;
-
                 const hasTitle = !!info.label;
                 const hasDesc =
                     !!info.description && info.description.trim().length > 0;
 
-                // regra:
-                // - se houver ≥3 imagens → só abrimos quando esse estado estiver pronto (que já está aqui)
-                // - se houver <3 imagens → abrimos na mesma se houver texto ou 1 imagem
-                const shouldOpen =
-                    has3OrMoreImages
-                        ? (hasTitle || hasDesc || hasAnyImage)
-                        : (hasTitle || hasDesc || hasAnyImage);
-
+                const shouldOpen = hasTitle || hasDesc || hasAnyImage;
                 setShowPoiModal(shouldOpen);
             } catch (e) {
                 console.warn("[POI] fetchPoiInfo error", e);
@@ -407,6 +399,7 @@ export default function DistrictModal(props: Props) {
 
     /* ====== Guardar distrito ====== */
     const handleDistrictSave = async () => {
+        if (!isAdmin) return;
         if (!districtInfo?.id) {
             setDistrictError("ID do distrito em falta.");
             return;
@@ -459,6 +452,12 @@ export default function DistrictModal(props: Props) {
     };
 
     const handleCancelEdit = () => {
+        if (!isAdmin) {
+            setEditingDistrict(false);
+            setDistrictError(null);
+            return;
+        }
+
         if (districtInfo) {
             setDistPopulation(
                 districtInfo.population != null
@@ -844,7 +843,7 @@ export default function DistrictModal(props: Props) {
                                 />
                             </div>
 
-                            {editingDistrict && districtInfo?.id && (
+                            {editingDistrict && isAdmin && districtInfo?.id && (
                                 <div className="district-gallery-editor">
                                     <ImageDropField
                                         label="Imagens / vídeos do distrito"
@@ -864,7 +863,7 @@ export default function DistrictModal(props: Props) {
                         {/* Header com edição (Editar aparece só em modo galeria) */}
                         <div className="district-header">
                             <div className="district-header-main">
-                                {editingDistrict ? (
+                                {editingDistrict && isAdmin ? (
                                     <input
                                         className="district-name-input"
                                         value={distName}
@@ -881,7 +880,7 @@ export default function DistrictModal(props: Props) {
                                 )}
                             </div>
                             <div className="district-header-actions">
-                                {showGallery &&
+                                {showGallery && isAdmin &&
                                     (editingDistrict ? (
                                         <>
                                             <button
@@ -908,7 +907,7 @@ export default function DistrictModal(props: Props) {
                                             type="button"
                                             className="district-btn district-btn--ghost"
                                             onClick={() =>
-                                                setEditingDistrict(true)
+                                                isAdmin && setEditingDistrict(true)
                                             }
                                         >
                                             Editar
@@ -939,7 +938,7 @@ export default function DistrictModal(props: Props) {
                             <div className="district-meta">
                                 <div>
                                     <strong>População:</strong>{" "}
-                                    {editingDistrict ? (
+                                    {editingDistrict && isAdmin ? (
                                         <input
                                             className="district-meta-input"
                                             value={distPopulation}
@@ -953,7 +952,7 @@ export default function DistrictModal(props: Props) {
                                 </div>
                                 <div>
                                     <strong>Concelhos:</strong>{" "}
-                                    {editingDistrict ? (
+                                    {editingDistrict && isAdmin ? (
                                         <input
                                             className="district-meta-input"
                                             value={distMunicipalities}
@@ -969,7 +968,7 @@ export default function DistrictModal(props: Props) {
                                 </div>
                                 <div>
                                     <strong>Freguesias:</strong>{" "}
-                                    {editingDistrict ? (
+                                    {editingDistrict && isAdmin ? (
                                         <input
                                             className="district-meta-input"
                                             value={distParishes}
@@ -983,7 +982,7 @@ export default function DistrictModal(props: Props) {
                                 </div>
                                 <div>
                                     <strong>Habitado desde:</strong>{" "}
-                                    {editingDistrict ? (
+                                    {editingDistrict && isAdmin ? (
                                         <input
                                             className="district-meta-input"
                                             value={distInhabitedSince}
@@ -1001,7 +1000,7 @@ export default function DistrictModal(props: Props) {
 
                             {/* descrição / história */}
                             <div className="district-text-blocks">
-                                {editingDistrict ? (
+                                {editingDistrict && isAdmin ? (
                                     <>
                                         <label className="district-label">
                                             Descrição
@@ -1072,6 +1071,7 @@ export default function DistrictModal(props: Props) {
                 onSaved={(patch) => {
                     onPoiUpdated?.(patch);
                 }}
+                isAdmin={isAdmin}
             />
 
             {(loadingPoi || loadingGallery) && (

@@ -1,0 +1,139 @@
+/* container do dropdown */
+.user-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* botão (logo) */
+.user-menu__btn {
+  border: none;
+  background: transparent;
+  padding: 6px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.user-menu__btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.user-menu__btn img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+}
+
+/* dropdown */
+.user-menu__dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 320px;
+  padding: 14px;
+  border-radius: 18px;
+
+  /* usa o mesmo fundo da top bar */
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+
+  backdrop-filter: blur(10px);
+  box-shadow:
+          0 14px 34px rgba(0,0,0,0.35),
+          0 1px 0 rgba(255,255,255,0.05) inset;
+  z-index: 9999;
+}
+
+/* header (avatar + meta) */
+.user-menu__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 6px 12px 6px;
+}
+
+/* avatar AD maior */
+.user-menu__avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(212, 175, 55, 0.16);
+  border: 1px solid rgba(212, 175, 55, 0.30);
+}
+
+/* centra melhor o bloco do user */
+.user-menu__meta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.user-menu__email {
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-menu__role {
+  justify-self: start;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: rgba(212, 175, 55, 0.95);
+  background: rgba(212, 175, 55, 0.10);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+/* divider */
+.user-menu__divider {
+  height: 1px;
+  margin: 10px 0;
+  background: rgba(255,255,255,0.08);
+}
+
+/* items */
+.user-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255,255,255,0.88);
+  cursor: pointer;
+  text-align: left;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.user-menu__item:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.10);
+}
+
+.user-menu__item--danger {
+  color: rgba(255, 140, 140, 0.95);
+}
+.user-menu__item--danger:hover {
+  background: rgba(255, 80, 80, 0.10);
+  border-color: rgba(255, 80, 80, 0.18);
+}

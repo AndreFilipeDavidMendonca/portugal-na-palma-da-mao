@@ -1,12 +1,16 @@
-// src/features/topbar/TopDistrictFilter.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import logo from "@/assets/logo.png";
 import "./TopDistrictFilter.scss";
+import UserMenu from "@/features/topbar/UserMenu";
+import type { CurrentUserDto } from "@/lib/api";
 
 type Props = {
     allNames: string[];
     onPick: (name: string) => void;
     placeholder?: string;
+
+    // auth
+    currentUser: CurrentUserDto | null;
+    onLoggedOut?: () => void;
 };
 
 /* ---------------- helpers ---------------- */
@@ -21,12 +25,12 @@ function norm(s?: string | null) {
 }
 
 const STOPWORDS = new Set([
-    "o", "a", "os", "as", "um", "uma", "uns", "umas",
-    "de", "do", "da", "dos", "das", "d", "e",
-    "no", "na", "nos", "nas",
-    "ao", "aos", "à", "às",
-    "para", "por", "em",
-    "the", "of", "and",
+    "o","a","os","as","um","uma","uns","umas",
+    "de","do","da","dos","das","d","e",
+    "no","na","nos","nas",
+    "ao","aos","à","às",
+    "para","por","em",
+    "the","of","and",
     "nacional",
 ]);
 
@@ -44,7 +48,6 @@ function isSubsequenceChars(query: string, target: string): boolean {
     return i === q.length;
 }
 
-/** devolve uma pontuação; 0 = não relevante */
 function scoreNameFlexible(name: string, query: string): number {
     const n = norm(name);
     const q = norm(query);
@@ -88,7 +91,6 @@ function scoreNameFlexible(name: string, query: string): number {
     score += inOrder * 6;
 
     score -= Math.max(0, nameTokens.length - queryTokens.length) * 2;
-
     return Math.max(1, score);
 }
 
@@ -98,56 +100,52 @@ export default function TopDistrictFilter({
                                               allNames,
                                               onPick,
                                               placeholder = "Procurar distrito…",
+                                              currentUser,
+                                              onLoggedOut,
                                           }: Props) {
     const [open, setOpen] = useState(false);
-
     const [typedQuery, setTypedQuery] = useState("");
     const [previewQuery, setPreviewQuery] = useState<string | null>(null);
     const inputValue = previewQuery ?? typedQuery;
-
     const [activeIdx, setActiveIdx] = useState(0);
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const listRef = useRef<HTMLUListElement | null>(null);
 
-    // ---------- índice (só distritos) ----------
     const searchIndex = useMemo<SearchItem[]>(() => {
         return allNames.map((n) => ({ kind: "district", name: n }));
     }, [allNames]);
 
-    // ---------- resultados ----------
     const filtered = useMemo(() => {
-        const qRaw = typedQuery;
-        const q = norm(qRaw);
-        if (!q) return [] as SearchItem[];
-
+        if (!typedQuery) return [];
         return searchIndex
-            .map(it => {
-                const score = scoreNameFlexible(it.name, qRaw);
-                return { it, score };
-            })
+            .map(it => ({ it, score: scoreNameFlexible(it.name, typedQuery) }))
             .filter(x => x.score >= 40)
             .sort((a, b) => b.score - a.score)
             .slice(0, 30)
             .map(x => x.it);
     }, [typedQuery, searchIndex]);
 
-    // click fora
     useEffect(() => {
         function onClickOutside(e: MouseEvent) {
-            if (!wrapRef.current) return;
-            if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+            if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
         }
         document.addEventListener("mousedown", onClickOutside);
         return () => document.removeEventListener("mousedown", onClickOutside);
     }, []);
 
-    // scroll acompanha a seleção
     useEffect(() => {
         if (!open || !listRef.current) return;
         const el = listRef.current.querySelector(".tdf-item.is-active") as HTMLElement | null;
         if (el) el.scrollIntoView({ block: "nearest" });
     }, [activeIdx, open, filtered.length]);
+
+    function handlePick(item: SearchItem) {
+        setOpen(false);
+        setPreviewQuery(null);
+        setTypedQuery(item.name);
+        onPick(item.name);
+    }
 
     function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
         if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
@@ -180,18 +178,9 @@ export default function TopDistrictFilter({
         }
     }
 
-    function handlePick(item: SearchItem) {
-        setOpen(false);
-        setPreviewQuery(null);
-        setTypedQuery(item.name);
-        onPick(item.name);
-    }
-
     return (
         <div className="tdf-wrap" ref={wrapRef}>
-            <div className="tdf-logo">
-                <img src={logo} alt=".pt" />
-            </div>
+            <UserMenu currentUser={currentUser} onLoggedOut={onLoggedOut} />
 
             <span className="tdf-label">Pesquisar</span>
 
@@ -211,16 +200,10 @@ export default function TopDistrictFilter({
                 />
 
                 {open && filtered.length > 0 && (
-                    <ul
-                        className="tdf-list gold-scroll"
-                        role="listbox"
-                        ref={listRef}
-                    >
+                    <ul className="tdf-list gold-scroll" ref={listRef}>
                         {filtered.map((item, i) => (
                             <li
-                                key={`${item.kind}:${item.name}:${i}`}
-                                role="option"
-                                aria-selected={i === activeIdx}
+                                key={`${item.name}-${i}`}
                                 className={`tdf-item ${i === activeIdx ? "is-active" : ""}`}
                                 onMouseDown={(e) => {
                                     e.preventDefault();
@@ -237,21 +220,6 @@ export default function TopDistrictFilter({
                     </ul>
                 )}
             </div>
-
-            {inputValue && (
-                <button
-                    className="btn-clear"
-                    onClick={() => {
-                        setTypedQuery("");
-                        setPreviewQuery(null);
-                        setOpen(false);
-                        setActiveIdx(0);
-                        onPick(""); // limpa seleção de distrito no Home
-                    }}
-                >
-                    Limpar
-                </button>
-            )}
         </div>
     );
 }
