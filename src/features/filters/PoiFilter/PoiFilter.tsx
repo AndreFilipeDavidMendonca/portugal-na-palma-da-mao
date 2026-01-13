@@ -209,6 +209,7 @@ export default function PoiFilter({
         </>
     );
 
+    //: TODO - para mobile futuramente
     const contentPanel = (
         <>
             {/* painel lateral / versão antiga: todos os chips planos */}

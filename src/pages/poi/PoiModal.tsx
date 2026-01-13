@@ -19,19 +19,10 @@ type Props = {
         image?: string | null;
         images?: string[] | null;
     }) => void;
-    /** Apenas admins podem editar */
     isAdmin?: boolean;
 };
 
-export default function PoiModal({
-                                     open,
-                                     onClose,
-                                     info,
-                                     poi,
-                                     onSaved,
-                                     isAdmin = false,
-                                 }: Props) {
-    // ✅ Hooks SEMPRE no topo
+export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = false }: Props) {
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -41,7 +32,6 @@ export default function PoiModal({
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
 
-    // Mantém estado local em sync com "info"
     useEffect(() => {
         setLocalInfo(info);
         setEditing(false);
@@ -57,37 +47,24 @@ export default function PoiModal({
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
 
-        const gal: string[] = [];
-        if (info.image) gal.push(info.image);
-        for (const u of info.images ?? []) {
-            if (u && !gal.includes(u)) gal.push(u);
-        }
+        const gal = Array.from(
+            new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean))
+        );
         setImagesList(gal);
     }, [info]);
 
-    // ✅ useMemo também SEMPRE (mesmo que localInfo seja null)
-    const mediaUrls = useMemo(() => {
-        const urls: string[] = [];
-        const push = (u?: string | null) => {
-            if (!u) return;
-            if (urls.includes(u)) return;
-            urls.push(u);
-        };
-        push(localInfo?.image ?? null);
-        for (const u of localInfo?.images ?? []) push(u);
-        return urls;
-    }, [localInfo?.image, localInfo?.images]);
+    const title = useMemo(() => localInfo?.label ?? "Ponto de interesse", [localInfo?.label]);
 
-    const title = useMemo(() => {
-        return localInfo?.label ?? "Ponto de interesse";
-    }, [localInfo?.label]);
+    const mediaUrls = useMemo(() => {
+        return Array.from(new Set([localInfo?.image ?? "", ...(localInfo?.images ?? [])].filter(Boolean)));
+    }, [localInfo?.image, localInfo?.images]);
 
     const poiId: number | null = useMemo(() => {
         return typeof poi?.properties?.id === "number" ? poi.properties.id : null;
     }, [poi]);
 
     const canRender = open && !!info && !!localInfo;
-    const canEdit = isAdmin && !!poiId;
+    const canEdit = Boolean(isAdmin && poiId);
 
     const handleSave = async () => {
         if (!poiId) {
@@ -109,7 +86,6 @@ export default function PoiModal({
                 images: imagesList.length > 0 ? imagesList : null,
             });
 
-            // atualiza UI local
             setLocalInfo((prev) =>
                 prev
                     ? {
@@ -139,17 +115,11 @@ export default function PoiModal({
         }
     };
 
-    // ✅ Agora sim: returns condicionais, depois de todos os hooks
     if (!canRender) return null;
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
-            <div
-                className="poi-card"
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-            >
+            <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
                 <header className="poi-header">
                     <div className="poi-title-wrap">
                         <h2 className="poi-title">
@@ -181,22 +151,12 @@ export default function PoiModal({
                         )}
 
                         {editing && canEdit && (
-                            <button
-                                className="poi-save-btn"
-                                type="button"
-                                disabled={saving}
-                                onClick={handleSave}
-                            >
+                            <button className="poi-save-btn" type="button" disabled={saving} onClick={handleSave}>
                                 {saving ? "A guardar..." : "Guardar"}
                             </button>
                         )}
 
-                        <button
-                            className="poi-close"
-                            onClick={onClose}
-                            aria-label="Fechar"
-                            type="button"
-                        >
+                        <button className="poi-close" onClick={onClose} aria-label="Fechar" type="button">
                             ×
                         </button>
                     </div>
@@ -208,28 +168,30 @@ export default function PoiModal({
 
                         {editing && canEdit && (
                             <div className="poi-media-uploader">
-                                <ImageDropField
-                                    label="Imagens / vídeos"
-                                    images={imagesList}
-                                    onChange={setImagesList}
-                                    mode="media"
-                                />
+                                <ImageDropField label="Imagens / vídeos" images={imagesList} onChange={setImagesList} mode="media" />
                             </div>
                         )}
                     </section>
 
                     <aside className="poi-side gold-scroll">
+                        <a
+                            className="btn-directions"
+                            href={
+                                localInfo?.coords
+                                    ? `https://www.google.com/maps/dir/?api=1&destination=${localInfo.coords.lat},${localInfo.coords.lon}`
+                                    : `https://www.google.com/maps/`
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            Direções
+                        </a>
                         {errorMsg && <div className="poi-error">{errorMsg}</div>}
 
                         {editing && canEdit ? (
                             <>
                                 <label className="poi-edit-label">Descrição</label>
-                                <textarea
-                                    className="poi-edit-textarea"
-                                    rows={10}
-                                    value={descInput}
-                                    onChange={(e) => setDescInput(e.target.value)}
-                                />
+                                <textarea className="poi-edit-textarea" rows={10} value={descInput} onChange={(e) => setDescInput(e.target.value)} />
                             </>
                         ) : (
                             <p className="poi-desc">{localInfo?.description ?? ""}</p>

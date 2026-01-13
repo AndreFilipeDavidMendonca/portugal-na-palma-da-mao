@@ -12,26 +12,31 @@
   position: relative;
   width: 100%;
   max-width: 100%;
-  aspect-ratio: 16 / 9;      /* controla a altura */
+  aspect-ratio: 16 / 9;
   border-radius: 18px;
   overflow: hidden;
-  background: #000;          /* só atrás da imagem */
+  background: #000;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.slideshow__frame--empty {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-/* Imagem / vídeo preenchem a moldura */
 .slideshow__media {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.slideshow__media.is-active {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Spinner central em overlay */

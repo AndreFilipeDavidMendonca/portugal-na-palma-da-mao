@@ -386,7 +386,6 @@ export default function Home() {
                 onToggleType={togglePoiType}
                 onClearTypes={clearPoiTypes}
                 poiPoints={activeDistrictPois}
-                population={null}
                 isAdmin={isAdmin}
             />
 

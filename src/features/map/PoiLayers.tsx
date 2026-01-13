@@ -2,7 +2,7 @@ import React from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
 
-import type { PoiCategory } from "@/utils/constants";
+import {POI_LABELS, PoiCategory} from "@/utils/constants";
 import { CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
 import markerSvgRaw from "@/assets/icons/marker.svg?raw";
@@ -18,7 +18,16 @@ function tag(p: any, key: string) {
 
 function getName(p: any) {
     const tags = p?.tags ?? {};
-    return p?.["name:pt"] || p?.name || tags["name:pt"] || tags.name || null;
+    return (
+        p?.namePt ||
+        p?.["name:pt"] ||
+        tags?.["name:pt"] ||
+        p?.name ||
+        tags?.name ||
+        p?.["name:en"] ||
+        tags?.["name:en"] ||
+        null
+    );
 }
 
 /* =========================
@@ -278,9 +287,11 @@ export function PoiPointsLayer({
             onEachFeature={(feature: any, layer: L.Layer) => {
                 const p = (feature as any).properties || {};
                 const name = getName(p) || "Sem nome";
-                const cat  = getPoiCategory(feature) ?? "";
+                const catKey = getPoiCategory(feature); // ex: "castle"
+                const catLabel = catKey ? POI_LABELS[catKey] : ""; // ex: "Castelo"
+
                 layer.bindTooltip(
-                    `<strong>${name}</strong>${cat ? `<div>${cat}</div>` : ""}`,
+                    `<strong>${name}</strong>${catLabel ? `<div>${catLabel}</div>` : ""}`,
                     { direction: "top", offset: L.point(0, -10), sticky: true }
                 );
                 const anyLayer: any = layer as any;

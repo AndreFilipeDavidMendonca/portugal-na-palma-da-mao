@@ -1,3 +1,4 @@
+// DistrictModal.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -20,36 +21,44 @@ import {
     POI_LABELS,
     type PoiCategory,
 } from "@/utils/constants";
+
 import { PoiAreasLayer, PoiPointsLayer } from "@/features/map/PoiLayers";
 import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
+
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
+
 import ImageDropField from "@/components/ImageDropField";
 import MediaSlideshow from "@/components/MediaSlideshow";
 
 import "./DistrictModal.scss";
 
-import {
-    updateDistrict,
-    type DistrictUpdatePayload,
-    fetchDistrictById,
-} from "@/lib/api";
-import {
-    fetchDistrictInfo,
-    type DistrictInfo,
-} from "@/lib/districtInfo";
-import { getDistrictCommonsGallery } from "@/lib/wikimedia";
+import { updateDistrict, type DistrictUpdatePayload, fetchDistrictById } from "@/lib/api";
+import { fetchDistrictInfo, type DistrictInfo } from "@/lib/districtInfo";
+import { getDistrictCommonsGallery, searchWikimediaImagesByName } from "@/lib/wikimedia";
 
 type AnyGeo = any;
 
-/* ---------- helpers locais ---------- */
+/* ---------------- Helpers ---------------- */
 
-const uniqStrings = (arr: string[]): string[] =>
-    Array.from(new Set(arr.filter(Boolean)));
+const uniqStrings = (arr: string[]): string[] => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 const isPoiCategory = (val: any): val is PoiCategory =>
     val != null && Object.prototype.hasOwnProperty.call(POI_LABELS, val);
+
+const pickPoiLabel = (feature: any): string | null => {
+    const p = feature?.properties ?? {};
+    const label = p.namePt ?? p["name:pt"] ?? p.name ?? p["name:en"] ?? p.label ?? null;
+    return typeof label === "string" && label.trim().length >= 3 ? label.trim() : null;
+};
+
+const pickPoiId = (feature: any): number | null => {
+    const id = feature?.properties?.id;
+    return typeof id === "number" ? id : null;
+};
+
+const mergeMedia = (base: string[], extra: string[], limit = 10) => uniqStrings([...base, ...extra]).slice(0, limit);
 
 /* ---------- Fit Bounds ---------- */
 function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
@@ -73,16 +82,21 @@ function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
     return null;
 }
 
+/* ---------------- Types ---------------- */
+
 type Props = {
     open: boolean;
     onClose: () => void;
+
     districtFeature: AnyGeo | null;
+
     selectedTypes: Set<PoiCategory>;
     onToggleType: (k: PoiCategory) => void;
     onClearTypes: () => void;
+
     poiPoints: AnyGeo | null;
     poiAreas?: AnyGeo | null;
-    population?: number | null;
+
     rivers?: AnyGeo | null;
     lakes?: AnyGeo | null;
     rails?: AnyGeo | null;
@@ -99,8 +113,13 @@ type Props = {
         images?: string[] | null;
     }) => void;
 
-    /** Apenas admins podem editar distrito / galeria */
     isAdmin?: boolean;
+};
+
+type PoiCacheEntry = {
+    info: PoiInfo;
+    media10: string[];
+    updatedAt: number;
 };
 
 export default function DistrictModal(props: Props) {
@@ -123,15 +142,30 @@ export default function DistrictModal(props: Props) {
         isAdmin = false,
     } = props;
 
-    /* ====== Estado POI seleccionado ====== */
+    /* ---------------- POI selection ---------------- */
+
     const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
-    const [selectedPoiInfo, setSelectedPoiInfo] = useState<PoiInfo | null>(null);
+    const [poiInfo, setPoiInfo] = useState<PoiInfo | null>(null);
     const [showPoiModal, setShowPoiModal] = useState(false);
     const [loadingPoi, setLoadingPoi] = useState(false);
-    const [loadingGallery, setLoadingGallery] = useState(false);
-    const lastReqRef = useRef(0);
 
-    /* ====== Layers / filtros ====== */
+    // preload gate invisível
+    const [preloadReqId, setPreloadReqId] = useState(0);
+    const [preloadInfo, setPreloadInfo] = useState<PoiInfo | null>(null);
+    const [preloadItems, setPreloadItems] = useState<string[]>([]);
+
+    const reqRef = useRef(0);
+
+    // cache + inflight
+    const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
+    const poiInflightRef = useRef<Map<number, Promise<void>>>(new Map());
+
+    // progresso do preload (para abrir por timeout com 0/1/2)
+    const preloadProgressRef = useRef<{ ready: boolean; loaded: string[]; failed: string[]; total: number } | null>(null);
+    const preloadOpenedRef = useRef(false);
+
+    /* ---------------- Layers / filtros ---------------- */
+
     const [renderNonce, setRenderNonce] = useState(0);
 
     const [rivers, setRivers] = useState<any>(riversProp);
@@ -141,13 +175,13 @@ export default function DistrictModal(props: Props) {
     const [peaks, setPeaks] = useState<any>(peaksProp);
     const [places, setPlaces] = useState<any>(placesProp);
 
-    /* ====== District info (texto + meta) ====== */
+    /* ---------------- District info ---------------- */
+
     const [districtInfo, setDistrictInfo] = useState<DistrictInfo | null>(null);
     const [editingDistrict, setEditingDistrict] = useState(false);
     const [savingDistrict, setSavingDistrict] = useState(false);
     const [districtError, setDistrictError] = useState<string | null>(null);
 
-    // campos editáveis
     const [distName, setDistName] = useState<string>("");
     const [distPopulation, setDistPopulation] = useState<string>("");
     const [distMunicipalities, setDistMunicipalities] = useState<string>("");
@@ -157,25 +191,37 @@ export default function DistrictModal(props: Props) {
     const [distHistory, setDistHistory] = useState<string>("");
     const [distMedia, setDistMedia] = useState<string[]>([]);
 
-    // galeria ON/OFF
     const [showGallery, setShowGallery] = useState(false);
+    const [loadingGallery, setLoadingGallery] = useState(false);
 
-    /* ===== reset ao fechar ===== */
+    /* ---------------- Reset ao fechar ---------------- */
+
     useEffect(() => {
         if (!open) {
             setShowGallery(false);
             setEditingDistrict(false);
             setDistrictError(null);
+
             setSelectedPoi(null);
-            setSelectedPoiInfo(null);
+            setPoiInfo(null);
+            setShowPoiModal(false);
+            setLoadingPoi(false);
+
+            setPreloadInfo(null);
+            setPreloadItems([]);
+            setPreloadReqId(0);
+
+            preloadProgressRef.current = null;
+            preloadOpenedRef.current = false;
         }
     }, [open]);
 
-    /* ===== carregar districtInfo por nome ===== */
+    /* ---------------- Load districtInfo ---------------- */
+
     useEffect(() => {
         let alive = true;
 
-        const load = async () => {
+        (async () => {
             if (!districtFeature?.properties?.name) {
                 if (alive) setDistrictInfo(null);
                 return;
@@ -189,15 +235,13 @@ export default function DistrictModal(props: Props) {
             } catch {
                 if (alive) setDistrictInfo(null);
             }
-        };
+        })();
 
-        load();
         return () => {
             alive = false;
         };
     }, [districtFeature]);
 
-    /* ----- sincronizar districtInfo -> campos editáveis ----- */
     useEffect(() => {
         const baseName =
             (districtFeature?.properties?.name as string | undefined) ||
@@ -208,21 +252,9 @@ export default function DistrictModal(props: Props) {
         setDistName(baseName);
 
         if (districtInfo) {
-            setDistPopulation(
-                districtInfo.population != null
-                    ? String(districtInfo.population)
-                    : ""
-            );
-            setDistMunicipalities(
-                (districtInfo as any).municipalities != null
-                    ? String((districtInfo as any).municipalities)
-                    : ""
-            );
-            setDistParishes(
-                (districtInfo as any).parishes != null
-                    ? String((districtInfo as any).parishes)
-                    : ""
-            );
+            setDistPopulation(districtInfo.population != null ? String(districtInfo.population) : "");
+            setDistMunicipalities((districtInfo as any).municipalities != null ? String((districtInfo as any).municipalities) : "");
+            setDistParishes((districtInfo as any).parishes != null ? String((districtInfo as any).parishes) : "");
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
             setDistDescription(districtInfo.description ?? "");
             setDistHistory(districtInfo.history ?? "");
@@ -241,26 +273,20 @@ export default function DistrictModal(props: Props) {
         setDistrictError(null);
     }, [districtInfo, districtFeature]);
 
-    /* ----- lazy load camadas geográficas ----- */
+    /* ---------------- Lazy load geo layers ---------------- */
+
     useEffect(() => {
-        const safeLoad = async (
-            path: string,
-            set: (v: any) => void,
-            already: any
-        ) => {
+        const safeLoad = async (path: string, set: (v: any) => void, already: any) => {
             if (already) return;
             try {
                 const gj = await loadGeo(path);
-                if (
-                    gj &&
-                    (gj.type === "FeatureCollection" || gj.type === "Feature")
-                )
-                    set(gj);
+                if (gj && (gj.type === "FeatureCollection" || gj.type === "Feature")) set(gj);
                 else set(null);
             } catch {
                 set(null);
             }
         };
+
         safeLoad("/geo/rios_pt.geojson", setRivers, riversProp);
         safeLoad("/geo/lagos_pt.geojson", setLakes, lakesProp);
         safeLoad("/geo/ferrovias_pt.geojson", setRails, railsProp);
@@ -270,7 +296,8 @@ export default function DistrictModal(props: Props) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    /* ----- Normalização + categoria simples ----- */
+    /* ---------------- POIs normalization ---------------- */
+
     const normalizedPoints = useMemo(() => {
         if (!poiPoints) return null;
 
@@ -278,15 +305,8 @@ export default function DistrictModal(props: Props) {
             .map((f: any) => {
                 const props = { ...(f.properties || {}) };
 
-                const name =
-                    props["name:pt"] ||
-                    props.name ||
-                    props["name:en"] ||
-                    props.label ||
-                    null;
-
-                if (!name || typeof name !== "string" || name.trim() === "")
-                    return null;
+                const name = props["name:pt"] || props.name || props["name:en"] || props.label || null;
+                if (!name || typeof name !== "string" || name.trim() === "") return null;
 
                 const nf = { ...f, properties: { ...props } as any };
 
@@ -302,94 +322,188 @@ export default function DistrictModal(props: Props) {
         return { ...poiPoints, features: feats };
     }, [poiPoints]);
 
-    /* ----- Contagens para o filtro ----- */
     const countsByCat = useMemo<Record<PoiCategory, number>>(() => {
         const counts = Object.create(null) as Record<PoiCategory, number>;
         const allCats = Object.keys(POI_LABELS) as PoiCategory[];
         for (const c of allCats) counts[c] = 0;
+
         for (const f of normalizedPoints?.features ?? []) {
-            const cat = (f.properties as any).__cat as
-                | PoiCategory
-                | undefined;
+            const cat = (f.properties as any).__cat as PoiCategory | undefined;
             if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
         }
         return counts;
     }, [normalizedPoints]);
 
-    /* ----- Aplicar filtros por seleção ----- */
     const filteredPoints = useMemo(() => {
         if (!normalizedPoints) return null;
-        if (!selectedTypes || selectedTypes.size === 0)
-            return normalizedPoints;
+        if (!selectedTypes || selectedTypes.size === 0) return normalizedPoints;
+
         const feats = normalizedPoints.features.filter((f: any) => {
-            const cat = (f.properties as any).__cat as
-                | PoiCategory
-                | undefined;
+            const cat = (f.properties as any).__cat as PoiCategory | undefined;
             return cat ? selectedTypes.has(cat) : false;
         });
+
         return { ...normalizedPoints, features: feats };
     }, [normalizedPoints, selectedTypes]);
 
-    /* ====== Clique num ponto ====== */
+    /* ---------------- POI click ---------------- */
+
     const onPoiClick = (feature: any) => {
         setSelectedPoi(feature);
     };
 
-    /* ====== Fetch PoiInfo ====== */
+    /* ---------------- POI: fetch base + wiki, preparar preload ---------------- */
+
     useEffect(() => {
         let alive = true;
+
         (async () => {
             if (!selectedPoi?.properties) return;
 
+            const reqId = ++reqRef.current;
+
+            // reset UI POI
             setShowPoiModal(false);
-            setSelectedPoiInfo(null);
+            setPoiInfo(null);
+            setPreloadInfo(null);
+            setPreloadItems([]);
+            setPreloadReqId(reqId);
+
+            preloadProgressRef.current = null;
+            preloadOpenedRef.current = false;
+
             setLoadingPoi(true);
-            const reqId = ++lastReqRef.current;
 
-            try {
-                const approxName =
-                    selectedPoi.properties["name:pt"] ??
-                    selectedPoi.properties.name ??
-                    null;
-                const approxLat = selectedPoi.geometry?.coordinates?.[1];
-                const approxLon = selectedPoi.geometry?.coordinates?.[0];
+            const poiId = pickPoiId(selectedPoi);
+            const label = pickPoiLabel(selectedPoi);
 
-                const info = await fetchPoiInfo({
-                    approx: { name: approxName, lat: approxLat, lon: approxLon },
-                    sourceFeature: selectedPoi,
-                });
-                if (!alive || reqId !== lastReqRef.current) return;
+            if (!label) {
+                if (alive && reqRef.current === reqId) setLoadingPoi(false);
+                return;
+            }
 
-                if (!info) {
-                    setSelectedPoiInfo(null);
-                    setShowPoiModal(false);
+            // Cache
+            if (poiId != null) {
+                const cached = poiCacheRef.current.get(poiId);
+                if (cached) {
+                    if (!alive || reqRef.current !== reqId) return;
+
+                    setPoiInfo(cached.info);
+                    setPreloadInfo(cached.info);
+                    setPreloadItems(cached.media10);
+                    setPreloadReqId(reqId);
+
+                    // ⚠️ NÃO desligamos loading aqui. Só quando abrir modal (onReady/timeout).
                     return;
                 }
 
-                setSelectedPoiInfo(info);
+                // inflight dedupe
+                const inflight = poiInflightRef.current.get(poiId);
+                if (inflight) {
+                    await inflight;
+                    if (!alive || reqRef.current !== reqId) return;
 
-                const imgList = [
-                    info.image,
-                    ...(info.images ?? []),
-                ].filter((u): u is string => !!u);
+                    const after = poiCacheRef.current.get(poiId);
+                    if (after) {
+                        setPoiInfo(after.info);
+                        setPreloadInfo(after.info);
+                        setPreloadItems(after.media10);
+                        setPreloadReqId(reqId);
+                        return;
+                    }
 
-                const hasAnyImage = imgList.length > 0;
-                const hasTitle = !!info.label;
-                const hasDesc =
-                    !!info.description && info.description.trim().length > 0;
-
-                const shouldOpen = hasTitle || hasDesc || hasAnyImage;
-                setShowPoiModal(shouldOpen);
-            } catch (e) {
-                console.warn("[POI] fetchPoiInfo error", e);
-                if (!alive || reqId !== lastReqRef.current) return;
-                setSelectedPoiInfo(null);
-                setShowPoiModal(false);
-            } finally {
-                if (alive && reqId === lastReqRef.current) {
-                    setLoadingPoi(false);
+                    // se não veio nada (erro), termina spinner
+                    if (alive && reqRef.current === reqId) setLoadingPoi(false);
+                    return;
                 }
             }
+
+            const task = (async () => {
+                // 1) Base
+                const approxLat = selectedPoi.geometry?.coordinates?.[1];
+                const approxLon = selectedPoi.geometry?.coordinates?.[0];
+
+                const base = await fetchPoiInfo({
+                    approx: {
+                        name: label,
+                        lat: typeof approxLat === "number" ? approxLat : null,
+                        lon: typeof approxLon === "number" ? approxLon : null,
+                    },
+                    sourceFeature: selectedPoi,
+                });
+
+                if (!alive || reqRef.current !== reqId) return;
+                if (!base) {
+                    setLoadingPoi(false);
+                    return;
+                }
+
+                const baseMedia = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+
+                // 2) Tenta completar para ter pelo menos 3 URLs (BD + wiki3)
+                let merged = baseMedia;
+
+                if (merged.length < 3) {
+                    try {
+                        const wiki3 = await searchWikimediaImagesByName(label, 3);
+                        if (!alive || reqRef.current !== reqId) return;
+                        merged = mergeMedia(merged, wiki3 ?? [], 10);
+                    } catch {
+                        // ignore
+                    }
+                }
+
+                // 3) Prepara preload invisível (mesmo que tenha 0/1/2)
+                const infoNow: PoiInfo = {
+                    ...base,
+                    image: merged[0] ?? base.image ?? null,
+                    images: merged,
+                };
+
+                setPoiInfo(infoNow);
+                setPreloadInfo(infoNow);
+                setPreloadItems(merged);
+                setPreloadReqId(reqId);
+
+                // cache imediato
+                if (poiId != null) {
+                    poiCacheRef.current.set(poiId, { info: infoNow, media10: merged, updatedAt: Date.now() });
+                }
+
+                // 4) Background: completar até 10 (não bloqueia)
+                (async () => {
+                    try {
+                        const wiki10 = await searchWikimediaImagesByName(label, 10);
+                        if (!wiki10) return;
+
+                        const full10 = mergeMedia(merged, wiki10, 10);
+
+                        const info10: PoiInfo = {
+                            ...base,
+                            image: full10[0] ?? base.image ?? null,
+                            images: full10,
+                        };
+
+                        if (poiId != null) {
+                            poiCacheRef.current.set(poiId, { info: info10, media10: full10, updatedAt: Date.now() });
+                        }
+
+                        if (!alive || reqRef.current !== reqId) return;
+
+                        setPoiInfo(info10);
+                        setPreloadItems(full10);
+                    } catch (e) {
+                        console.warn("[POI] background wiki10 failed", e);
+                    }
+                })();
+            })();
+
+            if (poiId != null) poiInflightRef.current.set(poiId, task);
+            await task;
+            if (poiId != null) poiInflightRef.current.delete(poiId);
+
+            // ⚠️ Não desligar loading aqui.
+            // setLoadingPoi(false) só quando abrimos modal (onReady ou timeout), ou base falhou.
         })();
 
         return () => {
@@ -397,7 +511,51 @@ export default function DistrictModal(props: Props) {
         };
     }, [selectedPoi]);
 
-    /* ====== Guardar distrito ====== */
+    /* ---------------- Fallback: abre modal após timeout mesmo sem 3 ---------------- */
+    useEffect(() => {
+        if (!loadingPoi) return;
+        if (!preloadInfo) return; // ainda não temos base
+        // podemos ter preloadItems vazio -> ainda assim vamos abrir por timeout
+
+        const reqId = preloadReqId;
+
+        // “por um bocado”: dá tempo a tentar carregar 3
+        const TIMEOUT_MS = 900;
+
+        const t = window.setTimeout(() => {
+            if (reqId !== reqRef.current) return;
+            if (preloadOpenedRef.current) return;
+            if (showPoiModal) return;
+
+            const progress = preloadProgressRef.current;
+            const loaded = uniqStrings(progress?.loaded ?? []).slice(0, 10);
+
+            // se não carregou nada, abre na mesma (sem imagens)
+            const rest = preloadItems.filter((u) => !loaded.includes(u));
+            const finalMedia = [...loaded, ...rest].slice(0, 10);
+
+            const base = poiInfo ?? preloadInfo;
+
+            const readyInfo: PoiInfo = {
+                ...base,
+                image: finalMedia[0] ?? base.image ?? null,
+                images: finalMedia,
+            };
+
+            setPoiInfo(readyInfo);
+            setShowPoiModal(true);
+
+            setLoadingPoi(false);
+            setPreloadInfo(null);
+            setPreloadItems([]);
+            preloadOpenedRef.current = true;
+        }, TIMEOUT_MS);
+
+        return () => window.clearTimeout(t);
+    }, [loadingPoi, preloadInfo, preloadItems, preloadReqId, poiInfo, showPoiModal]);
+
+    /* ---------------- District save / cancel ---------------- */
+
     const handleDistrictSave = async () => {
         if (!isAdmin) return;
         if (!districtInfo?.id) {
@@ -407,6 +565,7 @@ export default function DistrictModal(props: Props) {
 
         setSavingDistrict(true);
         setDistrictError(null);
+
         try {
             const payload: DistrictUpdatePayload = {
                 name: distName || districtInfo.name,
@@ -414,21 +573,14 @@ export default function DistrictModal(props: Props) {
                 description: distDescription || null,
                 history: distHistory || null,
                 inhabitedSince: distInhabitedSince || null,
-                population: distPopulation
-                    ? Number(distPopulation.replace(/\D/g, ""))
-                    : null,
-                municipalitiesCount: distMunicipalities
-                    ? Number(distMunicipalities)
-                    : null,
-                parishesCount: distParishes
-                    ? Number(distParishes)
-                    : null,
+                population: distPopulation ? Number(distPopulation.replace(/\D/g, "")) : null,
+                municipalitiesCount: distMunicipalities ? Number(distMunicipalities) : null,
+                parishesCount: distParishes ? Number(distParishes) : null,
                 files: distMedia.length > 0 ? distMedia : [],
             };
 
             const updated = await updateDistrict(districtInfo.id, payload);
 
-            // sincronia local
             setDistrictInfo({
                 ...districtInfo,
                 population: updated.population,
@@ -443,9 +595,7 @@ export default function DistrictModal(props: Props) {
             setEditingDistrict(false);
             setShowGallery(false);
         } catch (e: any) {
-            setDistrictError(
-                e?.message || "Falha ao guardar alterações do distrito."
-            );
+            setDistrictError(e?.message || "Falha ao guardar alterações do distrito.");
         } finally {
             setSavingDistrict(false);
         }
@@ -459,34 +609,23 @@ export default function DistrictModal(props: Props) {
         }
 
         if (districtInfo) {
-            setDistPopulation(
-                districtInfo.population != null
-                    ? String(districtInfo.population)
-                    : ""
-            );
-            setDistMunicipalities(
-                (districtInfo as any).municipalities != null
-                    ? String((districtInfo as any).municipalities)
-                    : ""
-            );
-            setDistParishes(
-                (districtInfo as any).parishes != null
-                    ? String((districtInfo as any).parishes)
-                    : ""
-            );
+            setDistPopulation(districtInfo.population != null ? String(districtInfo.population) : "");
+            setDistMunicipalities((districtInfo as any).municipalities != null ? String((districtInfo as any).municipalities) : "");
+            setDistParishes((districtInfo as any).parishes != null ? String((districtInfo as any).parishes) : "");
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
             setDistDescription(districtInfo.description ?? "");
             setDistHistory(districtInfo.history ?? "");
             setDistMedia(districtInfo.files ?? []);
         }
+
         setEditingDistrict(false);
         setDistrictError(null);
         setShowGallery(false);
     };
 
-    const districtNameFallback =
-        (districtFeature?.properties?.name as string | undefined) ||
-        "Distrito";
+    /* ---------------- District gallery ---------------- */
+
+    const districtNameFallback = (districtFeature?.properties?.name as string | undefined) || "Distrito";
 
     const mediaUrls = useMemo(() => {
         const uniq: string[] = [];
@@ -502,17 +641,12 @@ export default function DistrictModal(props: Props) {
 
         const videos = uniq.filter(isVideoUrlLocal);
         const images = uniq.filter((u) => !isVideoUrlLocal(u));
-
-        // vídeos primeiro e cap geral a 10
         return [...videos, ...images].slice(0, 10);
     }, [distMedia]);
 
-    const rootClass =
-        "district-modal theme-dark" +
-        (showGallery ? " district-modal--gallery-open" : "");
+    const rootClass = "district-modal theme-dark" + (showGallery ? " district-modal--gallery-open" : "");
 
     const toggleGallery = () => {
-        // FECHAR
         if (showGallery) {
             setShowGallery(false);
             setEditingDistrict(false);
@@ -521,14 +655,12 @@ export default function DistrictModal(props: Props) {
             return;
         }
 
-        // ABRIR → preparar media + spinner
         setLoadingGallery(true);
 
         (async () => {
             try {
                 let dbFiles: string[] = [];
 
-                // 1) ir ao BE buscar ficheiros atuais do distrito
                 if (districtInfo?.id) {
                     const dto = await fetchDistrictById(districtInfo.id);
                     dbFiles = dto.files ?? [];
@@ -538,17 +670,10 @@ export default function DistrictModal(props: Props) {
                             ? {
                                 ...prev,
                                 population: dto.population ?? prev.population,
-                                municipalities:
-                                    dto.municipalitiesCount ??
-                                    (prev as any).municipalities,
-                                parishes:
-                                    dto.parishesCount ??
-                                    (prev as any).parishes,
-                                inhabited_since:
-                                    dto.inhabitedSince ??
-                                    prev.inhabited_since,
-                                description:
-                                    dto.description ?? prev.description,
+                                municipalities: dto.municipalitiesCount ?? (prev as any).municipalities,
+                                parishes: dto.parishesCount ?? (prev as any).parishes,
+                                inhabited_since: dto.inhabitedSince ?? prev.inhabited_since,
+                                description: dto.description ?? prev.description,
                                 history: dto.history ?? prev.history,
                                 files: dbFiles,
                             }
@@ -556,94 +681,42 @@ export default function DistrictModal(props: Props) {
                     );
                 }
 
-                // 2) Wikimedia – nome a usar na pesquisa
-                const nameForSearch =
-                    distName ||
-                    districtInfo?.namePt ||
-                    districtInfo?.name ||
-                    districtNameFallback;
+                const nameForSearch = distName || districtInfo?.namePt || districtInfo?.name || districtNameFallback;
 
-                // 2a) primeiro batch rápido (até 3 fotos) → assim que houver, abrimos a galeria
-                const firstCommons = await getDistrictCommonsGallery(
-                    nameForSearch,
-                    3
-                );
-
-                let merged = uniqStrings([...dbFiles, ...firstCommons]).slice(
-                    0,
-                    10
-                );
+                const firstCommons = await getDistrictCommonsGallery(nameForSearch, 3);
+                let merged = uniqStrings([...dbFiles, ...firstCommons]).slice(0, 10);
 
                 setDistMedia(merged);
                 setShowGallery(true);
-                setLoadingGallery(false); // tira overlay assim que temos o primeiro batch
+                setLoadingGallery(false);
 
-                // 2b) Em background, tentar completar até 10 fotos
                 if (merged.length < 10) {
                     try {
-                        const fullCommons = await getDistrictCommonsGallery(
-                            nameForSearch,
-                            10
-                        );
-                        const mergedFull = uniqStrings([
-                            ...dbFiles,
-                            ...fullCommons,
-                        ]).slice(0, 10);
+                        const fullCommons = await getDistrictCommonsGallery(nameForSearch, 10);
+                        const mergedFull = uniqStrings([...dbFiles, ...fullCommons]).slice(0, 10);
 
                         if (mergedFull.length > merged.length) {
                             merged = mergedFull;
                             setDistMedia(mergedFull);
 
-                            // actualizar BD se houver novidades
                             if (districtInfo?.id) {
                                 try {
-                                    const updated = await updateDistrict(
-                                        districtInfo.id,
-                                        { files: mergedFull }
-                                    );
-                                    setDistrictInfo((prev) =>
-                                        prev
-                                            ? {
-                                                ...prev,
-                                                files:
-                                                    updated.files ??
-                                                    mergedFull,
-                                            }
-                                            : prev
-                                    );
+                                    const updated = await updateDistrict(districtInfo.id, { files: mergedFull });
+                                    setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? mergedFull } : prev));
                                 } catch (e) {
-                                    console.warn(
-                                        "[DistrictModal] Falha ao atualizar ficheiros do distrito (batch completo)",
-                                        e
-                                    );
+                                    console.warn("[DistrictModal] Falha ao atualizar ficheiros do distrito (batch completo)", e);
                                 }
                             }
                         }
                     } catch (e) {
-                        console.warn(
-                            "[DistrictModal] Falha batch completo da galeria",
-                            e
-                        );
+                        console.warn("[DistrictModal] Falha batch completo da galeria", e);
                     }
                 } else if (districtInfo?.id) {
-                    // já temos 10 (BD + firstCommons) → sincronizar BD se necessário
                     try {
-                        const updated = await updateDistrict(districtInfo.id, {
-                            files: merged,
-                        });
-                        setDistrictInfo((prev) =>
-                            prev
-                                ? {
-                                    ...prev,
-                                    files: updated.files ?? merged,
-                                }
-                                : prev
-                        );
+                        const updated = await updateDistrict(districtInfo.id, { files: merged });
+                        setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? merged } : prev));
                     } catch (e) {
-                        console.warn(
-                            "[DistrictModal] Falha ao atualizar ficheiros do distrito (batch inicial)",
-                            e
-                        );
+                        console.warn("[DistrictModal] Falha ao atualizar ficheiros do distrito (batch inicial)", e);
                     }
                 }
             } catch (e) {
@@ -655,9 +728,9 @@ export default function DistrictModal(props: Props) {
         })();
     };
 
-    if (!open) {
-        return null;
-    }
+    /* ---------------- Render ---------------- */
+
+    if (!open) return null;
 
     return (
         <div className={rootClass}>
@@ -677,10 +750,6 @@ export default function DistrictModal(props: Props) {
             </div>
 
             <div className="modal-content">
-                {/* LADO ESQUERDO:
-                    - modo normal: mapa
-                    - modo galeria: slideshow + uploader
-                */}
                 <div className="left-pane">
                     {!showGallery ? (
                         <MapContainer
@@ -695,10 +764,7 @@ export default function DistrictModal(props: Props) {
                                 <TileLayer url={DISTRICT_DETAIL} />
                             </Pane>
 
-                            <Pane
-                                name="districtLabels"
-                                style={{ zIndex: 210, pointerEvents: "none" }}
-                            >
+                            <Pane name="districtLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
                                 <TileLayer url={DISTRICT_LABELS} />
                             </Pane>
 
@@ -716,13 +782,10 @@ export default function DistrictModal(props: Props) {
 
                             {rivers && (
                                 <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
-                                    <GeoJSON
-                                        data={rivers as any}
-                                        style={{ color: COLOR_RIVER, weight: 1.5 }}
-                                        interactive={false}
-                                    />
+                                    <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5 }} interactive={false} />
                                 </Pane>
                             )}
+
                             {lakes && (
                                 <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
                                     <GeoJSON
@@ -738,6 +801,7 @@ export default function DistrictModal(props: Props) {
                                     />
                                 </Pane>
                             )}
+
                             {rails && (
                                 <Pane name="rails" style={{ zIndex: Z_RAIL }}>
                                     <GeoJSON
@@ -752,6 +816,7 @@ export default function DistrictModal(props: Props) {
                                     />
                                 </Pane>
                             )}
+
                             {roads && (
                                 <Pane name="roads" style={{ zIndex: Z_ROADS }}>
                                     <GeoJSON
@@ -765,6 +830,7 @@ export default function DistrictModal(props: Props) {
                                     />
                                 </Pane>
                             )}
+
                             {peaks && (
                                 <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
                                     <GeoJSON
@@ -781,19 +847,14 @@ export default function DistrictModal(props: Props) {
                                     />
                                 </Pane>
                             )}
+
                             {places && (
-                                <Pane
-                                    name="places"
-                                    style={{ zIndex: Z_PLACES, pointerEvents: "none" }}
-                                >
+                                <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
                                     <GeoJSON
                                         data={places as any}
                                         pointToLayer={(f, latlng) => {
                                             const name =
-                                                f?.properties?.NAME ??
-                                                f?.properties?.name ??
-                                                f?.properties?.["name:pt"] ??
-                                                null;
+                                                f?.properties?.NAME ?? f?.properties?.name ?? f?.properties?.["name:pt"] ?? null;
                                             if (!name) {
                                                 return L.circleMarker(latlng, {
                                                     radius: 2,
@@ -837,115 +898,65 @@ export default function DistrictModal(props: Props) {
                     ) : (
                         <section className="district-gallery-left gold-scroll">
                             <div className="district-gallery-main">
-                                <MediaSlideshow
-                                    items={mediaUrls}
-                                    title={distName || districtNameFallback}
-                                />
+                                <MediaSlideshow items={mediaUrls} title={distName || districtNameFallback} />
                             </div>
 
                             {editingDistrict && isAdmin && districtInfo?.id && (
                                 <div className="district-gallery-editor">
-                                    <ImageDropField
-                                        label="Imagens / vídeos do distrito"
-                                        images={distMedia}
-                                        onChange={setDistMedia}
-                                        mode="image"
-                                    />
+                                    <ImageDropField label="Imagens / vídeos do distrito" images={distMedia} onChange={setDistMedia} mode="image" />
                                 </div>
                             )}
                         </section>
                     )}
                 </div>
 
-                {/* LADO DIREITO – conteúdo textual */}
                 <aside className="right-panel gold-scroll">
                     <div className="right-inner">
-                        {/* Header com edição (Editar aparece só em modo galeria) */}
                         <div className="district-header">
                             <div className="district-header-main">
                                 {editingDistrict && isAdmin ? (
-                                    <input
-                                        className="district-name-input"
-                                        value={distName}
-                                        onChange={(e) =>
-                                            setDistName(e.target.value)
-                                        }
-                                    />
+                                    <input className="district-name-input" value={distName} onChange={(e) => setDistName(e.target.value)} />
                                 ) : (
                                     <h1 className="district-title">
-                                        <strong>
-                                            {distName || districtNameFallback}
-                                        </strong>
+                                        <strong>{distName || districtNameFallback}</strong>
                                     </h1>
                                 )}
                             </div>
+
                             <div className="district-header-actions">
-                                {showGallery && isAdmin &&
+                                {showGallery &&
+                                    isAdmin &&
                                     (editingDistrict ? (
                                         <>
-                                            <button
-                                                type="button"
-                                                className="district-btn district-btn--ghost"
-                                                onClick={handleCancelEdit}
-                                                disabled={savingDistrict}
-                                            >
+                                            <button type="button" className="district-btn district-btn--ghost" onClick={handleCancelEdit} disabled={savingDistrict}>
                                                 Cancelar
                                             </button>
-                                            <button
-                                                type="button"
-                                                className="district-btn district-btn--primary"
-                                                onClick={handleDistrictSave}
-                                                disabled={savingDistrict}
-                                            >
-                                                {savingDistrict
-                                                    ? "A guardar..."
-                                                    : "Guardar"}
+                                            <button type="button" className="district-btn district-btn--primary" onClick={handleDistrictSave} disabled={savingDistrict}>
+                                                {savingDistrict ? "A guardar..." : "Guardar"}
                                             </button>
                                         </>
                                     ) : (
-                                        <button
-                                            type="button"
-                                            className="district-btn district-btn--ghost"
-                                            onClick={() =>
-                                                isAdmin && setEditingDistrict(true)
-                                            }
-                                        >
+                                        <button type="button" className="district-btn district-btn--ghost" onClick={() => isAdmin && setEditingDistrict(true)}>
                                             Editar
                                         </button>
                                     ))}
                             </div>
                         </div>
 
-                        {/* Botão de abrir/fechar galeria */}
                         <div className="district-header-subrow">
-                            <button
-                                type="button"
-                                className="district-videos-toggle"
-                                onClick={toggleGallery}
-                            >
+                            <button type="button" className="district-videos-toggle" onClick={toggleGallery}>
                                 {showGallery ? "Fechar galeria" : "Galeria"}
                             </button>
                         </div>
 
-                        {districtError && (
-                            <div className="district-error">
-                                {districtError}
-                            </div>
-                        )}
+                        {districtError && <div className="district-error">{districtError}</div>}
 
-                        {/* Resumo / texto */}
                         <div className="district-info">
                             <div className="district-meta">
                                 <div>
                                     <strong>População:</strong>{" "}
                                     {editingDistrict && isAdmin ? (
-                                        <input
-                                            className="district-meta-input"
-                                            value={distPopulation}
-                                            onChange={(e) =>
-                                                setDistPopulation(e.target.value)
-                                            }
-                                        />
+                                        <input className="district-meta-input" value={distPopulation} onChange={(e) => setDistPopulation(e.target.value)} />
                                     ) : (
                                         distPopulation || "—"
                                     )}
@@ -953,15 +964,7 @@ export default function DistrictModal(props: Props) {
                                 <div>
                                     <strong>Concelhos:</strong>{" "}
                                     {editingDistrict && isAdmin ? (
-                                        <input
-                                            className="district-meta-input"
-                                            value={distMunicipalities}
-                                            onChange={(e) =>
-                                                setDistMunicipalities(
-                                                    e.target.value
-                                                )
-                                            }
-                                        />
+                                        <input className="district-meta-input" value={distMunicipalities} onChange={(e) => setDistMunicipalities(e.target.value)} />
                                     ) : (
                                         distMunicipalities || "—"
                                     )}
@@ -969,13 +972,7 @@ export default function DistrictModal(props: Props) {
                                 <div>
                                     <strong>Freguesias:</strong>{" "}
                                     {editingDistrict && isAdmin ? (
-                                        <input
-                                            className="district-meta-input"
-                                            value={distParishes}
-                                            onChange={(e) =>
-                                                setDistParishes(e.target.value)
-                                            }
-                                        />
+                                        <input className="district-meta-input" value={distParishes} onChange={(e) => setDistParishes(e.target.value)} />
                                     ) : (
                                         distParishes || "—"
                                     )}
@@ -983,73 +980,27 @@ export default function DistrictModal(props: Props) {
                                 <div>
                                     <strong>Habitado desde:</strong>{" "}
                                     {editingDistrict && isAdmin ? (
-                                        <input
-                                            className="district-meta-input"
-                                            value={distInhabitedSince}
-                                            onChange={(e) =>
-                                                setDistInhabitedSince(
-                                                    e.target.value
-                                                )
-                                            }
-                                        />
+                                        <input className="district-meta-input" value={distInhabitedSince} onChange={(e) => setDistInhabitedSince(e.target.value)} />
                                     ) : (
                                         distInhabitedSince || "—"
                                     )}
                                 </div>
                             </div>
 
-                            {/* descrição / história */}
                             <div className="district-text-blocks">
                                 {editingDistrict && isAdmin ? (
                                     <>
-                                        <label className="district-label">
-                                            Descrição
-                                        </label>
-                                        <textarea
-                                            className="district-textarea"
-                                            rows={4}
-                                            value={distDescription}
-                                            onChange={(e) =>
-                                                setDistDescription(
-                                                    e.target.value
-                                                )
-                                            }
-                                        />
+                                        <label className="district-label">Descrição</label>
+                                        <textarea className="district-textarea" rows={4} value={distDescription} onChange={(e) => setDistDescription(e.target.value)} />
 
-                                        <label className="district-label">
-                                            História
-                                        </label>
-                                        <textarea
-                                            className="district-textarea"
-                                            rows={6}
-                                            value={distHistory}
-                                            onChange={(e) =>
-                                                setDistHistory(
-                                                    e.target.value
-                                                )
-                                            }
-                                        />
+                                        <label className="district-label">História</label>
+                                        <textarea className="district-textarea" rows={6} value={distHistory} onChange={(e) => setDistHistory(e.target.value)} />
                                     </>
                                 ) : (
                                     <>
-                                        {distDescription && (
-                                            <p className="district-description">
-                                                {distDescription}
-                                            </p>
-                                        )}
-
-                                        {distHistory && (
-                                            <p className="district-history">
-                                                {distHistory}
-                                            </p>
-                                        )}
-
-                                        {!distDescription && !distHistory && (
-                                            <p className="district-description">
-                                                Sem informação detalhada para
-                                                este distrito (ainda).
-                                            </p>
-                                        )}
+                                        {distDescription && <p className="district-description">{distDescription}</p>}
+                                        {distHistory && <p className="district-history">{distHistory}</p>}
+                                        {!distDescription && !distHistory && <p className="district-description">Sem informação detalhada para este distrito (ainda).</p>}
                                     </>
                                 )}
                             </div>
@@ -1058,27 +1009,64 @@ export default function DistrictModal(props: Props) {
                 </aside>
             </div>
 
-            {/* Modal do POI */}
+            {/* PRELOAD INVISÍVEL: atualiza progresso + abre assim que minReady=3 */}
+            {preloadInfo && (
+                <MediaSlideshow
+                    preloadOnly
+                    items={preloadItems}
+                    minReady={3}
+                    preloadFirst={3}
+                    onReady={(p) => {
+                        if (preloadReqId !== reqRef.current) return;
+
+                        preloadProgressRef.current = p;
+
+                        if (preloadOpenedRef.current) return;
+                        if (!p.ready) return;
+
+                        const loaded = uniqStrings(p.loaded).slice(0, 10);
+                        const rest = preloadItems.filter((u) => !loaded.includes(u));
+                        const finalMedia = [...loaded, ...rest].slice(0, 10);
+
+                        const base = poiInfo ?? preloadInfo;
+
+                        const readyInfo: PoiInfo = {
+                            ...base,
+                            image: finalMedia[0] ?? base.image ?? null,
+                            images: finalMedia,
+                        };
+
+                        setPoiInfo(readyInfo);
+                        setShowPoiModal(true);
+
+                        setLoadingPoi(false);
+                        setPreloadInfo(null);
+                        setPreloadItems([]);
+                        preloadOpenedRef.current = true;
+                    }}
+                />
+            )}
+
             <PoiModal
                 open={showPoiModal}
                 onClose={() => {
                     setShowPoiModal(false);
                     setSelectedPoi(null);
-                    setSelectedPoiInfo(null);
+                    setPoiInfo(null);
+                    setPreloadInfo(null);
+                    setPreloadItems([]);
+                    setLoadingPoi(false);
+                    preloadProgressRef.current = null;
+                    preloadOpenedRef.current = false;
                 }}
-                info={selectedPoiInfo}
+                info={poiInfo}
                 poi={selectedPoi}
-                onSaved={(patch) => {
-                    onPoiUpdated?.(patch);
-                }}
+                onSaved={(patch) => onPoiUpdated?.(patch)}
                 isAdmin={isAdmin}
             />
 
             {(loadingPoi || loadingGallery) && (
-                <SpinnerOverlay
-                    open={loadingPoi || loadingGallery}
-                    message={loadingPoi ? "A carregar…" : "A carregar galeria…"}
-                />
+                <SpinnerOverlay open={loadingPoi || loadingGallery} message={loadingPoi ? "A carregar…" : "A carregar galeria…"} />
             )}
         </div>
     );

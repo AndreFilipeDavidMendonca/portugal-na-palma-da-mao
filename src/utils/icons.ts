@@ -30,10 +30,6 @@ export const POI_ICON_SVG_RAW: Record<PoiCategory, string> = {
     ruins:          normalizeSvg(ruinsSvgRaw),
     church:         normalizeSvg(churchSvgRaw),
     viewpoint:      normalizeSvg(viewpointSvgRaw),
-    // áreas não usam ícone (mantemos vazio)
     park:           normalizeSvg(parkSvgRaw),
     trail:           normalizeSvg(trailSvgRaw),
 };
-
-export const DEFAULT_ICON_SIZE: [number, number]   = [22, 22];
-export const DEFAULT_ICON_ANCHOR: [number, number] = [11, 20];

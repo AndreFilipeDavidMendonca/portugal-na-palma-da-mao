@@ -1,7 +1,3 @@
-// src/lib/poiInfo.ts
-
-import { searchWikimediaImagesByName } from "@/lib/wikimedia";
-
 /* =====================================================================
    TIPOS
    ===================================================================== */
@@ -97,6 +93,10 @@ type FetchPoiInfoOpts = {
     sourceFeature?: any | null;
 };
 
+/**
+ * NOTA: Esta versão NÃO chama Wikimedia.
+ * Serve para criar uma base rápida (BD/GeoJSON) e deixar o Wikimedia para o DistrictModal.
+ */
 export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo | null> {
     const sourceFeature = options.sourceFeature || null;
     const approx = options.approx || null;
@@ -111,16 +111,9 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
     // ----------------------------------------
     let coords: { lat: number; lon: number } | null = null;
 
-    if (
-        geom &&
-        geom.type === "Point" &&
-        Array.isArray(geom.coordinates) &&
-        geom.coordinates.length >= 2
-    ) {
+    if (geom && geom.type === "Point" && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
         const [lon, lat] = geom.coordinates;
-        if (typeof lat === "number" && typeof lon === "number") {
-            coords = { lat, lon };
-        }
+        if (typeof lat === "number" && typeof lon === "number") coords = { lat, lon };
     }
 
     if (!coords && approx?.lat != null && approx?.lon != null) {
@@ -130,12 +123,7 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
     // ----------------------------------------
     // Label / título
     // ----------------------------------------
-    const label: string | null =
-        props["name:pt"] ??
-        props.namePt ??
-        props.name ??
-        approx?.name ??
-        null;
+    const label: string | null = props["name:pt"] ?? props.namePt ?? props.name ?? approx?.name ?? null;
 
     // ----------------------------------------
     // Imagens da BD (GeoJSON)
@@ -152,46 +140,24 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
                 ? dbImages[0]
                 : null;
 
-    // ----------------------------------------
-    // Contacts (se vierem no GeoJSON)
-    // ----------------------------------------
-    const phone: string | null =
-        typeof props.phone === "string" ? props.phone : null;
-    const email: string | null =
-        typeof props.email === "string" ? props.email : null;
-    const website: string | null =
-        typeof props.website === "string" ? props.website : null;
-
-    const contacts: Contacts | null =
-        phone || email || website
-            ? { phone, email, website }
-            : null;
-
-    // ----------------------------------------------------------------
-    //  EXTRA: Imagens do Wikimedia por nome do POI
-    // ----------------------------------------------------------------
-    let wikimediaImages: string[] = [];
-
-    if (label && label.trim().length >= 3) {
-        try {
-            wikimediaImages = await searchWikimediaImagesByName(label, 10);
-        } catch (e) {
-            console.warn("[PoiInfo] falha ao obter imagens do Wikimedia", e);
-        }
-    }
-
-    // merge: BD + Wikimedia, sem duplicados e com a principal primeiro
     const mergedImages = uniq<string>([
         ...(mainImageFromProps ? [mainImageFromProps] : []),
         ...dbImages,
-        ...wikimediaImages,
     ]);
 
-    const finalImage: string | null =
-        mergedImages.length > 0 ? mergedImages[0] : null;
+    const finalImage: string | null = mergedImages.length > 0 ? mergedImages[0] : null;
 
     // ----------------------------------------
-    // Montar PoiInfo (já com imagens fundidas)
+    // Contacts (se vierem no GeoJSON)
+    // ----------------------------------------
+    const phone: string | null = typeof props.phone === "string" ? props.phone : null;
+    const email: string | null = typeof props.email === "string" ? props.email : null;
+    const website: string | null = typeof props.website === "string" ? props.website : null;
+
+    const contacts: Contacts | null = phone || email || website ? { phone, email, website } : null;
+
+    // ----------------------------------------
+    // Montar PoiInfo
     // ----------------------------------------
     const poi: Partial<PoiInfo> = {
         label,
@@ -214,9 +180,7 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
         ratings: props.ratings ?? undefined,
     };
 
-    if (!hasAnyUsefulField(poi)) {
-        return null;
-    }
+    if (!hasAnyUsefulField(poi)) return null;
 
     return poi as PoiInfo;
 }

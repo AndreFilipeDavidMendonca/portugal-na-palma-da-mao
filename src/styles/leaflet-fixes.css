@@ -3,6 +3,6 @@
 .leaflet-container path:focus, .leaflet-container svg:focus { outline: none !important; }
 .leaflet-container img.leaflet-tile {
     mix-blend-mode: normal !important;
-    filter: none !important;        /* só se tiveres aplicado filters noutro lado */
-    opacity: 1 !important;          /* idem */
+    filter: none !important;
+    opacity: 1 !important;
 }
