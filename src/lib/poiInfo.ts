@@ -84,7 +84,7 @@ function hasAnyUsefulField(p: Partial<PoiInfo>): boolean {
    ===================================================================== */
 
 type FetchPoiInfoOpts = {
-    wikipedia?: string | null; // mantido só para compatibilidade
+    wikipedia?: string | null;
     approx?: {
         name?: string | null;
         lat?: number | null;
@@ -94,7 +94,6 @@ type FetchPoiInfoOpts = {
 };
 
 /**
- * NOTA: Esta versão NÃO chama Wikimedia.
  * Serve para criar uma base rápida (BD/GeoJSON) e deixar o Wikimedia para o DistrictModal.
  */
 export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo | null> {

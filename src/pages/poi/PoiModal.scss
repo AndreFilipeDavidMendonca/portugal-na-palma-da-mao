@@ -116,12 +116,29 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;     /* 👈 centra horizontal */
-  justify-content: center; /* 👈 centra vertical */
+
+  /* ✅ importante para flex + scroll interno */
+  min-height: 0;
+
+  /* ✅ não centrar tudo (isso cortava o uploader) */
+  align-items: stretch;
+  justify-content: flex-start;
 
   padding: 12px 16px 18px;
   box-sizing: border-box;
-  overflow: hidden;
+
+  /* ✅ deixar o conteúdo crescer e poder scrollar */
+  overflow: auto;
+}
+
+/* ✅ o slideshow ocupa o “resto” e não empurra o uploader para fora */
+.poi-media-slideshow {
+  flex: 1 1 auto;
+  min-height: 0;   /* crítico */
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ===== Coluna info ===== */
@@ -335,8 +352,11 @@
   font-size: 0.85rem;
 }
 
+/* ✅ uploader fica sempre visível e nunca é cortado */
 .poi-media-uploader {
-  padding: 12px 20px 0 20px;
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 12px 4px 0 4px;
 }
 
 /* ===== Responsivo ===== */
@@ -349,6 +369,6 @@
   .poi-media {
     border-right: none;
     border-bottom: 1px solid var(--border);
-    overflow-y: auto;
+    overflow: auto;
   }
 }

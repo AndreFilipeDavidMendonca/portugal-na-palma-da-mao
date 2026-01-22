@@ -1,31 +1,31 @@
 // DistrictModal.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, GeoJSON, Pane, useMap } from "react-leaflet";
+import {useEffect, useMemo, useRef, useState} from "react";
+import {GeoJSON, MapContainer, Pane, TileLayer, useMap} from "react-leaflet";
 import L from "leaflet";
 
-import { loadGeo } from "@/lib/geo";
+import {loadGeo} from "@/lib/geo";
 import {
+    COLOR_LAKE,
+    COLOR_PEAK,
+    COLOR_RAIL,
+    COLOR_RIVER,
+    COLOR_ROAD,
     DISTRICT_DETAIL,
     DISTRICT_LABELS,
-    COLOR_RIVER,
-    COLOR_LAKE,
-    COLOR_RAIL,
-    COLOR_ROAD,
-    COLOR_PEAK,
-    Z_RIVERS,
-    Z_LAKES,
-    Z_RAIL,
-    Z_ROADS,
-    Z_PEAKS,
-    Z_PLACES,
     POI_LABELS,
     type PoiCategory,
+    Z_LAKES,
+    Z_PEAKS,
+    Z_PLACES,
+    Z_RAIL,
+    Z_RIVERS,
+    Z_ROADS,
 } from "@/utils/constants";
 
-import { PoiAreasLayer, PoiPointsLayer } from "@/features/map/PoiLayers";
+import {PoiAreasLayer, PoiPointsLayer} from "@/features/map/PoiLayers";
 import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
 
-import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
+import {fetchPoiInfo, type PoiInfo} from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
 
@@ -34,9 +34,9 @@ import MediaSlideshow from "@/components/MediaSlideshow";
 
 import "./DistrictModal.scss";
 
-import { updateDistrict, type DistrictUpdatePayload, fetchDistrictById } from "@/lib/api";
-import { fetchDistrictInfo, type DistrictInfo } from "@/lib/districtInfo";
-import { getDistrictCommonsGallery, searchWikimediaImagesByName } from "@/lib/wikimedia";
+import {type DistrictUpdatePayload, fetchDistrictById, updateDistrict} from "@/lib/api";
+import {type DistrictInfo, fetchDistrictInfo} from "@/lib/districtInfo";
+import {getDistrictCommonsGallery, searchWikimediaImagesByName} from "@/lib/wikimedia";
 
 type AnyGeo = any;
 
@@ -438,16 +438,14 @@ export default function DistrictModal(props: Props) {
                     return;
                 }
 
-                const baseMedia = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+                // 2) Tenta completar para ter pelo menos 10 URLs (BD + wiki3)
+                let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 
-                // 2) Tenta completar para ter pelo menos 3 URLs (BD + wiki3)
-                let merged = baseMedia;
-
-                if (merged.length < 3) {
+                if (merged.length < 10) {
                     try {
-                        const wiki3 = await searchWikimediaImagesByName(label, 3);
+                        const wiki5 = await searchWikimediaImagesByName(label, 10);
                         if (!alive || reqRef.current !== reqId) return;
-                        merged = mergeMedia(merged, wiki3 ?? [], 10);
+                        merged = mergeMedia(merged, wiki5 ?? [], 10);
                     } catch {
                         // ignore
                     }

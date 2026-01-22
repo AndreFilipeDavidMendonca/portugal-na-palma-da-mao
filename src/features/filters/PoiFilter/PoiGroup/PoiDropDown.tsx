@@ -11,7 +11,7 @@ type PoiDropdownItem = {
 };
 
 type Props = {
-    anchorRef: RefObject<HTMLElement>; // ou RefObject<HTMLDivElement> se for sempre div
+    anchorRef: RefObject<HTMLDivElement | null>;
     items: PoiDropdownItem[];
     selected: ReadonlySet<PoiCategory>;
     onToggle: (key: PoiCategory) => void;
@@ -19,12 +19,12 @@ type Props = {
 };
 
 export default function PoiDropdown({
-                                        anchorRef,
-                                        items,
-                                        selected,
-                                        onToggle,
-                                        onClose,
-                                    }: Props) {
+    anchorRef,
+    items,
+    selected,
+    onToggle,
+    onClose,
+}: Props) {
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             const anchor = anchorRef.current;

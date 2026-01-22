@@ -24,10 +24,10 @@ export type PoiCategory =
 // === Cores por categoria ===
 export const CATEGORY_COLORS: Record<PoiCategory, string> = {
     castle: "#7e1616",
-    palace: "#501c61",
+    palace: "#3890dc",
     monument: "#24338e",
     ruins: "#51362c",
-    church: "#3890dc",
+    church: "#501c61",
     viewpoint: "#ae7710",
     park: "#2E7D32",
     trail: "#4ced4c", // <-- novo, verde-escuro natural

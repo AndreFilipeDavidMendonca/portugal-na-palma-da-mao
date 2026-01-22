@@ -128,8 +128,7 @@ function filterBadCommonsImages(imgs: CommonsImage[]): CommonsImage[] {
     return imgs.filter((img) => {
         const base = (img.title || img.url).toLowerCase();
         if (base.endsWith(".svg")) return false;
-        if (badKeywords.some((kw) => base.includes(kw))) return false;
-        return true;
+        return !badKeywords.some((kw) => base.includes(kw));
     });
 }
 
@@ -169,7 +168,7 @@ async function commonsSearchTopPageTitle(query: string): Promise<string | null> 
             list: "search",
             srsearch,
             srnamespace,
-            srwhat: "title",   // ⭐ só título (resolve o teu caso)
+            srwhat: "title",
             srlimit: "5",
         });
 
@@ -181,7 +180,6 @@ async function commonsSearchTopPageTitle(query: string): Promise<string | null> 
         const arr = json?.query?.search;
         if (!Array.isArray(arr) || arr.length === 0) return null;
 
-        // preferir match mais “exato” no título
         const normQ = normalize(q);
         const best = [...arr]
             .map((it: any) => ({
@@ -195,19 +193,12 @@ async function commonsSearchTopPageTitle(query: string): Promise<string | null> 
         return typeof best?.title === "string" ? best.title : null;
     };
 
-    // 1) Category: "Jardim das Portas do Sol" (muito comum no Commons)
-    let title =
-        (await trySearch(`"${q}"`, "14")) ||
-        (await trySearch(`intitle:"${q}"`, "14"));
+    let title = (await trySearch(`"${q}"`, "14")) || (await trySearch(`intitle:"${q}"`, "14"));
 
-    // 2) Página normal (namespace 0)
     if (!title) {
-        title =
-            (await trySearch(`"${q}"`, "0")) ||
-            (await trySearch(`intitle:"${q}"`, "0"));
+        title = (await trySearch(`"${q}"`, "0")) || (await trySearch(`intitle:"${q}"`, "0"));
     }
 
-    // 3) Fallback leve (ainda em title-only)
     if (!title) {
         title = (await trySearch(q, "14")) || (await trySearch(q, "0"));
     }
@@ -215,10 +206,7 @@ async function commonsSearchTopPageTitle(query: string): Promise<string | null> 
     return title;
 }
 
-async function fetchImagesFromCommonsPageTitle(
-    pageTitle: string,
-    limit: number
-): Promise<CommonsImage[]> {
+async function fetchImagesFromCommonsPageTitle(pageTitle: string, limit: number): Promise<CommonsImage[]> {
     const t = pageTitle?.trim();
     if (!t) return [];
 
@@ -228,7 +216,7 @@ async function fetchImagesFromCommonsPageTitle(
         origin: "*",
         titles: t,
         generator: "images",
-        gimlimit: String(Math.max(10, limit * 4)), // vem muita coisa, filtramos depois
+        gimlimit: String(Math.max(10, limit * 4)),
         prop: "imageinfo",
         iiprop: "url|size",
         iiurlwidth: "1600",
@@ -246,7 +234,6 @@ async function fetchImagesFromCommonsPageTitle(
 
         const imgs: CommonsImage[] = [];
         Object.values(pages).forEach((p: any) => {
-            // generator=images devolve File: pages; vêm com imageinfo
             const ii = p?.imageinfo?.[0];
             const u: unknown = ii?.thumburl || ii?.url;
             if (typeof u === "string" && u) {
@@ -266,13 +253,10 @@ async function fetchImagesFromCommonsPageTitle(
 }
 
 /* =========================================
-   2) Fallback: pesquisa direta por ficheiros (o que tens hoje)
+   2) Fallback: pesquisa direta por ficheiros
    ========================================= */
 
-async function searchCommonsImagesDetailedByFileSearch(
-    query: string,
-    limit: number
-): Promise<CommonsImage[]> {
+async function searchCommonsImagesDetailedByFileSearch(query: string, limit: number): Promise<CommonsImage[]> {
     const q = query?.trim();
     if (!q) return [];
 
@@ -320,14 +304,13 @@ async function searchCommonsImagesDetailedByFileSearch(
 }
 
 /* =========================================
-   Orquestrador low-level (novo)
+   Orquestrador low-level
    ========================================= */
 
 async function searchCommonsImagesDetailed(query: string, limit: number = 12): Promise<CommonsImage[]> {
     const q = query?.trim();
     if (!q) return [];
 
-    // 1) tenta “página” e imagens dessa página (muito mais relevante)
     const pageTitle =
         (await commonsSearchTopPageTitle(q)) ||
         (await commonsSearchTopPageTitle(`${q} Lisboa`)) ||
@@ -340,7 +323,6 @@ async function searchCommonsImagesDetailed(query: string, limit: number = 12): P
         return ordered.slice(0, Math.max(limit, 8));
     }
 
-    // 2) fallback: pesquisa por ficheiros
     const fromSearch = await searchCommonsImagesDetailedByFileSearch(q, Math.max(limit * 4, 24));
     const cleaned = filterBadCommonsImages(fromSearch);
     const ordered = sortCommonsForGallery(cleaned, q);
@@ -348,7 +330,7 @@ async function searchCommonsImagesDetailed(query: string, limit: number = 12): P
 }
 
 /* =========================================
-   API pública (igual)
+   API pública base (continua disponível)
    ========================================= */
 
 export async function searchWikimediaImagesByName(name: string, limit: number = 8): Promise<string[]> {
@@ -391,4 +373,88 @@ export async function getDistrictCommonsGallery(name: string, maxPhotos: number 
 
 export async function findDistrictGalleryImages(name: string, needed: number = 5): Promise<string[]> {
     return getDistrictCommonsGallery(name, needed);
+}
+
+/* =====================================================================
+   ✅ NOVO: cache + inflight dedupe + helpers “no máximo 10”
+   ===================================================================== */
+
+type CacheEntry = { urls: string[]; updatedAt: number };
+
+const TTL_MS = 1000 * 60 * 60 * 24; // 24h
+const mediaCache = new Map<string, CacheEntry>();
+const inflight = new Map<string, Promise<string[]>>();
+
+function cacheKey(kind: "poi" | "district", name: string, limit: number) {
+    return `${kind}:${limit}:${normalize(name)}`;
+}
+
+function getFreshCached(key: string): string[] | null {
+    const e = mediaCache.get(key);
+    if (!e) return null;
+    if (Date.now() - e.updatedAt > TTL_MS) return null;
+    return e.urls;
+}
+
+async function getOrFetchCached(key: string, fetcher: () => Promise<string[]>) {
+    const cached = getFreshCached(key);
+    if (cached) return cached;
+
+    const inF = inflight.get(key);
+    if (inF) return inF;
+
+    const p = (async () => {
+        const urls = uniqStrings(await fetcher());
+        mediaCache.set(key, { urls, updatedAt: Date.now() });
+        return urls;
+    })();
+
+    inflight.set(key, p);
+
+    try {
+        return await p;
+    } finally {
+        inflight.delete(key);
+    }
+}
+
+function mergeToLimit(base: string[], extra: string[], limit: number) {
+    return uniqStrings([...base, ...extra]).slice(0, limit);
+}
+
+/**
+ * ✅ POI: devolve no máximo 10 urls.
+ * - Se baseUrls já tiver 10 → 0 chamadas ao Wikimedia
+ * - Caso contrário → 1 chamada (cache + inflight dedupe)
+ */
+export async function getPoiMedia10(label: string, baseUrls: string[] = [], limit = 10): Promise<string[]> {
+    const base = uniqStrings(baseUrls).slice(0, limit);
+    if (!label?.trim()) return base;
+    if (base.length >= limit) return base;
+
+    const key = cacheKey("poi", label, limit);
+
+    const wiki = await getOrFetchCached(key, async () => {
+        return searchWikimediaImagesByName(label, limit);
+    });
+
+    return mergeToLimit(base, wiki, limit);
+}
+
+/**
+ * ✅ District: idem, mas usa heurística forte (getDistrictCommonsGallery),
+ * também com cache + inflight dedupe.
+ */
+export async function getDistrictMedia10(name: string, baseUrls: string[] = [], limit = 10): Promise<string[]> {
+    const base = uniqStrings(baseUrls).slice(0, limit);
+    if (!name?.trim()) return base;
+    if (base.length >= limit) return base;
+
+    const key = cacheKey("district", name, limit);
+
+    const wiki = await getOrFetchCached(key, async () => {
+        return getDistrictCommonsGallery(name, limit);
+    });
+
+    return mergeToLimit(base, wiki, limit);
 }

@@ -3,14 +3,28 @@ import "./TopDistrictFilter.scss";
 import UserMenu from "@/features/topbar/UserMenu";
 import type { CurrentUserDto } from "@/lib/api";
 
+export type PoiSearchItem = {
+    id: number;
+    name: string;
+    districtId?: number | null;
+};
+
+export type SearchItem =
+    | { kind: "district"; name: string }
+    | { kind: "poi"; id: number; name: string; districtId?: number | null };
+
 type Props = {
-    allNames: string[];
-    onPick: (name: string) => void;
+    districts: string[];
+    pois: PoiSearchItem[];
+    onPick: (item: SearchItem) => void;
     placeholder?: string;
 
     // auth
     currentUser: CurrentUserDto | null;
     onLoggedOut?: () => void;
+
+    // UX
+    loadingPois?: boolean;
 };
 
 /* ---------------- helpers ---------------- */
@@ -94,14 +108,14 @@ function scoreNameFlexible(name: string, query: string): number {
     return Math.max(1, score);
 }
 
-type SearchItem = { kind: "district"; name: string };
-
 export default function TopDistrictFilter({
-                                              allNames,
+                                              districts,
+                                              pois,
                                               onPick,
-                                              placeholder = "Procurar distrito…",
+                                              placeholder = "Procurar…",
                                               currentUser,
                                               onLoggedOut,
+                                              loadingPois = false,
                                           }: Props) {
     const [open, setOpen] = useState(false);
     const [typedQuery, setTypedQuery] = useState("");
@@ -113,17 +127,26 @@ export default function TopDistrictFilter({
     const listRef = useRef<HTMLUListElement | null>(null);
 
     const searchIndex = useMemo<SearchItem[]>(() => {
-        return allNames.map((n) => ({ kind: "district", name: n }));
-    }, [allNames]);
+        const ds: SearchItem[] = (districts ?? []).map((name) => ({ kind: "district", name }));
+        const ps: SearchItem[] = (pois ?? []).map((p) => ({
+            kind: "poi",
+            id: p.id,
+            name: p.name,
+            districtId: p.districtId ?? null,
+        }));
+        return [...ds, ...ps];
+    }, [districts, pois]);
 
     const filtered = useMemo(() => {
-        if (!typedQuery) return [];
+        const q = typedQuery.trim();
+        if (!q) return [];
+
         return searchIndex
-            .map(it => ({ it, score: scoreNameFlexible(it.name, typedQuery) }))
-            .filter(x => x.score >= 40)
+            .map((it) => ({ it, score: scoreNameFlexible(it.name, q) }))
+            .filter((x) => x.score >= 40)
             .sort((a, b) => b.score - a.score)
-            .slice(0, 30)
-            .map(x => x.it);
+            .slice(0, 10) // ✅ só 10 melhores
+            .map((x) => x.it);
     }, [typedQuery, searchIndex]);
 
     useEffect(() => {
@@ -143,8 +166,8 @@ export default function TopDistrictFilter({
     function handlePick(item: SearchItem) {
         setOpen(false);
         setPreviewQuery(null);
-        setTypedQuery(item.name);
-        onPick(item.name);
+        setTypedQuery(item.name); // ✅ não mete “POI” nem “Distrito”
+        onPick(item);
     }
 
     function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -156,14 +179,14 @@ export default function TopDistrictFilter({
 
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            setActiveIdx(i => {
+            setActiveIdx((i) => {
                 const next = Math.min(i + 1, filtered.length - 1);
                 setPreviewQuery(filtered[next]?.name ?? null);
                 return next;
             });
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            setActiveIdx(i => {
+            setActiveIdx((i) => {
                 const next = Math.max(i - 1, 0);
                 setPreviewQuery(filtered[next]?.name ?? null);
                 return next;
@@ -188,7 +211,7 @@ export default function TopDistrictFilter({
                 <input
                     className="tdf-input"
                     value={inputValue}
-                    placeholder={placeholder}
+                    placeholder={loadingPois ? "A preparar pesquisa…" : placeholder}
                     onChange={(e) => {
                         setTypedQuery(e.target.value);
                         setPreviewQuery(null);
@@ -203,7 +226,7 @@ export default function TopDistrictFilter({
                     <ul className="tdf-list gold-scroll" ref={listRef}>
                         {filtered.map((item, i) => (
                             <li
-                                key={`${item.name}-${i}`}
+                                key={item.kind === "poi" ? `poi-${item.id}` : `district-${item.name}-${i}`}
                                 className={`tdf-item ${i === activeIdx ? "is-active" : ""}`}
                                 onMouseDown={(e) => {
                                     e.preventDefault();
@@ -220,6 +243,19 @@ export default function TopDistrictFilter({
                     </ul>
                 )}
             </div>
+            {inputValue && (
+                <button
+                    className="btn-clear"
+                    onClick={() => {
+                        setTypedQuery("");
+                        setPreviewQuery(null);
+                        setOpen(false);
+                        setActiveIdx(0);
+                    }}
+                >
+                    Limpar
+                </button>
+            )}
         </div>
     );
 }

@@ -22,7 +22,14 @@ type Props = {
     isAdmin?: boolean;
 };
 
-export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = false }: Props) {
+export default function PoiModal({
+                                     open,
+                                     onClose,
+                                     info,
+                                     poi,
+                                     onSaved,
+                                     isAdmin = false,
+                                 }: Props) {
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -47,9 +54,7 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
 
-        const gal = Array.from(
-            new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean))
-        );
+        const gal = Array.from(new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean)));
         setImagesList(gal);
     }, [info]);
 
@@ -164,11 +169,19 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
 
                 <div className="poi-body">
                     <section className="poi-media gold-scroll">
-                        <MediaSlideshow items={mediaUrls} title={title} />
+                        {/* ✅ wrapper do slideshow para ocupar o topo e não empurrar/cortar o uploader */}
+                        <div className="poi-media-slideshow">
+                            <MediaSlideshow items={mediaUrls} title={title} />
+                        </div>
 
                         {editing && canEdit && (
                             <div className="poi-media-uploader">
-                                <ImageDropField label="Imagens / vídeos" images={imagesList} onChange={setImagesList} mode="media" />
+                                <ImageDropField
+                                    label="Imagens / vídeos"
+                                    images={imagesList}
+                                    onChange={setImagesList}
+                                    mode="media"
+                                />
                             </div>
                         )}
                     </section>
@@ -186,12 +199,18 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                         >
                             Direções
                         </a>
+
                         {errorMsg && <div className="poi-error">{errorMsg}</div>}
 
                         {editing && canEdit ? (
                             <>
                                 <label className="poi-edit-label">Descrição</label>
-                                <textarea className="poi-edit-textarea" rows={10} value={descInput} onChange={(e) => setDescInput(e.target.value)} />
+                                <textarea
+                                    className="poi-edit-textarea"
+                                    rows={10}
+                                    value={descInput}
+                                    onChange={(e) => setDescInput(e.target.value)}
+                                />
                             </>
                         ) : (
                             <p className="poi-desc">{localInfo?.description ?? ""}</p>

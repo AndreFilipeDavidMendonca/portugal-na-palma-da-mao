@@ -15,37 +15,32 @@ type Props = {
     onClose?: () => void;
 };
 
-// ⚠️ Ajusta estes arrays aos teus POI_CATEGORIES reais
 const CULTURE_KEYS = [
     "castle",
-    "fortress",
-    "church",
-    "chapel",
-    "convent",
-    "monument",
-    "museum",
     "palace",
-    "ruins"
-] as string[];
+    "monument",
+    "ruins",
+    "church",
+] as const satisfies readonly PoiCategory[];
 
 const NATURE_KEYS = [
-    "viewpoint",      // miradouros
+    "viewpoint",
     "park",
-    "natural_park",
-    "garden",
-    "trail",          // trilhos
-    "hiking_route",
-] as string[];
+    "trail",
+] as const satisfies readonly PoiCategory[];
+
+const CULTURE_SET: ReadonlySet<PoiCategory> = new Set(CULTURE_KEYS);
+const NATURE_SET: ReadonlySet<PoiCategory> = new Set(NATURE_KEYS);
 
 export default function PoiFilter({
-                                      selected,
-                                      onToggle,
-                                      onClear,
-                                      countsByCat = {},
-                                      variant = "top",
-                                      showClose = false,
-                                      onClose,
-                                  }: Props) {
+      selected,
+      onToggle,
+      onClear,
+      countsByCat = {},
+      variant = "top",
+      showClose = false,
+      onClose,
+  }: Props) {
     const isTop = variant === "top";
 
     const [openGroup, setOpenGroup] = useState<"culture" | "nature" | null>(null);
@@ -68,15 +63,15 @@ export default function PoiFilter({
 
     // separa em grupos (Cultura / Natureza / Outros)
     const { cultureCats, natureCats, otherCats } = useMemo(() => {
-        const culture = [];
-        const nature = [];
-        const others = [];
+        const culture: typeof POI_CATEGORIES = [];
+        const nature: typeof POI_CATEGORIES = [];
+        const others: typeof POI_CATEGORIES = [];
 
         for (const c of nodeCategories) {
-            const k = c.key as unknown as string;
+            const k = c.key;
 
-            if (CULTURE_KEYS.includes(k)) culture.push(c);
-            else if (NATURE_KEYS.includes(k)) nature.push(c);
+            if (CULTURE_SET.has(k)) culture.push(c);
+            else if (NATURE_SET.has(k)) nature.push(c);
             else others.push(c);
         }
 
@@ -148,9 +143,7 @@ export default function PoiFilter({
 
                     {openGroup === "culture" && (
                         <div className="poi-group-dropdown">
-                            {cultureCats.map(({ key, label }) =>
-                                renderChip(key as PoiCategory, label)
-                            )}
+                            {cultureCats.map(({ key, label }) => renderChip(key, label))}
                         </div>
                     )}
                 </div>
