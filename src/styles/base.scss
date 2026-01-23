@@ -25,6 +25,10 @@
   /* Pesos padrão */
   --font-weight-body: 400;
   --font-weight-title: 600;
+
+  /* Loading logo shift */
+  --logo-shift-x: 0%;
+  --logo-shift-y: 0%;
 }
 
 /* Estrutura base */
@@ -51,20 +55,36 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
-/* Botão base */
+/* Botão base (genérico) */
 .btn {
-  padding: .35rem .6rem;
+  padding: .45rem .75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
   background: var(--bg-panel);
   color: var(--gold);
   cursor: pointer;
   font-family: var(--font-body), serif;
-  transition: all .2s ease;
+  transition: all .18s ease;
 
   &:hover {
     background: var(--bg-panel-2);
-    border-color: var(--gold);
+    border-color: var(--gold-dark);
+    color: var(--gold-strong);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--border-2);
+    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+  }
+
+  &:disabled {
+    opacity: .65;
+    cursor: default;
   }
 }
 
@@ -82,6 +102,7 @@ h1, h2, h3, h4, h5, h6 {
   user-select: none;
   pointer-events: none;
 }
+
 .district-label span {
   display: inline-block;
   font-family: var(--font-title), serif;
@@ -96,12 +117,12 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-/* Botão Limpar (fora do input) — mesmo “visual” do DistrictModal */
+/* Botão Limpar — mesmo “visual” do DistrictModal */
 .btn-clear {
   margin-left: 10px;
   height: 36px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 999px;
   background: transparent;
   color: var(--gold);
   border: 1px solid var(--gold-dark);
@@ -110,25 +131,34 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 16px;
   cursor: pointer;
   transition: all .18s ease;
-  display: inline-flex; align-items: center; gap: 8px; line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
 
-  &:hover { background: var(--bg-panel-2); border-color: var(--gold); color: var(--gold-strong); }
+  &:hover {
+    background: var(--bg-panel-2);
+    border-color: var(--gold);
+    color: var(--gold-strong);
+  }
+
   &:active { transform: translateY(1px); }
-  &:focus { outline: none; box-shadow: 0 0 0 3px rgba(215,178,90,.15); }
+
+  &:focus {
+    outline: none;
+    border-color: var(--border-2);
+    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+  }
 }
 
 /* Tooltip de distrito */
 .leaflet-tooltip.district-badge {
-  --badge-bg: var(--bg-panel-2);
-  --badge-border: var(--gold-dark);
-  --badge-text: var(--gold);
-
-  background: var(--badge-bg);
-  color: var(--badge-text);
-  border: 1.6px solid var(--badge-border);
+  background: var(--bg-panel-2);
+  color: var(--gold);
+  border: 1.6px solid var(--gold-dark);
   border-radius: 10px;
   padding: 6px 10px;
-  font-family: var(--font-title, "Cormorant Garamond", serif), serif;
+  font-family: var(--font-title), serif;
   font-weight: 600;
   font-size: clamp(14px, 1.4vw, 18px);
   letter-spacing: .3px;
@@ -137,6 +167,7 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
   animation: district-badge-pop .18s ease-out both;
 }
+
 .leaflet-tooltip-top.district-badge:before {
   border-top-color: var(--bg-panel-2) !important;
   border-width: 7px !important;
@@ -166,7 +197,7 @@ h1, h2, h3, h4, h5, h6 {
   background-clip: content-box;
 }
 
-/* Overlay de loading global (ex.: ecrã de arranque) */
+/* Overlay de loading global */
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -176,7 +207,6 @@ h1, h2, h3, h4, h5, h6 {
   place-items: center;
 }
 .loading-frame { position: relative; width: 100vw; height: 100vh; }
-:root { --logo-shift-x: 0%; --logo-shift-y: 0%; }
 .loading-video {
   position: absolute;
   inset: 0;

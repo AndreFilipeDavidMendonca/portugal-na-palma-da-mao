@@ -1,8 +1,8 @@
 /* ===========================
-   Login Page – match District theme
+   Register Page – match District theme
    =========================== */
 
-.login-page {
+.register-page {
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -11,8 +11,8 @@
   padding: 22px 14px;
 }
 
-.login-card {
-  width: min(460px, 92vw);
+.register-card {
+  width: min(520px, 94vw);
   padding: 34px 26px 26px;
   border-radius: 20px;
   background: var(--bg-panel);
@@ -27,7 +27,7 @@
   *::after { box-sizing: border-box; }
 }
 
-.login-logo {
+.register-logo {
   display: grid;
   place-items: center;
   margin-bottom: 14px;
@@ -40,7 +40,7 @@
   }
 }
 
-.login-title {
+.register-title {
   margin: 8px 0 4px;
   font-family: var(--font-title), serif;
   font-size: 22px;
@@ -49,15 +49,25 @@
   color: var(--gold);
 }
 
-.login-subtitle {
+.register-subtitle {
   margin: 0 0 22px;
   font-size: 15px;
   color: var(--muted);
 }
 
-.login-form { display: grid; gap: 14px; }
+.register-form { display: grid; gap: 14px; }
 
-.login-input {
+.register-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.register-input {
   width: 100%;
   padding: 14px 14px;
   border-radius: 14px;
@@ -75,7 +85,7 @@
   &:disabled { opacity: 0.65; }
 }
 
-.login-error {
+.register-error {
   padding: 10px 12px;
   border-radius: 14px;
   font-weight: 800;
@@ -85,15 +95,14 @@
   color: var(--gold-strong);
 }
 
-.login-actions {
+.register-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 10px;
 }
 
-/* ✅ Botões pill no padrão district */
-.login-btn {
+.register-btn {
   border-radius: 999px;
   padding: 10px 16px;
   font-weight: 900;
@@ -112,7 +121,7 @@
   &:disabled { opacity: 0.6; cursor: default; }
 }
 
-.login-btn--primary {
+.register-btn--primary {
   border-color: var(--gold-dark);
   background: var(--gold);
   color: var(--bg-deep);
@@ -120,49 +129,14 @@
   &:hover:not(:disabled) { background: var(--gold-strong); border-color: var(--gold); }
 }
 
-.login-btn--ghost {
+.register-btn--ghost {
   border-color: var(--gold-dark);
   background: var(--bg-panel-2);
 
   &:hover:not(:disabled) { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
 }
 
-/* ✅ Footer + botão Criar conta (condizente com o tema) */
-.login-footer {
-  margin-top: 14px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-}
-
-.login-link {
-  border-radius: 999px;
-  padding: 6px 12px;
-  border: 1px solid var(--gold-dark);
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  font-weight: 900;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-  &:hover:not(:disabled) {
-    background: var(--bg-panel);
-    border-color: var(--gold);
-    color: var(--gold-strong);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-  }
-
-  &:disabled { opacity: 0.65; cursor: default; }
-}
-
 @media (max-width: 420px) {
-  .login-card { padding: 28px 18px 20px; }
-  .login-logo img { width: 120px; height: 120px; }
+  .register-card { padding: 28px 18px 20px; }
+  .register-logo img { width: 120px; height: 120px; }
 }

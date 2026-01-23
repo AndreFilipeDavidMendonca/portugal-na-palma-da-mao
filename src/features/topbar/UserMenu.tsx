@@ -12,6 +12,7 @@ type Props = {
 function initialsFromEmail(email?: string | null) {
     const s = (email ?? "").trim();
     if (!s) return "?";
+
     const left = s.split("@")[0] ?? s;
     const parts = left.split(/[.\-_]+/).filter(Boolean);
 
@@ -26,6 +27,8 @@ export default function UserMenu({ currentUser, onLoggedOut }: Props) {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const from = useMemo(() => location.pathname ?? "/", [location.pathname]);
+
     useEffect(() => {
         function onClickOutside(e: MouseEvent) {
             if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
@@ -35,8 +38,6 @@ export default function UserMenu({ currentUser, onLoggedOut }: Props) {
         document.addEventListener("mousedown", onClickOutside);
         return () => document.removeEventListener("mousedown", onClickOutside);
     }, []);
-
-    const from = useMemo(() => location.pathname ?? "/", [location.pathname]);
 
     const goLogin = () => {
         setOpen(false);
@@ -55,7 +56,7 @@ export default function UserMenu({ currentUser, onLoggedOut }: Props) {
                 type="button"
                 className="user-menu__btn"
                 onClick={() => setOpen((v) => !v)}
-                title={currentUser ? currentUser.email : "Login"}
+                title={currentUser ? currentUser.email : "Conta"}
                 aria-haspopup="menu"
                 aria-expanded={open}
             >
@@ -91,7 +92,7 @@ export default function UserMenu({ currentUser, onLoggedOut }: Props) {
                     ) : (
                         <button
                             type="button"
-                            className="user-menu__item"
+                            className="user-menu__item user-menu__item--primary"
                             onClick={goLogin}
                             role="menuitem"
                         >

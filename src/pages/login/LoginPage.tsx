@@ -8,10 +8,7 @@ export default function Login() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = useMemo(
-        () => (location.state as any)?.from ?? "/",
-        [location.state]
-    );
+    const from = useMemo(() => (location.state as any)?.from ?? "/", [location.state]);
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -68,11 +65,7 @@ export default function Login() {
                     {error && <div className="login-error">{error}</div>}
 
                     <div className="login-actions">
-                        <button
-                            className="login-btn login-btn--primary"
-                            type="submit"
-                            disabled={loading}
-                        >
+                        <button className="login-btn login-btn--primary" type="submit" disabled={loading}>
                             {loading ? "A entrar…" : "Entrar"}
                         </button>
 
@@ -83,6 +76,19 @@ export default function Login() {
                             disabled={loading}
                         >
                             Cancelar
+                        </button>
+                    </div>
+
+                    {/* ✅ CTA para registo */}
+                    <div className="login-footer">
+                        <span className="login-footer__text">Ainda não tens conta?</span>
+                        <button
+                            type="button"
+                            className="login-link"
+                            disabled={loading}
+                            onClick={() => navigate("/register", { state: { from }, replace: true })}
+                        >
+                            Criar conta
                         </button>
                     </div>
                 </form>

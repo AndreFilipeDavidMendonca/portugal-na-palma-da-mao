@@ -8,17 +8,12 @@
   color: var(--gold);
   overflow: hidden;
 
-  .poi-top {
-    /* já estilizado via PoiFilter */
-  }
-
   .modal-content {
     display: grid;
     grid-template-columns: 1fr clamp(420px, 28vw, 560px);
     min-height: 0;
   }
 
-  /* lado esquerdo (mapa OU slideshow) */
   .left-pane {
     position: relative;
     min-height: 0;
@@ -29,7 +24,6 @@
     width: 100% !important;
   }
 
-  /* painel direito (sempre o mesmo) */
   .right-panel {
     background: var(--bg-panel) !important;
     color: var(--gold);
@@ -45,7 +39,6 @@
       text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
     }
 
-    /* header distrito + botões */
     .district-header {
       display: flex;
       align-items: flex-end;
@@ -54,11 +47,6 @@
       border-bottom: 1px solid var(--border);
       padding-bottom: 6px;
       margin-bottom: 6px;
-    }
-
-    .district-header-main {
-      flex: 1;
-      min-width: 0;
     }
 
     .district-title {
@@ -80,6 +68,11 @@
       padding: 4px 12px;
       color: var(--gold);
       outline: none;
+
+      &:focus {
+        border-color: var(--border-2);
+        box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+      }
     }
 
     .district-header-actions {
@@ -89,6 +82,7 @@
       flex-shrink: 0;
     }
 
+    /* ✅ Botões agora 100% por tokens */
     .district-btn {
       border-radius: 999px;
       padding: 4px 12px;
@@ -97,64 +91,53 @@
       border: 1px solid transparent;
       background: transparent;
       color: var(--gold);
-      transition:
-              background 0.15s ease,
-              border-color 0.15s ease,
-              color 0.15s ease;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
       &--ghost {
-        border-color: #e0b15a;
-        background: #1f1a10;
+        border-color: var(--gold-dark);
+        background: var(--bg-panel-2);
 
-        &:hover {
-          background: #2a2112;
-        }
+        &:hover { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
       }
 
       &--primary {
-        border-color: #e0b15a;
-        background: #e0b15a;
-        color: #1b140a;
+        border-color: var(--gold-dark);
+        background: var(--gold);
+        color: var(--bg-deep);
 
-        &:hover {
-          background: #f1c875;
-        }
+        &:hover { background: var(--gold-strong); border-color: var(--gold); }
       }
 
-      &:disabled {
-        opacity: 0.7;
-        cursor: default;
+      &:focus {
+        outline: none;
+        border-color: var(--border-2);
+        box-shadow: 0 0 0 3px rgba(215,178,90,.15);
       }
-    }
 
-    .district-header-subrow {
-      display: flex;
-      justify-content: flex-start;
-      margin: 8px 0 4px;
+      &:disabled { opacity: 0.7; cursor: default; }
     }
 
     .district-videos-toggle {
       border-radius: 999px;
       padding: 3px 10px;
       font-size: 0.78rem;
-      border: 1px solid #e0b15a;
-      background: #1f1a10;
-      color: #f7e3b5;
+      border: 1px solid var(--gold-dark);
+      background: var(--bg-panel-2);
+      color: var(--gold);
       cursor: pointer;
       letter-spacing: 0.02em;
 
-      &:hover {
-        background: #2a2112;
-      }
+      &:hover { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
+      &:focus { outline: none; border-color: var(--border-2); box-shadow: 0 0 0 3px rgba(215,178,90,.15); }
     }
 
     .district-error {
       margin-top: 6px;
       padding: 6px 10px;
       border-radius: 8px;
-      border: 1px solid #ffb4a2;
-      background: rgba(128, 40, 40, 0.25);
-      color: #ffd4c8;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0, 0, 0, 0.22);
+      color: var(--gold-strong);
       font-size: 0.8rem;
     }
 
@@ -163,15 +146,9 @@
       line-height: 1.55;
       color: var(--muted);
 
-      .district-meta {
-        display: grid;
-        gap: 4px;
-        margin-bottom: 10px;
-
-        strong {
-          color: var(--gold-strong);
-          font-weight: 600;
-        }
+      strong {
+        color: var(--gold-strong);
+        font-weight: 600;
       }
 
       .district-meta-input {
@@ -182,29 +159,30 @@
         font-size: 0.8rem;
         color: var(--gold);
         min-width: 60px;
-      }
 
-      .district-text-blocks {
-        margin-top: 6px;
-      }
-
-      .district-label {
-        display: block;
-        font-size: 0.8rem;
-        color: var(--muted);
-        margin-bottom: 2px;
+        &:focus {
+          outline: none;
+          border-color: var(--border-2);
+          box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+        }
       }
 
       .district-textarea {
         width: 100%;
         border-radius: 12px;
         border: 1px solid var(--border);
-        background: #1b140a;
+        background: var(--bg-panel-2);
         color: var(--gold);
         font-size: 0.88rem;
         padding: 6px 8px;
         resize: vertical;
         margin-bottom: 8px;
+
+        &:focus {
+          outline: none;
+          border-color: var(--border-2);
+          box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+        }
       }
 
       .district-description {
@@ -217,29 +195,9 @@
         font-size: 0.95rem;
         color: var(--muted);
       }
-
-      .district-gallery-text {
-        margin-top: 14px;
-        border-top: 1px dashed var(--border);
-        padding-top: 8px;
-      }
-
-      .district-gallery-title {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: var(--gold-strong);
-        display: block;
-        margin-bottom: 4px;
-      }
-
-      .district-gallery-empty {
-        font-size: 0.85rem;
-        color: var(--muted);
-      }
     }
   }
 
-  /* Galeria no lado esquerdo em modo expandido */
   .district-gallery-left {
     height: 100%;
     display: flex;
@@ -247,37 +205,9 @@
     padding: 20px 18px 18px;
     box-sizing: border-box;
     background: var(--bg-panel-2);
-    overflow: hidden; // sem scroll aqui
-  }
-
-  .district-gallery-main {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-
-    border-radius: 18px;
     overflow: hidden;
-
-    /* já não queremos a "div preta" */
-    background: transparent;
-
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
   }
 
-  .district-gallery-main .slideshow {
-    width: 100%;
-    height: 100%;
-  }
-
-  /* opcional: um bocadinho de margem para respirar */
-  .district-gallery-main .slideshow__frame {
-    border-radius: 18px;
-  }
-
-  /* Overlay de loading */
   .poi-preloader {
     position: fixed;
     inset: 0;
@@ -303,17 +233,10 @@
   }
 }
 
-/* Quando a galeria está aberta, ajustamos a largura das colunas:
-   mais espaço para o slideshow + right side ligeiramente mais largo
-*/
 .district-modal.theme-dark.district-modal--gallery-open {
   .modal-content {
     grid-template-columns: minmax(420px, 1.4fr) minmax(420px, 1.1fr);
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+@keyframes spin { to { transform: rotate(360deg); } }

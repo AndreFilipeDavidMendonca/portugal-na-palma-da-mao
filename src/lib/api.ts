@@ -28,14 +28,53 @@ async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> 
 }
 
 /* ========= Auth / Utilizador atual ========= */
+
+export type RegisterPayload = {
+    firstName?: string | null;
+    lastName?: string | null;
+    age?: number | null;
+    nationality?: string | null;
+    email: string;
+    phone?: string | null;
+    password: string;
+};
+
+export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
+    const res = await fetch(`${API_BASE}/api/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+            firstName: body.firstName ?? null,
+            lastName: body.lastName ?? null,
+            age: body.age ?? null,
+            nationality: body.nationality ?? null,
+            email: body.email.trim(),
+            phone: body.phone ?? null,
+            password: body.password,
+        }),
+    });
+
+    // já ajuda a dar mensagens úteis
+    if (res.status === 409) throw new Error("Já existe uma conta com esse email.");
+    if (!res.ok) throw new Error(`Registo falhou (status ${res.status})`);
+
+    return res.json();
+}
+
 export type CurrentUserDto = {
     id: string;
     email: string;
     displayName: string | null;
     avatarUrl: string | null;
-    role: string; // "ADMIN" | "USER"
-};
+    role: string;
 
+    firstName?: string | null;
+    lastName?: string | null;
+    age?: number | null;
+    nationality?: string | null;
+    phone?: string | null;
+};
 /** Guest => null (não lança erro) */
 export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
     const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });

@@ -1,29 +1,29 @@
-import { MapContainer, TileLayer, Pane } from "react-leaflet";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {MapContainer, Pane, TileLayer} from "react-leaflet";
+import {useEffect, useMemo, useRef, useState} from "react";
 import L from "leaflet";
 
-import { loadGeo } from "@/lib/geo";
+import {loadGeo} from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-import { WORLD_BASE, WORLD_LABELS, type PoiCategory } from "@/utils/constants";
+import {type PoiCategory, WORLD_BASE, WORLD_LABELS} from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import TopDistrictFilter, { type SearchItem } from "@/features/topbar/TopDistrictFilter";
+import TopDistrictFilter, {type SearchItem} from "@/features/topbar/TopDistrictFilter";
 
 import {
+    type CurrentUserDto,
+    type DistrictDto,
+    fetchCurrentUser,
     fetchDistricts,
     fetchPois,
-    fetchCurrentUser,
-    type DistrictDto,
     type PoiDto,
-    type CurrentUserDto,
 } from "@/lib/api";
 
-import { filterPointsInsideDistrict } from "@/lib/spatial";
+import {filterPointsInsideDistrict} from "@/lib/spatial";
 
 // ✅ POI modal (no Home)
 import PoiModal from "@/pages/poi/PoiModal";
-import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-import { searchWikimediaImagesByName } from "@/lib/wikimedia";
+import {fetchPoiInfo, type PoiInfo} from "@/lib/poiInfo";
+import {searchWikimediaImagesByName} from "@/lib/wikimedia";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 type AnyGeo = any;
@@ -61,8 +61,7 @@ function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
 const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 function pickPoiLabelFromDto(p: PoiDto): string {
-    const s = (p.namePt ?? p.name ?? "").trim();
-    return s;
+    return (p.namePt ?? p.name ?? "").trim();
 }
 
 function poiDtoToFeature(p: PoiDto): any {
