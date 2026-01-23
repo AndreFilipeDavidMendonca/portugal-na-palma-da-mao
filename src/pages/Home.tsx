@@ -128,12 +128,6 @@ export default function Home() {
     const [homePoiFeature, setHomePoiFeature] = useState<any | null>(null);
     const homePoiReqRef = useRef(0);
 
-    // ✅ tem de estar DENTRO do Home porque usa setCurrentUser
-    async function refreshUser() {
-        const u = await fetchCurrentUser().catch(() => null);
-        setCurrentUser(u);
-    }
-
     // =========================
     //   Carregar utilizador atual
     // =========================
@@ -471,23 +465,6 @@ export default function Home() {
         window.addEventListener("pt:open-poi", handler as any);
         return () => window.removeEventListener("pt:open-poi", handler as any);
     }, [allPois]);
-
-    async function openPoiById(poiId: number) {
-        // 1) tenta primeiro no cache (já carregaste allPois para o topo)
-        let poiDto = allPois.find((p) => p.id === poiId);
-
-        // 2) fallback: vai ao backend buscar
-        if (!poiDto) {
-            try {
-                poiDto = await fetchPoiById(poiId);
-            } catch (e) {
-                console.error("[api] Falha a carregar POI por id:", poiId, e);
-                return;
-            }
-        }
-
-        if (poiDto) openPoiFromDto(poiDto);
-    }
 
     // =========================
     //   Handler do Top search (distrito ou POI)

@@ -38,26 +38,6 @@ async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> 
     return data as T;
 }
 
-/** Igual ao jsonFetch, mas devolve null em certos status (ex: 401/404) */
-async function jsonFetchOrNull<T>(
-    input: RequestInfo,
-    init?: RequestInit,
-    nullOn: number[] = [401, 404]
-): Promise<T | null> {
-    const res = await fetch(input, init);
-
-    if (nullOn.includes(res.status)) return null;
-    if (res.status === 204) return null as unknown as T;
-
-    const data = await parseJsonSafe(res);
-
-    if (!res.ok) {
-        throw new Error(extractErrorMessage(data, res.status));
-    }
-
-    return data as T;
-}
-
 /* =========================
    Auth
 ========================= */

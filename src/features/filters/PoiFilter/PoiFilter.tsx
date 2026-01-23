@@ -2,7 +2,6 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { POI_CATEGORIES, PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
-import logo from "@/assets/logo.png";
 import "./poiFilter.scss";
 
 type Props = {
