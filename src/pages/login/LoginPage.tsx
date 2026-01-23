@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "@/lib/api";
+import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
 import "./LoginPage.scss";
 
 export default function Login() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { setUser } = useAuth();
 
     const from = useMemo(() => (location.state as any)?.from ?? "/", [location.state]);
 
@@ -23,7 +25,8 @@ export default function Login() {
         setLoading(true);
 
         try {
-            await login(email, password);
+            const u = await login(email, password);
+            setUser(u); // ✅ atualiza UI imediatamente
             navigate(from, { replace: true });
         } catch (e: any) {
             setError(e?.message ?? "Falha no login");
@@ -79,7 +82,6 @@ export default function Login() {
                         </button>
                     </div>
 
-                    {/* ✅ CTA para registo */}
                     <div className="login-footer">
                         <span className="login-footer__text">Ainda não tens conta?</span>
                         <button

@@ -1,0 +1,14 @@
+.top-left-user-menu {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+
+  width: calc(var(--top-left-slot) - 5px);
+  height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 10000;
+}

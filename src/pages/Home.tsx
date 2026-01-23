@@ -15,6 +15,7 @@ import {
     fetchCurrentUser,
     fetchDistricts,
     fetchPois,
+    fetchPoiById,
     type PoiDto,
 } from "@/lib/api";
 
@@ -453,6 +454,41 @@ export default function Home() {
         }
     }
 
+    useEffect(() => {
+        async function handler(e: Event) {
+            const ce = e as CustomEvent<{ poiId: number }>;
+            const poiId = ce?.detail?.poiId;
+            if (!poiId) return;
+
+            try {
+                const dto = await fetchPoiById(poiId);
+                if (dto) await openPoiFromDto(dto);
+            } catch (err) {
+                console.error("[Home] Falha ao abrir POI por id:", err);
+            }
+        }
+
+        window.addEventListener("pt:open-poi", handler as any);
+        return () => window.removeEventListener("pt:open-poi", handler as any);
+    }, [allPois]);
+
+    async function openPoiById(poiId: number) {
+        // 1) tenta primeiro no cache (já carregaste allPois para o topo)
+        let poiDto = allPois.find((p) => p.id === poiId);
+
+        // 2) fallback: vai ao backend buscar
+        if (!poiDto) {
+            try {
+                poiDto = await fetchPoiById(poiId);
+            } catch (e) {
+                console.error("[api] Falha a carregar POI por id:", poiId, e);
+                return;
+            }
+        }
+
+        if (poiDto) openPoiFromDto(poiDto);
+    }
+
     // =========================
     //   Handler do Top search (distrito ou POI)
     // =========================
@@ -506,8 +542,6 @@ export default function Home() {
                             districts={districtNames}
                             pois={poiSearchItems}
                             onPick={handlePickFromTop}
-                            currentUser={currentUser}
-                            onLoggedOut={refreshUser}
                             loadingPois={loadingAllPois}
                         />
                     </div>

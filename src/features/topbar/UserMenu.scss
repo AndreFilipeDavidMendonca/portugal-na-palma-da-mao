@@ -19,8 +19,8 @@
 }
 
 .user-menu__btn img {
-  width: 28px;
-  height: 28px;
+  width: 45px;
+  height: 45px;
   object-fit: contain;
   display: block;
 }
@@ -133,4 +133,119 @@
 .user-menu__item--danger:hover {
   background: rgba(255, 80, 80, 0.10);
   border-color: rgba(255, 80, 80, 0.18);
+}
+
+.user-menu__icon {
+  width: 18px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.user-menu__favorites {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.10);
+  display: grid;
+  gap: 8px;
+}
+
+.user-menu__hint {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 6px 4px;
+}
+
+.user-menu__error {
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 13px;
+  color: rgba(255, 190, 190, 0.95);
+  background: rgba(255, 80, 80, 0.10);
+  border: 1px solid rgba(255, 80, 80, 0.22);
+}
+
+.user-menu__fav-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.user-menu__fav-main {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.user-menu__fav-thumb {
+  width: 46px;
+  height: 36px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0,0,0,0.18);
+  display: grid;
+  place-items: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.user-menu__fav-noimg {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(212, 175, 55, 0.10);
+}
+
+.user-menu__fav-name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu__fav-star {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(212, 175, 55, 0.12);
+  color: rgba(212, 175, 55, 0.95);
+  font-weight: 900;
+  font-size: 16px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(212, 175, 55, 0.16);
+    border-color: rgba(212, 175, 55, 0.30);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
 }

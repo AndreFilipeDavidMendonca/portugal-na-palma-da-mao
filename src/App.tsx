@@ -1,22 +1,37 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "@/pages/Home";
-import LoginPage from "@/pages/login/LoginPage";
-import RegisterPage from "@/pages/register/RegisterPage";
-import "@/styles/base.scss";
+// src/App.tsx
+import { useCallback, useEffect, useState } from "react";
+import { Routes, Route } from "react-router-dom";
 
+import Home from "@/pages/Home";
+import TopLeftUserMenu from "@/features/topbar/TopRightUserMenu";
+
+import { fetchCurrentUser, type CurrentUserDto } from "@/lib/api";
+import RegisterPage from "@/pages/register/RegisterPage";
+import LoginPage from "@/pages/login/LoginPage";
 export default function App() {
+    const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
+
+    const refreshUser = useCallback(async () => {
+        const u = await fetchCurrentUser().catch(() => null);
+        setCurrentUser(u);
+        return u;
+    }, []);
+
+    // 1x no arranque
+    useEffect(() => {
+        refreshUser();
+    }, [refreshUser]);
+
     return (
         <div className="app-root">
-            <div className="map-pad">
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
+            {/* ✅ SEMPRE montado */}
+            <TopLeftUserMenu currentUser={currentUser} onLoggedOut={refreshUser} />
 
-                    {/* opcional: fallback */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </div>
+            <Routes>
+                <Route path="/" element={<Home  />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+            </Routes>
         </div>
     );
 }

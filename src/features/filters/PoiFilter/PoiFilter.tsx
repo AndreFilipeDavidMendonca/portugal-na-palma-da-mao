@@ -15,53 +15,37 @@ type Props = {
     onClose?: () => void;
 };
 
-const CULTURE_KEYS = [
-    "castle",
-    "palace",
-    "monument",
-    "ruins",
-    "church",
-] as const satisfies readonly PoiCategory[];
-
-const NATURE_KEYS = [
-    "viewpoint",
-    "park",
-    "trail",
-] as const satisfies readonly PoiCategory[];
+const CULTURE_KEYS = ["castle", "palace", "monument", "ruins", "church"] as const satisfies readonly PoiCategory[];
+const NATURE_KEYS = ["viewpoint", "park", "trail"] as const satisfies readonly PoiCategory[];
 
 const CULTURE_SET: ReadonlySet<PoiCategory> = new Set(CULTURE_KEYS);
 const NATURE_SET: ReadonlySet<PoiCategory> = new Set(NATURE_KEYS);
 
 export default function PoiFilter({
-      selected,
-      onToggle,
-      onClear,
-      countsByCat = {},
-      variant = "top",
-      showClose = false,
-      onClose,
-  }: Props) {
+                                      selected,
+                                      onToggle,
+                                      onClear,
+                                      countsByCat = {},
+                                      variant = "top",
+                                      showClose = false,
+                                      onClose,
+                                  }: Props) {
     const isTop = variant === "top";
 
     const [openGroup, setOpenGroup] = useState<"culture" | "nature" | null>(null);
     const wrapRef = useRef<HTMLDivElement | null>(null);
 
-    // click fora para fechar dropdowns
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
             if (!wrapRef.current) return;
-            if (!wrapRef.current.contains(e.target as Node)) {
-                setOpenGroup(null);
-            }
+            if (!wrapRef.current.contains(e.target as Node)) setOpenGroup(null);
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // índice base
     const nodeCategories = useMemo(() => POI_CATEGORIES, []);
 
-    // separa em grupos (Cultura / Natureza / Outros)
     const { cultureCats, natureCats, otherCats } = useMemo(() => {
         const culture: typeof POI_CATEGORIES = [];
         const nature: typeof POI_CATEGORIES = [];
@@ -69,7 +53,6 @@ export default function PoiFilter({
 
         for (const c of nodeCategories) {
             const k = c.key;
-
             if (CULTURE_SET.has(k)) culture.push(c);
             else if (NATURE_SET.has(k)) nature.push(c);
             else others.push(c);
@@ -89,10 +72,7 @@ export default function PoiFilter({
                 key={key}
                 className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
                 title={label}
-                onMouseDown={(e) => {
-                    // evita perder foco / fechar dropdown por engano
-                    e.preventDefault();
-                }}
+                onMouseDown={(e) => e.preventDefault()}
             >
                 <input
                     type="checkbox"
@@ -120,22 +100,13 @@ export default function PoiFilter({
 
     const contentTop = (
         <>
-            {/* LOGO .PT à esquerda */}
-            <div className="poi-logo">
-                <img src={logo} alt=".PT" />
-            </div>
 
-            {/* Grupo: Cultura */}
             {cultureCats.length > 0 && (
                 <div className="poi-group">
                     <button
                         type="button"
-                        className={`poi-chip poi-chip--group ${
-                            openGroup === "culture" ? "poi-chip--group-open" : ""
-                        }`}
-                        onClick={() =>
-                            setOpenGroup((g) => (g === "culture" ? null : "culture"))
-                        }
+                        className={`poi-chip poi-chip--group ${openGroup === "culture" ? "poi-chip--group-open" : ""}`}
+                        onClick={() => setOpenGroup((g) => (g === "culture" ? null : "culture"))}
                     >
                         <span className="poi-chip__label">Cultura</span>
                         <span className="poi-chip__arrow">▾</span>
@@ -149,17 +120,12 @@ export default function PoiFilter({
                 </div>
             )}
 
-            {/* Grupo: Natureza */}
             {natureCats.length > 0 && (
                 <div className="poi-group">
                     <button
                         type="button"
-                        className={`poi-chip poi-chip--group ${
-                            openGroup === "nature" ? "poi-chip--group-open" : ""
-                        }`}
-                        onClick={() =>
-                            setOpenGroup((g) => (g === "nature" ? null : "nature"))
-                        }
+                        className={`poi-chip poi-chip--group ${openGroup === "nature" ? "poi-chip--group-open" : ""}`}
+                        onClick={() => setOpenGroup((g) => (g === "nature" ? null : "nature"))}
                     >
                         <span className="poi-chip__label">Natureza</span>
                         <span className="poi-chip__arrow">▾</span>
@@ -167,34 +133,27 @@ export default function PoiFilter({
 
                     {openGroup === "nature" && (
                         <div className="poi-group-dropdown">
-                            {natureCats.map(({ key, label }) =>
-                                renderChip(key as PoiCategory, label)
-                            )}
+                            {natureCats.map(({ key, label }) => renderChip(key as PoiCategory, label))}
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Se sobrarem categorias sem grupo, mostram-se como chips normais */}
-            {otherCats.map(({ key, label }) =>
-                renderChip(key as PoiCategory, label)
-            )}
+            {otherCats.map(({ key, label }) => renderChip(key as PoiCategory, label))}
 
-            {/* LIMPAR logo a seguir aos chips / grupos */}
             <button type="button" className="btn-clear" onClick={handleClear}>
                 Limpar
             </button>
 
-            {/* espaço flexível para empurrar o X para o canto direito */}
             {showClose && <div className="poi-spacer" />}
 
-            {/* X no canto direito */}
             {showClose && (
                 <button
                     className="gold-close"
                     onClick={onClose}
                     aria-label="Fechar distrito"
                     title="Fechar distrito"
+                    type="button"
                 >
                     ×
                 </button>
@@ -202,24 +161,15 @@ export default function PoiFilter({
         </>
     );
 
-    //: TODO - para mobile futuramente
     const contentPanel = (
         <>
-            {/* painel lateral / versão antiga: todos os chips planos */}
             {nodeCategories.map(({ key, label }) => renderChip(key as PoiCategory, label))}
-
             <button type="button" className="btn-clear" onClick={handleClear}>
                 Limpar
             </button>
-
             {showClose && <div className="poi-spacer" />}
             {showClose && (
-                <button
-                    className="gold-close"
-                    onClick={onClose}
-                    aria-label="Fechar"
-                    title="Fechar"
-                >
+                <button className="gold-close" onClick={onClose} aria-label="Fechar" title="Fechar" type="button">
                     ×
                 </button>
             )}
@@ -232,9 +182,7 @@ export default function PoiFilter({
             data-poi-filter={isTop ? "top" : "panel"}
             ref={wrapRef}
         >
-            <div className="poi-filter__inner">
-                {isTop ? contentTop : contentPanel}
-            </div>
+            <div className="poi-filter__inner">{isTop ? contentTop : contentPanel}</div>
         </div>
     );
 }

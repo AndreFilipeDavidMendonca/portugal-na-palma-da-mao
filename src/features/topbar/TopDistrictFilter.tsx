@@ -1,7 +1,6 @@
+// src/features/topbar/TopDistrictFilter.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./TopDistrictFilter.scss";
-import UserMenu from "@/features/topbar/UserMenu";
-import type { CurrentUserDto } from "@/lib/api";
 
 export type PoiSearchItem = {
     id: number;
@@ -18,16 +17,10 @@ type Props = {
     pois: PoiSearchItem[];
     onPick: (item: SearchItem) => void;
     placeholder?: string;
-
-    // auth
-    currentUser: CurrentUserDto | null;
-    onLoggedOut?: () => void;
-
-    // UX
     loadingPois?: boolean;
 };
 
-/* ---------------- helpers ---------------- */
+/* helpers */
 function norm(s?: string | null) {
     return (s || "")
         .normalize("NFD")
@@ -113,8 +106,6 @@ export default function TopDistrictFilter({
                                               pois,
                                               onPick,
                                               placeholder = "Procurar…",
-                                              currentUser,
-                                              onLoggedOut,
                                               loadingPois = false,
                                           }: Props) {
     const [open, setOpen] = useState(false);
@@ -145,7 +136,7 @@ export default function TopDistrictFilter({
             .map((it) => ({ it, score: scoreNameFlexible(it.name, q) }))
             .filter((x) => x.score >= 40)
             .sort((a, b) => b.score - a.score)
-            .slice(0, 10) // ✅ só 10 melhores
+            .slice(0, 10)
             .map((x) => x.it);
     }, [typedQuery, searchIndex]);
 
@@ -166,7 +157,7 @@ export default function TopDistrictFilter({
     function handlePick(item: SearchItem) {
         setOpen(false);
         setPreviewQuery(null);
-        setTypedQuery(item.name); // ✅ não mete “POI” nem “Distrito”
+        setTypedQuery(item.name);
         onPick(item);
     }
 
@@ -203,8 +194,6 @@ export default function TopDistrictFilter({
 
     return (
         <div className="tdf-wrap" ref={wrapRef}>
-            <UserMenu currentUser={currentUser} onLoggedOut={onLoggedOut} />
-
             <span className="tdf-label">Pesquisar</span>
 
             <div className="tdf-inputbox">
@@ -243,6 +232,7 @@ export default function TopDistrictFilter({
                     </ul>
                 )}
             </div>
+
             {inputValue && (
                 <button
                     className="btn-clear"

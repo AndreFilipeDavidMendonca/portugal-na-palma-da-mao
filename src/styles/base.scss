@@ -8,27 +8,33 @@
 /* Paleta + fontes globais */
 :root {
   /* Cores */
-  --bg-deep: #0f2418;       /* fundo geral escuro */
-  --bg-panel: #122b1a;      /* componentes/painéis */
-  --bg-panel-2: #163521;    /* hover/selecionado leve */
-  --border: #254b32;        /* borda */
-  --border-2: #2d593b;      /* foco */
-  --gold: #d7b25a;          /* texto principal */
-  --gold-dark: #b38f3b;     /* bordas dourado */
-  --gold-strong: #f1d27a;   /* ativo/hover */
+  --bg-deep: #0f2418;
+  --bg-panel: #122b1a;
+  --bg-panel-2: #163521;
+  --border: #254b32;
+  --border-2: #2d593b;
+  --gold: #d7b25a;
+  --gold-dark: #b38f3b;
+  --gold-strong: #f1d27a;
   --muted: rgba(215,178,90,.75);
 
   /* Fontes */
   --font-body: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-title: 'Cormorant Garamond', serif;
-
-  /* Pesos padrão */
   --font-weight-body: 400;
   --font-weight-title: 600;
 
   /* Loading logo shift */
   --logo-shift-x: 0%;
   --logo-shift-y: 0%;
+
+  /* ===== Topbars (único source of truth) ===== */
+  --top-left-slot: 64px;          /* largura reservada para o UserMenu no topo esquerdo */
+  --topbar-h: 64px;               /* altura ÚNICA das barras */
+  --topbar-pad-x: 12px;           /* padding lateral das barras */
+  --topbar-gap: 12px;             /* gap base entre items */
+  --topbar-brand-icon: 44px;      /* tamanho do logo/ícone do usermenu */
+  --topbar-radius: 10px;          /* radius comum para input/dropdowns */
 }
 
 /* Estrutura base */

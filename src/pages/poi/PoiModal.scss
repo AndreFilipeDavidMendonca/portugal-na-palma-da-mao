@@ -359,6 +359,57 @@
   padding: 12px 4px 0 4px;
 }
 
+/* ⭐ linha do título + estrela */
+.poi-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.poi-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ⭐ botão estrela: SEM background */
+.poi-fav-btn {
+  border: none;
+  background: transparent;
+  padding: 2px;
+  border-radius: 999px;
+  cursor: pointer;
+
+  /* "mesma cor que as borders" */
+  color: var(--gold-dark);
+
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+
+  transition: transform 0.12s ease, color 0.15s ease, opacity 0.15s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--gold-strong);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+/* ⭐ quando é favorito: preenchida + dourado */
+.poi-fav-btn.is-active {
+  color: var(--gold);
+}
 /* ===== Responsivo ===== */
 @media (max-width: 980px) {
   .poi-body {

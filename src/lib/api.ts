@@ -1,33 +1,66 @@
+// src/lib/api.ts
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085";
 
-/* ========= helpers ========= */
+/* =========================
+   Helpers
+========================= */
+
+async function parseJsonSafe(res: Response) {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
+}
+
+function extractErrorMessage(data: any, status: number) {
+    return (
+        (data && typeof data === "object" && (data.message || data.error)) ||
+        (typeof data === "string" && data) ||
+        `Erro HTTP ${status}`
+    );
+}
+
+/** Fetch JSON (ou texto) e lança erro se !ok */
 async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
     const res = await fetch(input, init);
 
     if (res.status === 204) return null as unknown as T;
 
-    const text = await res.text();
-    let data: any;
-
-    // evita crash se vier HTML/texto
-    try {
-        data = text ? JSON.parse(text) : null;
-    } catch {
-        data = text || null;
-    }
+    const data = await parseJsonSafe(res);
 
     if (!res.ok) {
-        const msg =
-            (data && typeof data === "object" && (data.message || data.error)) ||
-            (typeof data === "string" && data) ||
-            `Erro HTTP ${res.status}`;
-        throw new Error(msg);
+        throw new Error(extractErrorMessage(data, res.status));
     }
 
     return data as T;
 }
 
-/* ========= Auth / Utilizador atual ========= */
+/** Igual ao jsonFetch, mas devolve null em certos status (ex: 401/404) */
+async function jsonFetchOrNull<T>(
+    input: RequestInfo,
+    init?: RequestInit,
+    nullOn: number[] = [401, 404]
+): Promise<T | null> {
+    const res = await fetch(input, init);
+
+    if (nullOn.includes(res.status)) return null;
+    if (res.status === 204) return null as unknown as T;
+
+    const data = await parseJsonSafe(res);
+
+    if (!res.ok) {
+        throw new Error(extractErrorMessage(data, res.status));
+    }
+
+    return data as T;
+}
+
+/* =========================
+   Auth
+========================= */
 
 export type RegisterPayload = {
     firstName?: string | null;
@@ -37,6 +70,20 @@ export type RegisterPayload = {
     email: string;
     phone?: string | null;
     password: string;
+};
+
+export type CurrentUserDto = {
+    id: string;
+    email: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    role: string;
+
+    firstName?: string | null;
+    lastName?: string | null;
+    age?: number | null;
+    nationality?: string | null;
+    phone?: string | null;
 };
 
 export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
@@ -55,60 +102,37 @@ export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
         }),
     });
 
-    // já ajuda a dar mensagens úteis
     if (res.status === 409) throw new Error("Já existe uma conta com esse email.");
     if (!res.ok) throw new Error(`Registo falhou (status ${res.status})`);
 
     return res.json();
 }
 
-export type CurrentUserDto = {
-    id: string;
-    email: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    role: string;
-
-    firstName?: string | null;
-    lastName?: string | null;
-    age?: number | null;
-    nationality?: string | null;
-    phone?: string | null;
-};
-/** Guest => null (não lança erro) */
+/** Guest => null */
 export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
     const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
-
     if (res.status === 401) return null;
-
-    if (!res.ok) {
-        throw new Error(`Falha a carregar utilizador atual (status ${res.status})`);
-    }
-
+    if (!res.ok) throw new Error(`Falha a carregar utilizador atual (status ${res.status})`);
     return res.json();
 }
 
-/** Backend espera x-www-form-urlencoded */
-export async function login(email: string, password: string) {
-    const res = await fetch(`${API_BASE}/api/login`, {
+export async function login(email: string, password: string): Promise<CurrentUserDto> {
+    return jsonFetch<CurrentUserDto>(`${API_BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email: email.trim(), password }),
     });
-
-    if (!res.ok) throw new Error(`Login falhou (status ${res.status})`);
-    return res.json(); // ou fetchCurrentUser() se preferires
 }
 
 export async function logout(): Promise<void> {
-    await fetch(`${API_BASE}/api/logout`, {
-        method: "POST",
-        credentials: "include",
-    });
+    await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
 }
 
-/* ========= POIs ========= */
+/* =========================
+   POIs
+========================= */
+
 export type PoiDto = {
     id: number;
     districtId: number | null;
@@ -152,7 +176,10 @@ export async function updatePoi(id: number, body: PoiUpdatePayload): Promise<Poi
     });
 }
 
-/* ========= Distritos ========= */
+/* =========================
+   Distritos
+========================= */
+
 export type DistrictDto = {
     id: number;
     code: string;
@@ -196,5 +223,81 @@ export async function updateDistrict(id: number, body: DistrictUpdatePayload): P
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(body),
+    });
+}
+
+/* =========================
+   Favorites
+========================= */
+
+export type FavoriteDto = {
+    poiId: number;
+    name: string;
+    image: string | null;
+    createdAt: string; // Instant
+};
+
+export async function fetchFavorites(): Promise<FavoriteDto[]> {
+    return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`, { credentials: "include" });
+}
+
+/**
+ * Status do favorito (POI):
+ * - null => não autenticado (ou endpoint não disponível / 404)
+ * - { favorited: true/false } => autenticado
+ */
+export async function fetchFavoriteStatus(
+    poiId: number
+): Promise<{ favorited: boolean } | null> {
+    const res = await fetch(`${API_BASE}/api/favorites/${poiId}`, {
+        credentials: "include",
+    });
+
+    if (res.status === 401) return null;
+    if (res.status === 204) return { favorited: true };
+    if (res.status === 404) return { favorited: false };
+
+    const text = await res.text();
+    let data: any = null;
+
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        data = text || null;
+    }
+
+    if (!res.ok) {
+        const msg =
+            (data && typeof data === "object" && (data.message || data.error)) ||
+            (typeof data === "string" && data) ||
+            `Erro HTTP ${res.status}`;
+        throw new Error(msg);
+    }
+
+    // ✅ backend atual: { favorite: true }
+    if (data && typeof data.favorite === "boolean") {
+        return { favorited: data.favorite };
+    }
+
+    // compat: { favorited: true }
+    if (data && typeof data.favorited === "boolean") {
+        return { favorited: data.favorited };
+    }
+
+    // fallback seguro
+    return { favorited: false };
+}
+
+export async function addFavorite(poiId: number): Promise<void> {
+    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
+        method: "POST",
+        credentials: "include",
+    });
+}
+
+export async function removeFavorite(poiId: number): Promise<void> {
+    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
+        method: "DELETE",
+        credentials: "include",
     });
 }

@@ -1,9 +1,11 @@
+// src/pages/poi/PoiModal.tsx (ou onde estiver)
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
 import ImageDropField from "@/components/ImageDropField";
 import MediaSlideshow from "@/components/MediaSlideshow";
-import { updatePoi } from "@/lib/api";
+import { addFavorite, fetchFavoriteStatus, removeFavorite, updatePoi } from "@/lib/api";
+import { useAuth } from "@/auth/AuthContext";
 import "./PoiModal.scss";
 
 type Props = {
@@ -22,6 +24,20 @@ type Props = {
     isAdmin?: boolean;
 };
 
+function StarIcon({ filled }: { filled: boolean }) {
+    return (
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+                d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21z"
+                fill={filled ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
 export default function PoiModal({
                                      open,
                                      onClose,
@@ -30,6 +46,8 @@ export default function PoiModal({
                                      onSaved,
                                      isAdmin = false,
                                  }: Props) {
+    const { user } = useAuth();
+
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -38,6 +56,14 @@ export default function PoiModal({
     const [titleInput, setTitleInput] = useState("");
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
+
+    // favoritos
+    const [favLoading, setFavLoading] = useState(false);
+    const [isFav, setIsFav] = useState(false);
+
+    const poiId: number | null = useMemo(() => {
+        return typeof poi?.properties?.id === "number" ? poi.properties.id : null;
+    }, [poi]);
 
     useEffect(() => {
         setLocalInfo(info);
@@ -64,12 +90,72 @@ export default function PoiModal({
         return Array.from(new Set([localInfo?.image ?? "", ...(localInfo?.images ?? [])].filter(Boolean)));
     }, [localInfo?.image, localInfo?.images]);
 
-    const poiId: number | null = useMemo(() => {
-        return typeof poi?.properties?.id === "number" ? poi.properties.id : null;
-    }, [poi]);
-
     const canRender = open && !!info && !!localInfo;
     const canEdit = Boolean(isAdmin && poiId);
+
+    // carrega status de favorito quando abre / muda de POI / muda user
+    useEffect(() => {
+        let alive = true;
+
+        async function run() {
+            if (!open || !poiId) {
+                setIsFav(false);
+                return;
+            }
+
+            // guest: mostra estrela vazia (não rebenta)
+            if (!user) {
+                setIsFav(false);
+                return;
+            }
+
+            setFavLoading(true);
+            try {
+                const fav = await fetchFavoriteStatus(poiId);
+                if (!alive) return;
+
+                // ✅ fav é {favorited:boolean} | null
+                setIsFav(Boolean(fav?.favorited));
+            } catch {
+                if (!alive) return;
+                setIsFav(false);
+            } finally {
+                if (alive) setFavLoading(false);
+            }
+        }
+
+        run();
+        return () => {
+            alive = false;
+        };
+    }, [open, poiId, user]);
+
+    const handleToggleFavorite = async () => {
+        if (!poiId || favLoading) return;
+
+        setErrorMsg(null);
+
+        // ✅ guest: não adiciona, só avisa
+        if (!user) {
+            setErrorMsg("Para adicionares aos favoritos, tens de te registar / fazer login.");
+            return;
+        }
+
+        setFavLoading(true);
+        try {
+            if (isFav) {
+                await removeFavorite(poiId);
+                setIsFav(false);
+            } else {
+                await addFavorite(poiId);
+                setIsFav(true);
+            }
+        } catch (e: any) {
+            setErrorMsg(e?.message ?? "Falha ao atualizar favoritos.");
+        } finally {
+            setFavLoading(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!poiId) {
@@ -136,7 +222,24 @@ export default function PoiModal({
                                     placeholder="Título do ponto de interesse"
                                 />
                             ) : (
-                                title
+                                <span className="poi-title-row">
+                  <span className="poi-title-text">{title}</span>
+
+                  <button
+                      type="button"
+                      className={`poi-fav-btn ${isFav ? "is-active" : ""}`}
+                      onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleToggleFavorite();
+                      }}
+                      disabled={favLoading || !poiId}
+                      title={user ? (isFav ? "Remover dos Favoritos" : "Adicionar aos Favoritos") : "Adicionar aos Favoritos"}
+                      aria-label={user ? (isFav ? "Remover dos Favoritos" : "Adicionar aos Favoritos") : "Adicionar aos Favoritos"}
+                  >
+                    <StarIcon filled={isFav} />
+                  </button>
+                </span>
                             )}
                         </h2>
                     </div>
@@ -169,19 +272,13 @@ export default function PoiModal({
 
                 <div className="poi-body">
                     <section className="poi-media gold-scroll">
-                        {/* ✅ wrapper do slideshow para ocupar o topo e não empurrar/cortar o uploader */}
                         <div className="poi-media-slideshow">
                             <MediaSlideshow items={mediaUrls} title={title} />
                         </div>
 
                         {editing && canEdit && (
                             <div className="poi-media-uploader">
-                                <ImageDropField
-                                    label="Imagens / vídeos"
-                                    images={imagesList}
-                                    onChange={setImagesList}
-                                    mode="media"
-                                />
+                                <ImageDropField label="Imagens / vídeos" images={imagesList} onChange={setImagesList} mode="media" />
                             </div>
                         )}
                     </section>
