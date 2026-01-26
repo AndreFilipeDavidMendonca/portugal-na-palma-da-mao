@@ -8,7 +8,7 @@ type Props = {
     onLoggedOut?: () => void;
 };
 
-export default function TopRightUserMenu({ currentUser, onLoggedOut }: Props) {
+export default function TopRightUserMenu() {
     return (
         <div className="top-left-user-menu">
             <UserMenu />
