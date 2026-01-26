@@ -169,9 +169,7 @@ export default function PoiModal({
                     onClose={onClose}
                 />
 
-                {/* ✅ LEFT = um scroll para tudo (slideshow + uploader + comments)
-            ✅ RIGHT = scroll do aside
-            Mobile: left -> side (o left já tem slideshow -> comments) */}
+                {/* ✅ LEFT = um scroll para tudo (slideshow + uploader + comments)*/}
                 <div className="poi-body">
                     <div className="poi-left gold-scroll">
                         <section className="poi-media">
