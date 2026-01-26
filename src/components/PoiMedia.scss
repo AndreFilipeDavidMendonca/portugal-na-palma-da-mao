@@ -1,0 +1,39 @@
+/* src/components/PoiMedia.scss */
+
+/* Container interno do lado esquerdo (media) */
+.poi-media {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Slideshow: fixa altura grande e estável */
+.poi-media-slideshow {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+/* 🔥 MAIS ALTO: aumenta aqui */
+.poi-media-slideshow .slideshow__frame {
+  height: clamp(340px, 48vh, 720px);
+  aspect-ratio: auto; /* neutraliza o aspect-ratio antigo */
+}
+
+/* garante que img/video ocupam a altura */
+.poi-media-slideshow .slideshow__media {
+  height: 100%;
+}
+
+/* uploader fica normal (não precisa scroll próprio agora; o scroll é do .poi-left) */
+.poi-media-uploader {
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 8px 4px 0 4px;
+}
+
+/* mobile: ainda grande mas mais contido */
+@media (max-width: 980px) {
+  .poi-media-slideshow .slideshow__frame {
+    height: clamp(260px, 38vh, 520px);
+  }
+}

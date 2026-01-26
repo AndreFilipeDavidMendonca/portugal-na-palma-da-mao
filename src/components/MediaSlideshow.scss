@@ -1,18 +1,19 @@
+/* src/components/MediaSlideshow.scss */
+
 .slideshow {
   width: 100%;
   max-width: 100%;
-  max-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* Moldura principal */
+/* Moldura principal
+   ✅ altura é definida pelo container (PoiMedia)
+*/
 .slideshow__frame {
   position: relative;
   width: 100%;
-  max-width: 100%;
-  aspect-ratio: 16 / 9;
   border-radius: 18px;
   overflow: hidden;
   background: #000;
@@ -39,32 +40,7 @@
   pointer-events: auto;
 }
 
-/* Spinner central em overlay */
-.slideshow__spinner {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.slideshow__spinner-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 3px solid rgba(255, 255, 255, 0.25);
-  border-top-color: var(--gold, #f2d27a);
-  animation: slideshow-spin 0.8s linear infinite;
-}
-
-@keyframes slideshow-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Setas laterais sobre o media */
+/* Setas */
 .slideshow__arrow {
   position: absolute;
   top: 50%;
@@ -88,15 +64,10 @@
   }
 }
 
-.slideshow__arrow--left {
-  left: 10px;
-}
+.slideshow__arrow--left { left: 10px; }
+.slideshow__arrow--right { right: 10px; }
 
-.slideshow__arrow--right {
-  right: 10px;
-}
-
-/* Dots em baixo (sem barra preta) */
+/* Dots */
 .slideshow__dots {
   margin-top: 6px;
   display: flex;

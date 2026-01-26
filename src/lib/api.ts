@@ -286,3 +286,39 @@ export async function removeFavorite(poiId: number): Promise<void> {
         credentials: "include",
     });
 }
+
+/* =========================
+   Comments
+========================= */
+
+export type PoiCommentDto = {
+    id: number;
+    poiId: number;
+    authorName: string;
+    body: string;
+    createdAt: string;
+    updatedAt?: string | null;
+    canDelete: boolean;
+};
+
+export async function fetchPoiComments(poiId: number): Promise<PoiCommentDto[]> {
+    return jsonFetch<PoiCommentDto[]>(`${API_BASE}/api/pois/${poiId}/comments`, {
+        credentials: "include",
+    });
+}
+
+export async function addPoiComment(poiId: number, body: string): Promise<PoiCommentDto> {
+    return jsonFetch<PoiCommentDto>(`${API_BASE}/api/pois/${poiId}/comments`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+    });
+}
+
+export async function deletePoiComment(commentId: number): Promise<void> {
+    await jsonFetch<void>(`${API_BASE}/api/comments/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+}

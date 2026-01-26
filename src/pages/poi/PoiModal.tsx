@@ -1,12 +1,16 @@
-// src/pages/poi/PoiModal.tsx (ou onde estiver)
+// src/pages/poi/PoiModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
-import ImageDropField from "@/components/ImageDropField";
-import MediaSlideshow from "@/components/MediaSlideshow";
-import { addFavorite, fetchFavoriteStatus, removeFavorite, updatePoi } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
+import { updatePoi } from "@/lib/api";
 import "./PoiModal.scss";
+import usePoiFavorite from "@/hooks/usePoiFavorite";
+import usePoiComments from "@/hooks/usePoiComments";
+import PoiHeader from "@/components/PoiHeader";
+import PoiMedia from "@/components/PoiMedia";
+import PoiSide from "@/components/PoiSide";
+import PoiComments from "@/components/PoiComments";
 
 type Props = {
     open: boolean;
@@ -24,20 +28,6 @@ type Props = {
     isAdmin?: boolean;
 };
 
-function StarIcon({ filled }: { filled: boolean }) {
-    return (
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-                d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21z"
-                fill={filled ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
 export default function PoiModal({
                                      open,
                                      onClose,
@@ -48,6 +38,14 @@ export default function PoiModal({
                                  }: Props) {
     const { user } = useAuth();
 
+    const poiId: number | null = useMemo(
+        () => (typeof poi?.properties?.id === "number" ? poi.properties.id : null),
+        [poi]
+    );
+
+    const canRender = open && !!info;
+    const canEdit = Boolean(isAdmin && poiId);
+
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -57,17 +55,11 @@ export default function PoiModal({
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
 
-    // favoritos
-    const [favLoading, setFavLoading] = useState(false);
-    const [isFav, setIsFav] = useState(false);
-
-    const poiId: number | null = useMemo(() => {
-        return typeof poi?.properties?.id === "number" ? poi.properties.id : null;
-    }, [poi]);
-
+    // reset quando muda POI
     useEffect(() => {
         setLocalInfo(info);
         setEditing(false);
+        setSaving(false);
         setErrorMsg(null);
 
         if (!info) {
@@ -79,7 +71,6 @@ export default function PoiModal({
 
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
-
         const gal = Array.from(new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean)));
         setImagesList(gal);
     }, [info]);
@@ -90,72 +81,16 @@ export default function PoiModal({
         return Array.from(new Set([localInfo?.image ?? "", ...(localInfo?.images ?? [])].filter(Boolean)));
     }, [localInfo?.image, localInfo?.images]);
 
-    const canRender = open && !!info && !!localInfo;
-    const canEdit = Boolean(isAdmin && poiId);
+    // ⭐ Favoritos (hook)
+    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
+        open,
+        poiId,
+        user,
+        onError: setErrorMsg,
+    });
 
-    // carrega status de favorito quando abre / muda de POI / muda user
-    useEffect(() => {
-        let alive = true;
-
-        async function run() {
-            if (!open || !poiId) {
-                setIsFav(false);
-                return;
-            }
-
-            // guest: mostra estrela vazia (não rebenta)
-            if (!user) {
-                setIsFav(false);
-                return;
-            }
-
-            setFavLoading(true);
-            try {
-                const fav = await fetchFavoriteStatus(poiId);
-                if (!alive) return;
-
-                // ✅ fav é {favorited:boolean} | null
-                setIsFav(Boolean(fav?.favorited));
-            } catch {
-                if (!alive) return;
-                setIsFav(false);
-            } finally {
-                if (alive) setFavLoading(false);
-            }
-        }
-
-        run();
-        return () => {
-            alive = false;
-        };
-    }, [open, poiId, user]);
-
-    const handleToggleFavorite = async () => {
-        if (!poiId || favLoading) return;
-
-        setErrorMsg(null);
-
-        // ✅ guest: não adiciona, só avisa
-        if (!user) {
-            setErrorMsg("Para adicionares aos favoritos, tens de te registar / fazer login.");
-            return;
-        }
-
-        setFavLoading(true);
-        try {
-            if (isFav) {
-                await removeFavorite(poiId);
-                setIsFav(false);
-            } else {
-                await addFavorite(poiId);
-                setIsFav(true);
-            }
-        } catch (e: any) {
-            setErrorMsg(e?.message ?? "Falha ao atualizar favoritos.");
-        } finally {
-            setFavLoading(false);
-        }
-    };
+    // 💬 Comentários (hook)
+    const commentsState = usePoiComments({ open, poiId, user });
 
     const handleSave = async () => {
         if (!poiId) {
@@ -206,112 +141,65 @@ export default function PoiModal({
         }
     };
 
-    if (!canRender) return null;
+    if (!canRender || !localInfo) return null;
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
             <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-                <header className="poi-header">
-                    <div className="poi-title-wrap">
-                        <h2 className="poi-title">
-                            {editing && canEdit ? (
-                                <input
-                                    className="poi-edit-input"
-                                    value={titleInput}
-                                    onChange={(e) => setTitleInput(e.target.value)}
-                                    placeholder="Título do ponto de interesse"
-                                />
-                            ) : (
-                                <span className="poi-title-row">
-                  <span className="poi-title-text">{title}</span>
+                <PoiHeader
+                    title={title}
+                    titleInput={titleInput}
+                    setTitleInput={setTitleInput}
+                    editing={editing}
+                    canEdit={canEdit}
+                    saving={saving}
+                    isFav={isFav}
+                    favLoading={favLoading}
+                    user={user}
+                    onToggleFavorite={(e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleFavorite();
+                    }}
+                    onToggleEdit={() => {
+                        setEditing((v) => !v);
+                        setErrorMsg(null);
+                    }}
+                    onSave={handleSave}
+                    onClose={onClose}
+                />
 
-                  <button
-                      type="button"
-                      className={`poi-fav-btn ${isFav ? "is-active" : ""}`}
-                      onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleToggleFavorite();
-                      }}
-                      disabled={favLoading || !poiId}
-                      title={user ? (isFav ? "Remover dos Favoritos" : "Adicionar aos Favoritos") : "Adicionar aos Favoritos"}
-                      aria-label={user ? (isFav ? "Remover dos Favoritos" : "Adicionar aos Favoritos") : "Adicionar aos Favoritos"}
-                  >
-                    <StarIcon filled={isFav} />
-                  </button>
-                </span>
-                            )}
-                        </h2>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        {canEdit && (
-                            <button
-                                className="poi-edit-btn"
-                                type="button"
-                                onClick={() => {
-                                    setEditing((v) => !v);
-                                    setErrorMsg(null);
-                                }}
-                            >
-                                {editing ? "Cancelar" : "Editar"}
-                            </button>
-                        )}
-
-                        {editing && canEdit && (
-                            <button className="poi-save-btn" type="button" disabled={saving} onClick={handleSave}>
-                                {saving ? "A guardar..." : "Guardar"}
-                            </button>
-                        )}
-
-                        <button className="poi-close" onClick={onClose} aria-label="Fechar" type="button">
-                            ×
-                        </button>
-                    </div>
-                </header>
-
+                {/* ✅ LEFT = um scroll para tudo (slideshow + uploader + comments)
+            ✅ RIGHT = scroll do aside
+            Mobile: left -> side (o left já tem slideshow -> comments) */}
                 <div className="poi-body">
-                    <section className="poi-media gold-scroll">
-                        <div className="poi-media-slideshow">
-                            <MediaSlideshow items={mediaUrls} title={title} />
-                        </div>
+                    <div className="poi-left gold-scroll">
+                        <section className="poi-media">
+                            <PoiMedia
+                                title={title}
+                                mediaUrls={mediaUrls}
+                                editing={editing}
+                                canEdit={canEdit}
+                                imagesList={imagesList}
+                                setImagesList={setImagesList}
+                            />
+                        </section>
 
-                        {editing && canEdit && (
-                            <div className="poi-media-uploader">
-                                <ImageDropField label="Imagens / vídeos" images={imagesList} onChange={setImagesList} mode="media" />
-                            </div>
-                        )}
-                    </section>
+                        <section className="poi-comments-wrap">
+                            <PoiComments {...commentsState} />
+                        </section>
+                    </div>
 
                     <aside className="poi-side gold-scroll">
-                        <a
-                            className="btn-directions"
-                            href={
-                                localInfo?.coords
-                                    ? `https://www.google.com/maps/dir/?api=1&destination=${localInfo.coords.lat},${localInfo.coords.lon}`
-                                    : `https://www.google.com/maps/`
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            Direções
-                        </a>
-
-                        {errorMsg && <div className="poi-error">{errorMsg}</div>}
-
-                        {editing && canEdit ? (
-                            <>
-                                <label className="poi-edit-label">Descrição</label>
-                                <textarea
-                                    className="poi-edit-textarea"
-                                    rows={10}
-                                    value={descInput}
-                                    onChange={(e) => setDescInput(e.target.value)}
-                                />
-                            </>
-                        ) : (
-                            <p className="poi-desc">{localInfo?.description ?? ""}</p>
-                        )}
+                        <PoiSide
+                            coords={localInfo?.coords}
+                            editing={editing}
+                            canEdit={canEdit}
+                            descInput={descInput}
+                            setDescInput={setDescInput}
+                            description={localInfo?.description ?? ""}
+                            errorMsg={errorMsg}
+                        />
                     </aside>
                 </div>
             </div>

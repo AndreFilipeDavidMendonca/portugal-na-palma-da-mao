@@ -1,0 +1,61 @@
+/* src/components/PoiSide.scss */
+
+.btn-directions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-panel-2);
+  color: var(--gold);
+  border: 1.5px solid var(--gold);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+
+  &:hover {
+    background: var(--bg-panel);
+    color: var(--gold-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 0 12px rgba(215, 178, 90, 0.3);
+  }
+}
+
+.poi-desc {
+  color: var(--muted);
+  margin: 12px 0 10px 0;
+  line-height: 1.6;
+  font-size: 0.98rem;
+  max-width: 70ch;
+  text-wrap: pretty;
+  hyphens: auto;
+}
+
+.poi-error {
+  margin: 10px 0 0 0;
+  color: #ff8080;
+  font-size: 0.85rem;
+}
+
+.poi-edit-label {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin: 10px 0 4px;
+}
+
+.poi-edit-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #111;
+  color: #f0f0f0;
+  font-size: 0.9rem;
+  resize: vertical;
+}

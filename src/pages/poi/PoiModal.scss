@@ -1,425 +1,96 @@
-/* =========================
-   PoiModal.scss — versão larga e alta
-   ========================= */
+/* src/pages/poi/PoiModal.scss */
 
-/* Variáveis locais do componente */
 .poi-card {
   --modal-h: min(92vh, 1080px);
 }
 
-/* Backdrop e centragem */
 .poi-overlay {
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: rgba(0, 0, 0, .35);
+  background: rgba(0, 0, 0, 0.35);
   display: grid;
   place-items: center;
   padding: 20px;
 }
 
-/* Cartão central */
 .poi-card {
   width: min(1280px, calc(100vw - 60px));
   height: var(--modal-h);
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, .4);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Header fixo */
-.poi-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  padding: 18px 26px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  h2 {
-    margin: 0;
-    font-family: var(--font-title), serif;
-    color: var(--gold-strong);
-    font-size: clamp(26px, 3vw, 36px);
-    font-weight: 800;
-    letter-spacing: .3px;
-    text-shadow: 0 0 6px rgba(215, 178, 90, .3);
-  }
-
-  .poi-close {
-    appearance: none;
-    border: 1px solid var(--border);
-    background: var(--bg-panel-2);
-    color: var(--gold);
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    font-size: 26px;
-    line-height: 30px;
-    cursor: pointer;
-    transition: all .2s ease;
-
-    &:hover {
-      background: var(--bg-panel);
-      color: var(--gold-strong);
-      transform: scale(1.05);
-    }
-  }
-}
-
-/* Sub-linha (Wikipedia, etc.) */
-.poi-subline {
-  font-size: 1rem;
-  color: var(--muted);
-  padding: 5px 26px 0 0;
-
-  a {
-    color: var(--gold);
-    text-decoration: none;
-    font-weight: 600;
-    transition: color .25s ease, text-shadow .25s ease;
-
-    &:hover {
-      color: var(--gold-strong);
-      text-shadow: 0 0 6px rgba(241,210,122,.6);
-    }
-    &:active {
-      color: var(--gold);
-      text-shadow: none;
-    }
-  }
-}
-
-/* ===== Corpo ===== */
+/*
+  GRID:
+  Desktop:
+    [left | side]
+  Mobile:
+    left -> side
+  Onde LEFT contém: media + comments
+*/
 .poi-body {
   display: grid;
   grid-template-columns: 1.8fr 1fr;
-  gap: 0;
+  grid-template-rows: 1fr;
+  grid-template-areas: "left side";
   height: calc(var(--modal-h) - 80px);
   overflow: hidden;
   background: var(--bg-panel-2);
 }
 
-/* ===== Coluna media ===== */
-.poi-media {
-  position: relative;
+/* LEFT: um scroll para tudo (media + comments) */
+.poi-left {
+  grid-area: left;
   border-right: 1px solid var(--border);
   background: var(--bg-deep);
 
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-
-  /* ✅ importante para flex + scroll interno */
+  overflow: auto;
   min-height: 0;
-
-  /* ✅ não centrar tudo (isso cortava o uploader) */
-  align-items: stretch;
-  justify-content: flex-start;
 
   padding: 12px 16px 18px;
   box-sizing: border-box;
 
-  /* ✅ deixar o conteúdo crescer e poder scrollar */
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto auto; /* media (fixo) + comments (depois) */
+  gap: 14px;
 }
 
-/* ✅ o slideshow ocupa o “resto” e não empurra o uploader para fora */
-.poi-media-slideshow {
-  flex: 1 1 auto;
-  min-height: 0;   /* crítico */
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ===== Coluna info ===== */
+/* SIDE: scroll macro direito */
 .poi-side {
+  grid-area: side;
   padding: 20px 26px 18px;
   overflow: auto;
+  min-height: 0;
 }
 
-.poi-desc {
-  color: var(--muted);
-  margin: 12px 0 10px 0;
-  text-transform: none;
-  line-height: 1.6;
-  font-size: 0.98rem;
-  letter-spacing: 0.1px;
-  max-width: 70ch;
-  text-wrap: pretty;
-  hyphens: auto;
-  word-break: normal;
+/* No LEFT: media e comments são blocos normais */
+.poi-media {
+  overflow: visible;
 }
 
-.poi-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.poi-comments-wrap {
+  overflow: visible;
 }
 
-/* Link dourado — contactos / read more */
-.gold-link {
-  color: var(--gold);
-  font-weight: 500;
-  text-decoration: none;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
-
-  &:hover {
-    color: #fff4ce;
-    text-shadow: 0 0 6px rgba(215, 178, 90, 0.45);
-  }
-}
-
-/* Botões principais */
-.btn-directions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  border: 1.5px solid var(--gold);
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 15px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all .25s ease;
-  box-shadow: 0 0 8px rgba(0, 0, 0, .15);
-  margin-top: 4px;
-  position: relative;
-  overflow: hidden;
-
-  &:hover {
-    background: var(--bg-panel);
-    color: var(--gold-strong);
-    transform: translateY(-1px);
-    box-shadow: 0 0 12px rgba(215, 178, 90, .3);
-  }
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 0 6px rgba(215, 178, 90, .2);
-  }
-
-  &:before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at center, rgba(215, 178, 90, 0.25), transparent 70%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  &:hover::before { opacity: 1; }
-}
-
-/* Títulos/meta */
-.poi-side .poi-subtitle {
-  margin: 0 0 8px 0;
-  font-family: var(--font-title), serif;
-  color: var(--gold);
-  font-size: clamp(14px, 1.6vw, 18px);
-  font-weight: 700;
-}
-
-/* Divisor */
-.poi-side .meta-divider {
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(to right, transparent, rgba(215, 178, 90, 0.25), transparent);
-  margin: 12px 0 10px 0;
-}
-
-/* ===== Dropdown Recursivo (DetailsTree) ===== */
-.dtree {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-panel);
-  margin-top: 8px;
-  overflow: hidden;
-
-  &[open] .dtree__chev { transform: rotate(180deg); }
-}
-
-.dtree--lvl1,
-.dtree--lvl2,
-.dtree--lvl3 {
-  margin-top: 6px;
-  background: var(--bg-panel-2);
-  border-radius: 8px;
-}
-
-.dtree__summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  user-select: none;
-  font-weight: 700;
-  color: var(--gold);
-
-  &:focus { outline: none; }
-}
-
-.dtree__chev {
-  transition: transform .2s ease;
-}
-
-.dtree__panel {
-  padding: 8px 12px 12px;
-  border-top: 1px dashed var(--border);
-}
-
-.dtree__list {
-  list-style: none;
-  margin: 6px 0 0 0;
-  padding-left: 0;
-}
-
-.dtree__leaf {
-  line-height: 1.7;
-  text-transform: capitalize;
-}
-
-.dtree__children > .dtree {
-  margin-top: 8px;
-}
-
-/* ===== Edição ===== */
-.poi-edit-input {
-  width: 100%;
-  padding: 4px 6px;
-  font-size: inherit;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #111;
-  color: #f0f0f0;
-}
-
-.poi-edit-textarea {
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #111;
-  color: #f0f0f0;
-  font-size: 0.9rem;
-  resize: vertical;
-}
-
-.poi-edit-label {
-  display: block;
-  font-size: 0.8rem;
-  opacity: 0.8;
-  margin-bottom: 4px;
-}
-
-.poi-edit-btn,
-.poi-save-btn {
-  border-radius: 999px;
-  padding: 4px 12px;
-  border: 1px solid #e0b15a;
-  background: #1f1a10;
-  color: #f7e3b5;
-  cursor: pointer;
-  font-size: 0.8rem;
-
-  &:hover {
-    background: #2b2113;
-  }
-}
-
-.poi-save-btn[disabled] {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.poi-error {
-  margin-bottom: 8px;
-  color: #ff8080;
-  font-size: 0.85rem;
-}
-
-/* ✅ uploader fica sempre visível e nunca é cortado */
-.poi-media-uploader {
-  flex: 0 0 auto;
-  width: 100%;
-  padding: 12px 4px 0 4px;
-}
-
-/* ⭐ linha do título + estrela */
-.poi-title-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.poi-title-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ⭐ botão estrela: SEM background */
-.poi-fav-btn {
-  border: none;
-  background: transparent;
-  padding: 2px;
-  border-radius: 999px;
-  cursor: pointer;
-
-  /* "mesma cor que as borders" */
-  color: var(--gold-dark);
-
-  display: inline-grid;
-  place-items: center;
-  line-height: 1;
-
-  transition: transform 0.12s ease, color 0.15s ease, opacity 0.15s ease;
-
-  &:hover:not(:disabled) {
-    color: var(--gold-strong);
-    transform: translateY(-1px);
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0px);
-  }
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-}
-
-/* ⭐ quando é favorito: preenchida + dourado */
-.poi-fav-btn.is-active {
-  color: var(--gold);
-}
-/* ===== Responsivo ===== */
+/* mobile order => slideshow -> direções -> descrição -> comentários (side fica no meio) */
 @media (max-width: 980px) {
   .poi-body {
     grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
+      "left"
+      "side";
     height: calc(var(--modal-h) - 72px);
   }
 
-  .poi-media {
+  .poi-left {
     border-right: none;
     border-bottom: 1px solid var(--border);
-    overflow: auto;
   }
 }

@@ -1,0 +1,178 @@
+/* src/components/PoiComments.scss */
+
+.poi-comments {
+  margin-top: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.poi-comments__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  h3 {
+    margin: 0;
+    font-family: var(--font-title), serif;
+    color: var(--gold);
+    font-size: 16px;
+    font-weight: 700;
+  }
+}
+
+.poi-comments__mini {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.poi-comments__error {
+  margin: 0 0 10px 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: rgba(255, 190, 190, 0.95);
+  background: rgba(255, 80, 80, 0.1);
+  border: 1px solid rgba(255, 80, 80, 0.22);
+}
+
+/* composer */
+.poi-comments__composer {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.poi-comments__composer textarea {
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+
+  height: auto !important;
+  min-height: 44px !important;
+  max-height: 160px;
+  overflow: auto;
+  resize: vertical;
+
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-2);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+  outline: none;
+}
+
+.poi-comments__composer textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.12);
+}
+
+.poi-comments__composer button {
+  height: 44px;
+  border-radius: 12px;
+  padding: 0 12px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: rgba(212, 175, 55, 0.14);
+  color: rgba(212, 175, 55, 0.95);
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+
+  &:hover:not(:disabled) {
+    background: rgba(212, 175, 55, 0.18);
+    border-color: rgba(212, 175, 55, 0.36);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+/* ✅ lista com scroll próprio (mas não depende de altura fixa do pai) */
+.poi-comments__list {
+  max-height: 360px;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.poi-comments__empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 6px 2px;
+}
+
+.poi-comment {
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.poi-comment__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.poi-comment__author {
+  font-weight: 800;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.poi-comment__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.poi-comment__date {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.poi-comment__del {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 140, 140, 0.18);
+  background: rgba(255, 80, 80, 0.08);
+  color: rgba(255, 140, 140, 0.95);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: rgba(255, 80, 80, 0.12);
+    border-color: rgba(255, 140, 140, 0.28);
+  }
+}
+
+.poi-comment__body {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: pre-wrap;
+}
+
+@media (max-width: 980px) {
+  .poi-comments__composer {
+    grid-template-columns: 1fr;
+  }
+
+  .poi-comments__list {
+    max-height: 320px;
+  }
+}
