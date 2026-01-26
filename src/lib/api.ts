@@ -238,7 +238,7 @@ export async function fetchFavoriteStatus(
     if (res.status === 404) return { favorited: false };
 
     const text = await res.text();
-    let data: any = null;
+    let data: any;
 
     try {
         data = text ? JSON.parse(text) : null;
@@ -268,10 +268,15 @@ export async function fetchFavoriteStatus(
     return { favorited: false };
 }
 
-export async function addFavorite(poiId: number): Promise<void> {
+export async function addFavorite(
+    poiId: number,
+    payload?: { name?: string | null; image?: string | null }
+): Promise<void> {
     await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
         method: "POST",
         credentials: "include",
+        headers: payload ? { "Content-Type": "application/json" } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
     });
 }
 

@@ -1,24 +1,16 @@
 // src/features/topbar/UserMenu.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
-import {
-    addFavorite,
-    fetchFavorites,
-    logout,
-    removeFavorite,
-    type FavoriteDto,
-} from "@/lib/api";
+import { addFavorite, fetchFavorites, logout, removeFavorite, type FavoriteDto } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import "./UserMenu.scss";
 
 function initialsFromEmail(email?: string | null) {
     const s = (email ?? "").trim();
     if (!s) return "?";
-
     const left = s.split("@")[0] ?? s;
     const parts = left.split(/[.\-_]+/).filter(Boolean);
-
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return left.slice(0, 2).toUpperCase();
 }
@@ -32,42 +24,46 @@ export default function UserMenu() {
     const [favLoading, setFavLoading] = useState(false);
     const [favError, setFavError] = useState<string | null>(null);
     const [favorites, setFavorites] = useState<FavoriteDto[]>([]);
-    const [busyPoiIds, setBusyPoiIds] = useState<Set<number>>(new Set());
+    const [busyPoiIds, setBusyPoiIds] = useState<Set<number>>(() => new Set());
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
-
     const from = useMemo(() => location.pathname ?? "/", [location.pathname]);
 
-    // fecha dropdown ao clicar fora
+    const closeAll = useCallback(() => {
+        setOpen(false);
+        setFavOpen(false);
+    }, []);
+
     useEffect(() => {
         function onClickOutside(e: MouseEvent) {
             if (!wrapRef.current) return;
-            if (!wrapRef.current.contains(e.target as Node)) {
-                setOpen(false);
-                setFavOpen(false);
-            }
+            if (!wrapRef.current.contains(e.target as Node)) closeAll();
         }
         document.addEventListener("mousedown", onClickOutside);
         return () => document.removeEventListener("mousedown", onClickOutside);
-    }, []);
+    }, [closeAll]);
 
-    // quando o menu abre e há user, carrega favoritos
-    useEffect(() => {
-        if (!open) return;
+    const loadFavorites = useCallback(async () => {
         if (!user) return;
-
         setFavError(null);
         setFavLoading(true);
+        try {
+            const list = await fetchFavorites();
+            setFavorites(list ?? []);
+        } catch (e: any) {
+            setFavError(e?.message ?? "Falha a carregar favoritos");
+        } finally {
+            setFavLoading(false);
+        }
+    }, [user]);
 
-        fetchFavorites()
-            .then((list) => setFavorites(list ?? []))
-            .catch((e: any) => setFavError(e?.message ?? "Falha a carregar favoritos"))
-            .finally(() => setFavLoading(false));
-    }, [open, user]);
+    useEffect(() => {
+        if (!open || !user) return;
+        loadFavorites();
+    }, [open, user, loadFavorites]);
 
-    // se fizer logout (ou perder sessão), limpa estado local
     useEffect(() => {
         if (user) return;
         setFavOpen(false);
@@ -77,25 +73,22 @@ export default function UserMenu() {
     }, [user]);
 
     const goLogin = () => {
-        setOpen(false);
-        setFavOpen(false);
+        closeAll();
         navigate("/login", { state: { from } });
     };
 
     const doLogout = async () => {
-        setOpen(false);
-        setFavOpen(false);
+        closeAll();
         await logout();
         setUser(null);
     };
 
     const openPoi = (poiId: number) => {
-        setOpen(false);
-        setFavOpen(false);
+        closeAll();
         window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId } }));
     };
 
-    async function toggleFavorite(poiId: number) {
+    const toggleFavorite = async (poiId: number) => {
         if (!user) return;
         if (busyPoiIds.has(poiId)) return;
 
@@ -110,9 +103,7 @@ export default function UserMenu() {
                 setFavorites((prev) => prev.filter((f) => f.poiId !== poiId));
             } else {
                 await addFavorite(poiId);
-                // refresh leve para puxar name/image corretos
-                const list = await fetchFavorites();
-                setFavorites(list ?? []);
+                await loadFavorites();
             }
         } catch (e: any) {
             setFavError(e?.message ?? "Falha a atualizar favorito");
@@ -123,7 +114,7 @@ export default function UserMenu() {
                 return next;
             });
         }
-    }
+    };
 
     return (
         <div className="user-menu" ref={wrapRef}>
@@ -139,48 +130,84 @@ export default function UserMenu() {
             </button>
 
             {open && (
-                <div className="user-menu__dropdown" role="menu">
-                    {user ? (
-                        <>
-                            <div className="user-menu__header">
-                                <div className="user-menu__avatar">{initialsFromEmail(user.email)}</div>
+                <>
+                    <div className="user-menu__dropdown" role="menu">
+                        {user ? (
+                            <>
+                                <div className="user-menu__header">
+                                    <div className="user-menu__avatar">{initialsFromEmail(user.email)}</div>
 
-                                <div className="user-menu__meta">
-                                    <div className="user-menu__email">{user.email}</div>
-                                    <div className="user-menu__role">{user.role}</div>
+                                    <div className="user-menu__meta">
+                                        <div className="user-menu__email">{user.email}</div>
+                                        <div className="user-menu__role">{user.role}</div>
+                                    </div>
                                 </div>
+
+                                <div className="user-menu__divider" />
+
+                                <button
+                                    type="button"
+                                    className={`user-menu__section ${favOpen ? "is-open" : ""}`}
+                                    onClick={() => setFavOpen((v) => !v)}
+                                >
+                                    <span className="user-menu__section-title">Favoritos</span>
+                                    <span className="user-menu__chev" aria-hidden="true">▸</span>
+                                </button>
+
+                                <div className="user-menu__divider" />
+
+                                <button
+                                    type="button"
+                                    className="user-menu__item user-menu__item--danger"
+                                    onClick={doLogout}
+                                    role="menuitem"
+                                >
+                                    Logout
+                                </button>
+                            </>
+                        ) : (
+                            <button type="button" className="user-menu__item user-menu__item--primary" onClick={goLogin} role="menuitem">
+                                Login
+                            </button>
+                        )}
+                    </div>
+
+                    {/* ✅ Flyout à direita do dropdown 1 */}
+                    {user && favOpen && (
+                        <div className="user-menu__flyout" role="region" aria-label="Favoritos">
+                            <div className="user-menu__flyout-header">
+                                <span>Favoritos</span>
+
+                                <button
+                                    type="button"
+                                    className="user-menu__flyout-close"
+                                    onClick={() => setFavOpen(false)}
+                                    aria-label="Fechar"
+                                    title="Fechar"
+                                >
+                                    ×
+                                </button>
                             </div>
 
-                            <div className="user-menu__divider" />
+                            <div className="user-menu__favorites">
+                                {favLoading && <div className="user-menu__hint">A carregar…</div>}
+                                {favError && <div className="user-menu__error">{favError}</div>}
 
-                            <button
-                                type="button"
-                                className="user-menu__item user-menu__item--primary"
-                                onClick={() => setFavOpen((v) => !v)}
-                                role="menuitem"
-                            >
-                                Favoritos
-                            </button>
+                                {!favLoading && !favError && favorites.length === 0 && (
+                                    <div className="user-menu__hint">Ainda não tens favoritos.</div>
+                                )}
 
-                            {favOpen && (
-                                <div className="user-menu__favorites">
-                                    {favLoading && <div className="user-menu__hint">A carregar…</div>}
-                                    {favError && <div className="user-menu__error">{favError}</div>}
-
-                                    {!favLoading && !favError && favorites.length === 0 && (
-                                        <div className="user-menu__hint">Ainda não tens favoritos.</div>
-                                    )}
-
-                                    {!favLoading &&
-                                        !favError &&
-                                        favorites.map((f) => {
+                                {!favLoading && !favError && favorites.length > 0 && (
+                                    <ul className="user-menu__fav-list">
+                                        {favorites.map((f) => {
                                             const busy = busyPoiIds.has(f.poiId);
+                                            const hasImage = Boolean(f.image);
 
                                             return (
-                                                <div key={f.poiId} className="user-menu__fav-row">
+                                                <li key={f.poiId} className="user-menu__fav-item">
                                                     <button
                                                         type="button"
-                                                        className="user-menu__fav-main"
+                                                        className="user-menu__fav-link"
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
@@ -188,57 +215,45 @@ export default function UserMenu() {
                                                         }}
                                                         title={f.name}
                                                     >
-                                                        <div className="user-menu__fav-thumb">
-                                                            {f.image ? (
-                                                                <img src={f.image} alt={f.name} />
-                                                            ) : (
-                                                                <div className="user-menu__fav-noimg" />
-                                                            )}
-                                                        </div>
-                                                        <div className="user-menu__fav-name">{f.name}</div>
+                                                        {hasImage && (
+                                                            <span className="user-menu__fav-thumb">
+                                <img src={f.image!} alt={f.name} />
+                              </span>
+                                                        )}
+                                                        <span className="user-menu__fav-name">{f.name}</span>
                                                     </button>
 
-                                                    <button
-                                                        type="button"
-                                                        className="user-menu__fav-star"
+                                                    {/* ✅ não é button, é só o X */}
+                                                    <span
+                                                        className={`user-menu__fav-x ${busy ? "is-disabled" : ""}`}
+                                                        role="button"
+                                                        tabIndex={busy ? -1 : 0}
+                                                        title="Remover dos favoritos"
+                                                        aria-label="Remover dos favoritos"
                                                         onClick={(e) => {
                                                             e.preventDefault();
-                                                            e.stopPropagation(); // ✅ não deixa “clicar no row”
-                                                            toggleFavorite(f.poiId);
+                                                            e.stopPropagation();
+                                                            if (!busy) toggleFavorite(f.poiId);
                                                         }}
-                                                        disabled={busy}
-                                                        title="Remover dos favoritos"
+                                                        onKeyDown={(e) => {
+                                                            if (busy) return;
+                                                            if (e.key === "Enter" || e.key === " ") {
+                                                                e.preventDefault();
+                                                                toggleFavorite(f.poiId);
+                                                            }
+                                                        }}
                                                     >
-                                                        ★
-                                                    </button>
-                                                </div>
+                            ×
+                          </span>
+                                                </li>
                                             );
                                         })}
-                                </div>
-                            )}
-
-                            <div className="user-menu__divider" />
-
-                            <button
-                                type="button"
-                                className="user-menu__item user-menu__item--danger"
-                                onClick={doLogout}
-                                role="menuitem"
-                            >
-                                Logout
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            className="user-menu__item user-menu__item--primary"
-                            onClick={goLogin}
-                            role="menuitem"
-                        >
-                            Login
-                        </button>
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
                     )}
-                </div>
+                </>
             )}
         </div>
     );

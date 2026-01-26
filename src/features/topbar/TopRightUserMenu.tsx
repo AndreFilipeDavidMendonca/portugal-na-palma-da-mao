@@ -11,7 +11,7 @@ type Props = {
 export default function TopRightUserMenu({ currentUser, onLoggedOut }: Props) {
     return (
         <div className="top-left-user-menu">
-            <UserMenu currentUser={currentUser} onLoggedOut={onLoggedOut} />
+            <UserMenu />
         </div>
     );
 }
