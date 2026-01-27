@@ -18,16 +18,16 @@ type Props = {
 };
 
 export default function PoiComments({
-                                        user,
-                                        comments,
-                                        loading,
-                                        error,
-                                        body,
-                                        setBody,
-                                        sending,
-                                        onAdd,
-                                        onDelete,
-                                    }: Props) {
+    user,
+    comments,
+    loading,
+    error,
+    body,
+    setBody,
+    sending,
+    onAdd,
+    onDelete,
+}: Props) {
     return (
         <div className="poi-comments">
             <div className="poi-comments__head">

@@ -19,217 +19,24 @@
     min-height: 0;
   }
 
-  .left-pane .leaflet-container {
-    height: 100% !important;
-    width: 100% !important;
-  }
-
-  .right-panel {
-    background: var(--bg-panel) !important;
-    color: var(--gold);
-    border-left: 1px solid var(--border);
-    overflow: auto;
-  }
-
-  .right-inner {
-    padding: 22px 20px 24px;
-
-    .place-label span {
-      color: var(--gold);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
-    }
-
-    .district-header {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 10px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
-      margin-bottom: 6px;
-    }
-
-    .district-title {
-      margin: 0;
-      color: var(--gold);
-      font-weight: 600;
-      font-size: 3rem;
-      letter-spacing: .5px;
-      text-transform: capitalize;
-    }
-
-    .district-name-input {
-      width: 70%;
-      font-size: 2.2rem;
-      font-weight: 600;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 12px;
-      color: var(--gold);
-      outline: none;
-
-      &:focus {
-        border-color: var(--border-2);
-        box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-      }
-    }
-
-    .district-header-actions {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    /* ✅ Botões agora 100% por tokens */
-    .district-btn {
-      border-radius: 999px;
-      padding: 4px 12px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--gold);
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-      &--ghost {
-        border-color: var(--gold-dark);
-        background: var(--bg-panel-2);
-
-        &:hover { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
-      }
-
-      &--primary {
-        border-color: var(--gold-dark);
-        background: var(--gold);
-        color: var(--bg-deep);
-
-        &:hover { background: var(--gold-strong); border-color: var(--gold); }
-      }
-
-      &:focus {
-        outline: none;
-        border-color: var(--border-2);
-        box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-      }
-
-      &:disabled { opacity: 0.7; cursor: default; }
-    }
-
-    .district-videos-toggle {
-      border-radius: 999px;
-      padding: 3px 10px;
-      font-size: 0.78rem;
-      border: 1px solid var(--gold-dark);
-      background: var(--bg-panel-2);
-      color: var(--gold);
-      cursor: pointer;
-      letter-spacing: 0.02em;
-
-      &:hover { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
-      &:focus { outline: none; border-color: var(--border-2); box-shadow: 0 0 0 3px rgba(215,178,90,.15); }
-    }
-
-    .district-error {
-      margin-top: 6px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(0, 0, 0, 0.22);
-      color: var(--gold-strong);
-      font-size: 0.8rem;
-    }
-
-    .district-info {
-      margin-top: 10px;
-      line-height: 1.55;
-      color: var(--muted);
-
-      strong {
-        color: var(--gold-strong);
-        font-weight: 600;
-      }
-
-      .district-meta-input {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 2px 8px;
-        font-size: 0.8rem;
-        color: var(--gold);
-        min-width: 60px;
-
-        &:focus {
-          outline: none;
-          border-color: var(--border-2);
-          box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-        }
-      }
-
-      .district-textarea {
-        width: 100%;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        background: var(--bg-panel-2);
-        color: var(--gold);
-        font-size: 0.88rem;
-        padding: 6px 8px;
-        resize: vertical;
-        margin-bottom: 8px;
-
-        &:focus {
-          outline: none;
-          border-color: var(--border-2);
-          box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-        }
-      }
-
-      .district-description {
-        margin: 6px 0 10px;
-        color: var(--gold);
-        font-weight: 500;
-      }
-
-      .district-history {
-        font-size: 0.95rem;
-        color: var(--muted);
-      }
-    }
-  }
-
+  /* Gallery left wrapper */
   .district-gallery-left {
     height: 100%;
-    display: flex;
-    flex-direction: column;
+    min-height: 0;
     padding: 20px 18px 18px;
     box-sizing: border-box;
     background: var(--bg-panel-2);
+
+    /* scroll fica no editor interno do MediaStack */
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
-  .poi-preloader {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: grid;
-    place-items: center;
-    background: rgba(12, 42, 26, 0.45);
-    backdrop-filter: blur(6px) saturate(130%) brightness(0.9);
-    -webkit-backdrop-filter: blur(6px) saturate(130%) brightness(0.9);
-    transition: opacity 0.18s ease, visibility 0.18s ease;
-  }
-
-  .spinner {
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    border: 3px solid rgba(215, 178, 90, 0.3);
-    border-top-color: var(--gold);
-    animation: spin 0.9s linear infinite;
-    box-shadow:
-            0 0 16px rgba(215, 178, 90, 0.3),
-            0 0 4px rgba(215, 178, 90, 0.15) inset;
+  /* garante que o MediaStack ocupa o painel todo */
+  .district-gallery-left > .media-stack {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 }
 
@@ -238,5 +45,3 @@
     grid-template-columns: minmax(420px, 1.4fr) minmax(420px, 1.1fr);
   }
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }

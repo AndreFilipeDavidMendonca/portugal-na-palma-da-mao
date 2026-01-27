@@ -1,0 +1,21 @@
+.modal-shell__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.modal-shell__card {
+  width: min(1280px, calc(100vw - 60px));
+  height: min(92vh, 1080px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

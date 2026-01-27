@@ -1,6 +1,6 @@
 import React from "react";
 import ImageDropField from "@/components/ImageDropField";
-import MediaSlideshow from "@/components/MediaSlideshow";
+import MediaStack from "@/components/MediaStack";
 import "./PoiMedia.scss";
 
 type Props = {
@@ -20,22 +20,28 @@ export default function PoiMedia({
                                      imagesList,
                                      setImagesList,
                                  }: Props) {
-    return (
-        <>
-            <div className="poi-media-slideshow">
-                <MediaSlideshow items={mediaUrls} title={title} />
+    const editor =
+        editing && canEdit ? (
+            <div className="poi-media__uploader">
+                <ImageDropField
+                    label="Imagens / vídeos"
+                    images={imagesList}
+                    onChange={setImagesList}
+                    mode="media"
+                />
             </div>
+        ) : null;
 
-            {editing && canEdit && (
-                <div className="poi-media-uploader">
-                    <ImageDropField
-                        label="Imagens / vídeos"
-                        images={imagesList}
-                        onChange={setImagesList}
-                        mode="media"
-                    />
-                </div>
-            )}
-        </>
+    return (
+        <div className="poi-media__root">
+            <MediaStack
+                title={title}
+                items={mediaUrls}
+                editor={editor}
+                frameHeight="clamp(360px, 56vh, 740px)"
+                frameHeightMobile="clamp(260px, 44vh, 560px)"
+                maxWidth="980px"
+            />
+        </div>
     );
 }

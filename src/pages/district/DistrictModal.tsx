@@ -1,42 +1,25 @@
-// DistrictModal.tsx
-import {useEffect, useMemo, useRef, useState} from "react";
-import {GeoJSON, MapContainer, Pane, TileLayer, useMap} from "react-leaflet";
-import L from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import {loadGeo} from "@/lib/geo";
+import { loadGeo } from "@/lib/geo";
 import {
-    COLOR_LAKE,
-    COLOR_PEAK,
-    COLOR_RAIL,
-    COLOR_RIVER,
-    COLOR_ROAD,
-    DISTRICT_DETAIL,
-    DISTRICT_LABELS,
     POI_LABELS,
     type PoiCategory,
-    Z_LAKES,
-    Z_PEAKS,
-    Z_PLACES,
-    Z_RAIL,
-    Z_RIVERS,
-    Z_ROADS,
 } from "@/utils/constants";
 
-import {PoiAreasLayer, PoiPointsLayer} from "@/features/map/PoiLayers";
 import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
-
-import {fetchPoiInfo, type PoiInfo} from "@/lib/poiInfo";
+import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
 
-import ImageDropField from "@/components/ImageDropField";
-import MediaSlideshow from "@/components/MediaSlideshow";
+import { type DistrictUpdatePayload, fetchDistrictById, updateDistrict } from "@/lib/api";
+import { type DistrictInfo, fetchDistrictInfo } from "@/lib/districtInfo";
+import { getDistrictCommonsGallery, searchWikimediaImagesByName } from "@/lib/wikimedia";
+
 
 import "./DistrictModal.scss";
-
-import {type DistrictUpdatePayload, fetchDistrictById, updateDistrict} from "@/lib/api";
-import {type DistrictInfo, fetchDistrictInfo} from "@/lib/districtInfo";
-import {getDistrictCommonsGallery, searchWikimediaImagesByName} from "@/lib/wikimedia";
+import DistrictAsidePanel from "@/components/DistrictAsidePanel";
+import DistrictGalleryPane from "@/components/DistrictGalleryPane";
+import DistrictMapPane from "@/components/DistrictMapPane";
 
 type AnyGeo = any;
 
@@ -58,29 +41,8 @@ const pickPoiId = (feature: any): number | null => {
     return typeof id === "number" ? id : null;
 };
 
-const mergeMedia = (base: string[], extra: string[], limit = 10) => uniqStrings([...base, ...extra]).slice(0, limit);
-
-/* ---------- Fit Bounds ---------- */
-function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
-    const map = useMap();
-    const prevRef = useRef<string | null>(null);
-
-    useEffect(() => {
-        if (!feature) return;
-        const hash = JSON.stringify(feature?.geometry);
-        if (prevRef.current === hash) return;
-        prevRef.current = hash;
-
-        const gj = L.geoJSON(feature as any);
-        const b = gj.getBounds();
-        if (b.isValid()) {
-            map.fitBounds(b.pad(0.08), { animate: true });
-            map.setMaxBounds(b.pad(0.25));
-        }
-    }, [feature, map]);
-
-    return null;
-}
+const mergeMedia = (base: string[], extra: string[], limit = 10) =>
+    uniqStrings([...base, ...extra]).slice(0, limit);
 
 /* ---------------- Types ---------------- */
 
@@ -412,7 +374,6 @@ export default function DistrictModal(props: Props) {
                         return;
                     }
 
-                    // se não veio nada (erro), termina spinner
                     if (alive && reqRef.current === reqId) setLoadingPoi(false);
                     return;
                 }
@@ -438,7 +399,7 @@ export default function DistrictModal(props: Props) {
                     return;
                 }
 
-                // 2) Tenta completar para ter pelo menos 10 URLs (BD + wiki3)
+                // 2) Tenta completar para ter pelo menos 10 URLs (BD + wiki)
                 let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 
                 if (merged.length < 10) {
@@ -501,7 +462,6 @@ export default function DistrictModal(props: Props) {
             if (poiId != null) poiInflightRef.current.delete(poiId);
 
             // ⚠️ Não desligar loading aqui.
-            // setLoadingPoi(false) só quando abrimos modal (onReady ou timeout), ou base falhou.
         })();
 
         return () => {
@@ -512,12 +472,9 @@ export default function DistrictModal(props: Props) {
     /* ---------------- Fallback: abre modal após timeout mesmo sem 3 ---------------- */
     useEffect(() => {
         if (!loadingPoi) return;
-        if (!preloadInfo) return; // ainda não temos base
-        // podemos ter preloadItems vazio -> ainda assim vamos abrir por timeout
+        if (!preloadInfo) return;
 
         const reqId = preloadReqId;
-
-        // “por um bocado”: dá tempo a tentar carregar 3
         const TIMEOUT_MS = 900;
 
         const t = window.setTimeout(() => {
@@ -528,7 +485,6 @@ export default function DistrictModal(props: Props) {
             const progress = preloadProgressRef.current;
             const loaded = uniqStrings(progress?.loaded ?? []).slice(0, 10);
 
-            // se não carregou nada, abre na mesma (sem imagens)
             const rest = preloadItems.filter((u) => !loaded.includes(u));
             const finalMedia = [...loaded, ...rest].slice(0, 10);
 
@@ -750,301 +706,62 @@ export default function DistrictModal(props: Props) {
             <div className="modal-content">
                 <div className="left-pane">
                     {!showGallery ? (
-                        <MapContainer
-                            center={[39.5, -8]}
-                            zoom={8}
-                            scrollWheelZoom
-                            attributionControl
-                            preferCanvas
-                            style={{ height: "100%", width: "100%" }}
-                        >
-                            <Pane name="districtBase" style={{ zIndex: 200 }}>
-                                <TileLayer url={DISTRICT_DETAIL} />
-                            </Pane>
-
-                            <Pane name="districtLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                                <TileLayer url={DISTRICT_LABELS} />
-                            </Pane>
-
-                            {districtFeature && (
-                                <GeoJSON
-                                    data={districtFeature as any}
-                                    style={() => ({
-                                        color: "#2E7D32",
-                                        weight: 2,
-                                        fillOpacity: 0,
-                                    })}
-                                    interactive={false}
-                                />
-                            )}
-
-                            {rivers && (
-                                <Pane name="rivers" style={{ zIndex: Z_RIVERS }}>
-                                    <GeoJSON data={rivers as any} style={{ color: COLOR_RIVER, weight: 1.5 }} interactive={false} />
-                                </Pane>
-                            )}
-
-                            {lakes && (
-                                <Pane name="lakes" style={{ zIndex: Z_LAKES }}>
-                                    <GeoJSON
-                                        data={lakes as any}
-                                        style={{
-                                            color: COLOR_LAKE,
-                                            weight: 1,
-                                            fillColor: COLOR_LAKE,
-                                            fillOpacity: 0.3,
-                                            opacity: 0.9,
-                                        }}
-                                        interactive={false}
-                                    />
-                                </Pane>
-                            )}
-
-                            {rails && (
-                                <Pane name="rails" style={{ zIndex: Z_RAIL }}>
-                                    <GeoJSON
-                                        data={rails as any}
-                                        style={{
-                                            color: COLOR_RAIL,
-                                            weight: 1,
-                                            dashArray: "4,3",
-                                            opacity: 0.9,
-                                        }}
-                                        interactive={false}
-                                    />
-                                </Pane>
-                            )}
-
-                            {roads && (
-                                <Pane name="roads" style={{ zIndex: Z_ROADS }}>
-                                    <GeoJSON
-                                        data={roads as any}
-                                        style={{
-                                            color: COLOR_ROAD,
-                                            weight: 1.2,
-                                            opacity: 0.9,
-                                        }}
-                                        interactive={false}
-                                    />
-                                </Pane>
-                            )}
-
-                            {peaks && (
-                                <Pane name="peaks" style={{ zIndex: Z_PEAKS }}>
-                                    <GeoJSON
-                                        data={peaks as any}
-                                        pointToLayer={(_f, latlng) =>
-                                            L.circleMarker(latlng, {
-                                                radius: 3.5,
-                                                color: COLOR_PEAK,
-                                                weight: 1,
-                                                fillColor: COLOR_PEAK,
-                                                fillOpacity: 0.9,
-                                            })
-                                        }
-                                    />
-                                </Pane>
-                            )}
-
-                            {places && (
-                                <Pane name="places" style={{ zIndex: Z_PLACES, pointerEvents: "none" }}>
-                                    <GeoJSON
-                                        data={places as any}
-                                        pointToLayer={(f, latlng) => {
-                                            const name =
-                                                f?.properties?.NAME ?? f?.properties?.name ?? f?.properties?.["name:pt"] ?? null;
-                                            if (!name) {
-                                                return L.circleMarker(latlng, {
-                                                    radius: 2,
-                                                    color: "#444",
-                                                    weight: 1,
-                                                    fillColor: "#444",
-                                                    fillOpacity: 0.7,
-                                                });
-                                            }
-                                            return L.marker(latlng, {
-                                                icon: L.divIcon({
-                                                    className: "place-label",
-                                                    html: `<span>${name}</span>`,
-                                                }),
-                                                interactive: false,
-                                            });
-                                        }}
-                                    />
-                                </Pane>
-                            )}
-
-                            {poiAreas && (
-                                <Pane name="areas" style={{ zIndex: 430 }}>
-                                    <PoiAreasLayer data={poiAreas} />
-                                </Pane>
-                            )}
-
-                            {filteredPoints && (
-                                <Pane name="points" style={{ zIndex: 460 }}>
-                                    <PoiPointsLayer
-                                        data={filteredPoints}
-                                        selectedTypes={selectedTypes}
-                                        nonce={renderNonce}
-                                        onSelect={onPoiClick}
-                                    />
-                                </Pane>
-                            )}
-
-                            <FitDistrictBounds feature={districtFeature} />
-                        </MapContainer>
+                        <DistrictMapPane
+                            districtFeature={districtFeature}
+                            rivers={rivers}
+                            lakes={lakes}
+                            rails={rails}
+                            roads={roads}
+                            peaks={peaks}
+                            places={places}
+                            poiAreas={poiAreas}
+                            filteredPoints={filteredPoints}
+                            selectedTypes={selectedTypes}
+                            renderNonce={renderNonce}
+                            onPoiClick={onPoiClick}
+                        />
                     ) : (
-                        <section className="district-gallery-left gold-scroll">
-                            <div className="district-gallery-main">
-                                <MediaSlideshow items={mediaUrls} title={distName || districtNameFallback} />
-                            </div>
-
-                            {editingDistrict && isAdmin && districtInfo?.id && (
-                                <div className="district-gallery-editor">
-                                    <ImageDropField label="Imagens / vídeos do distrito" images={distMedia} onChange={setDistMedia} mode="image" />
-                                </div>
-                            )}
-                        </section>
+                        <DistrictGalleryPane
+                            title={distName || districtNameFallback}
+                            mediaUrls={mediaUrls}
+                            editing={editingDistrict}
+                            isAdmin={isAdmin}
+                            districtId={districtInfo?.id ?? null}
+                            distMedia={distMedia}
+                            setDistMedia={setDistMedia}
+                        />
                     )}
                 </div>
 
-                <aside className="right-panel gold-scroll">
-                    <div className="right-inner">
-                        <div className="district-header">
-                            <div className="district-header-main">
-                                {editingDistrict && isAdmin ? (
-                                    <input className="district-name-input" value={distName} onChange={(e) => setDistName(e.target.value)} />
-                                ) : (
-                                    <h1 className="district-title">
-                                        <strong>{distName || districtNameFallback}</strong>
-                                    </h1>
-                                )}
-                            </div>
-
-                            <div className="district-header-actions">
-                                {showGallery &&
-                                    isAdmin &&
-                                    (editingDistrict ? (
-                                        <>
-                                            <button type="button" className="district-btn district-btn--ghost" onClick={handleCancelEdit} disabled={savingDistrict}>
-                                                Cancelar
-                                            </button>
-                                            <button type="button" className="district-btn district-btn--primary" onClick={handleDistrictSave} disabled={savingDistrict}>
-                                                {savingDistrict ? "A guardar..." : "Guardar"}
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <button type="button" className="district-btn district-btn--ghost" onClick={() => isAdmin && setEditingDistrict(true)}>
-                                            Editar
-                                        </button>
-                                    ))}
-                            </div>
-                        </div>
-
-                        <div className="district-header-subrow">
-                            <button type="button" className="district-videos-toggle" onClick={toggleGallery}>
-                                {showGallery ? "Fechar galeria" : "Galeria"}
-                            </button>
-                        </div>
-
-                        {districtError && <div className="district-error">{districtError}</div>}
-
-                        <div className="district-info">
-                            <div className="district-meta">
-                                <div>
-                                    <strong>População:</strong>{" "}
-                                    {editingDistrict && isAdmin ? (
-                                        <input className="district-meta-input" value={distPopulation} onChange={(e) => setDistPopulation(e.target.value)} />
-                                    ) : (
-                                        distPopulation || "—"
-                                    )}
-                                </div>
-                                <div>
-                                    <strong>Concelhos:</strong>{" "}
-                                    {editingDistrict && isAdmin ? (
-                                        <input className="district-meta-input" value={distMunicipalities} onChange={(e) => setDistMunicipalities(e.target.value)} />
-                                    ) : (
-                                        distMunicipalities || "—"
-                                    )}
-                                </div>
-                                <div>
-                                    <strong>Freguesias:</strong>{" "}
-                                    {editingDistrict && isAdmin ? (
-                                        <input className="district-meta-input" value={distParishes} onChange={(e) => setDistParishes(e.target.value)} />
-                                    ) : (
-                                        distParishes || "—"
-                                    )}
-                                </div>
-                                <div>
-                                    <strong>Habitado desde:</strong>{" "}
-                                    {editingDistrict && isAdmin ? (
-                                        <input className="district-meta-input" value={distInhabitedSince} onChange={(e) => setDistInhabitedSince(e.target.value)} />
-                                    ) : (
-                                        distInhabitedSince || "—"
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="district-text-blocks">
-                                {editingDistrict && isAdmin ? (
-                                    <>
-                                        <label className="district-label">Descrição</label>
-                                        <textarea className="district-textarea" rows={4} value={distDescription} onChange={(e) => setDistDescription(e.target.value)} />
-
-                                        <label className="district-label">História</label>
-                                        <textarea className="district-textarea" rows={6} value={distHistory} onChange={(e) => setDistHistory(e.target.value)} />
-                                    </>
-                                ) : (
-                                    <>
-                                        {distDescription && <p className="district-description">{distDescription}</p>}
-                                        {distHistory && <p className="district-history">{distHistory}</p>}
-                                        {!distDescription && !distHistory && <p className="district-description">Sem informação detalhada para este distrito (ainda).</p>}
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </aside>
+                <DistrictAsidePanel
+                    showGallery={showGallery}
+                    onToggleGallery={toggleGallery}
+                    isAdmin={isAdmin}
+                    editing={editingDistrict}
+                    saving={savingDistrict}
+                    error={districtError}
+                    onEdit={() => isAdmin && setEditingDistrict(true)}
+                    onCancel={handleCancelEdit}
+                    onSave={handleDistrictSave}
+                    districtNameFallback={districtNameFallback}
+                    distName={distName}
+                    setDistName={setDistName}
+                    distPopulation={distPopulation}
+                    setDistPopulation={setDistPopulation}
+                    distMunicipalities={distMunicipalities}
+                    setDistMunicipalities={setDistMunicipalities}
+                    distParishes={distParishes}
+                    setDistParishes={setDistParishes}
+                    distInhabitedSince={distInhabitedSince}
+                    setDistInhabitedSince={setDistInhabitedSince}
+                    distDescription={distDescription}
+                    setDistDescription={setDistDescription}
+                    distHistory={distHistory}
+                    setDistHistory={setDistHistory}
+                />
             </div>
 
-            {/* PRELOAD INVISÍVEL: atualiza progresso + abre assim que minReady=3 */}
-            {preloadInfo && (
-                <MediaSlideshow
-                    preloadOnly
-                    items={preloadItems}
-                    minReady={3}
-                    preloadFirst={3}
-                    onReady={(p) => {
-                        if (preloadReqId !== reqRef.current) return;
-
-                        preloadProgressRef.current = p;
-
-                        if (preloadOpenedRef.current) return;
-                        if (!p.ready) return;
-
-                        const loaded = uniqStrings(p.loaded).slice(0, 10);
-                        const rest = preloadItems.filter((u) => !loaded.includes(u));
-                        const finalMedia = [...loaded, ...rest].slice(0, 10);
-
-                        const base = poiInfo ?? preloadInfo;
-
-                        const readyInfo: PoiInfo = {
-                            ...base,
-                            image: finalMedia[0] ?? base.image ?? null,
-                            images: finalMedia,
-                        };
-
-                        setPoiInfo(readyInfo);
-                        setShowPoiModal(true);
-
-                        setLoadingPoi(false);
-                        setPreloadInfo(null);
-                        setPreloadItems([]);
-                        preloadOpenedRef.current = true;
-                    }}
-                />
-            )}
-
+            {/* PoiModal */}
             <PoiModal
                 open={showPoiModal}
                 onClose={() => {
@@ -1064,7 +781,10 @@ export default function DistrictModal(props: Props) {
             />
 
             {(loadingPoi || loadingGallery) && (
-                <SpinnerOverlay open={loadingPoi || loadingGallery} message={loadingPoi ? "A carregar…" : "A carregar galeria…"} />
+                <SpinnerOverlay
+                    open={loadingPoi || loadingGallery}
+                    message={loadingPoi ? "A carregar…" : "A carregar galeria…"}
+                />
             )}
         </div>
     );
