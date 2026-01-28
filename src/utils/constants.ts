@@ -12,37 +12,64 @@ export const DISTRICT_LABELS =
 
 // === Categorias de POI ===
 export type PoiCategory =
+// Cultura
     | "castle"
     | "palace"
     | "monument"
     | "ruins"
     | "church"
+
+    // Natureza
     | "viewpoint"
     | "park"
-    | "trail";
+    | "trail"
+
+    // Comercial (subcategorias)
+    | "gastronomy"
+    | "crafts"
+    | "accommodation"
+    | "event";
 
 // === Cores por categoria ===
 export const CATEGORY_COLORS: Record<PoiCategory, string> = {
+    // Cultura
     castle: "#7e1616",
     palace: "#3890dc",
     monument: "#24338e",
     ruins: "#51362c",
     church: "#501c61",
+
+    // Natureza
     viewpoint: "#ae7710",
     park: "#2E7D32",
-    trail: "#4ced4c", // <-- novo, verde-escuro natural
+    trail: "#4ced4c",
+
+    // Comercial
+    gastronomy: "#ca6609",
+    crafts: "#8d6e63",
+    accommodation: "#1e88e5",
+    event: "#ed0023",
 };
 
-// === Labels legíveis ===
+// === Labels ===
 export const POI_LABELS: Record<PoiCategory, string> = {
+    // Cultura
     castle: "Castelos",
     palace: "Palácios",
     monument: "Monumentos",
     ruins: "Arqueologia",
     church: "Igrejas",
+
+    // Natureza
     viewpoint: "Miradouros",
     park: "Parques",
     trail: "Trilhos",
+
+    // Comercial
+    gastronomy: "Gastronomia",
+    crafts: "Artesanato",
+    accommodation: "Alojamento",
+    event: "Eventos",
 };
 
 // === Lista de categorias (UI filters) ===
@@ -51,14 +78,23 @@ export const POI_CATEGORIES: {
     label: string;
     kind: "node" | "area";
 }[] = [
+    // Cultura
     { key: "castle", label: POI_LABELS.castle, kind: "node" },
     { key: "palace", label: POI_LABELS.palace, kind: "node" },
     { key: "monument", label: POI_LABELS.monument, kind: "node" },
     { key: "ruins", label: POI_LABELS.ruins, kind: "node" },
     { key: "church", label: POI_LABELS.church, kind: "node" },
+
+    // Natureza
     { key: "viewpoint", label: POI_LABELS.viewpoint, kind: "node" },
     { key: "park", label: POI_LABELS.park, kind: "area" },
-    { key: "trail", label: POI_LABELS.trail, kind: "area" }, // <-- trilho é "área" ou "node", podes escolher
+    { key: "trail", label: POI_LABELS.trail, kind: "area" },
+
+    // Comercial
+    { key: "gastronomy", label: POI_LABELS.gastronomy, kind: "node" },
+    { key: "crafts", label: POI_LABELS.crafts, kind: "node" },
+    { key: "accommodation", label: POI_LABELS.accommodation, kind: "node" },
+    { key: "event", label: POI_LABELS.event, kind: "node" },
 ];
 
 // === Defaults ===

@@ -42,7 +42,11 @@ async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> 
    Auth
 ========================= */
 
+export type RegisterRole = "USER" | "BUSINESS";
+
 export type RegisterPayload = {
+    role: RegisterRole;
+
     firstName?: string | null;
     lastName?: string | null;
     age?: number | null;
@@ -72,6 +76,8 @@ export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
+            role: body.role,
+
             firstName: body.firstName ?? null,
             lastName: body.lastName ?? null,
             age: body.age ?? null,
@@ -92,11 +98,15 @@ export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
 export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
     const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
     if (res.status === 401) return null;
-    if (!res.ok) throw new Error(`Falha a carregar utilizador atual (status ${res.status})`);
+    if (!res.ok)
+        throw new Error(`Falha a carregar utilizador atual (status ${res.status})`);
     return res.json();
 }
 
-export async function login(email: string, password: string): Promise<CurrentUserDto> {
+export async function login(
+    email: string,
+    password: string
+): Promise<CurrentUserDto> {
     return jsonFetch<CurrentUserDto>(`${API_BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,18 +125,26 @@ export async function logout(): Promise<void> {
 
 export type PoiDto = {
     id: number;
+
     districtId: number | null;
+    ownerId: string | null;
+
     name: string;
     namePt: string | null;
+
     category: string | null;
     subcategory: string | null;
     description: string | null;
+
     lat: number;
     lon: number;
+
     wikipediaUrl: string | null;
     sipaId: string | null;
     externalOsmId: string | null;
+
     source: string | null;
+
     image: string | null;
     images: string[] | null;
 };
@@ -143,8 +161,14 @@ export type PoiUpdatePayload = {
     name?: string | null;
     namePt?: string | null;
     description?: string | null;
+
     image?: string | null;
     images?: string[] | null;
+
+    // opcional: se fores permitir no BE
+    category?: string | null;
+    lat?: number | null;
+    lon?: number | null;
 };
 
 export async function updatePoi(id: number, body: PoiUpdatePayload): Promise<PoiDto> {
@@ -154,6 +178,28 @@ export async function updatePoi(id: number, body: PoiUpdatePayload): Promise<Poi
         credentials: "include",
         body: JSON.stringify(body),
     });
+}
+
+/* =========================
+   My POIs
+========================= */
+
+export type MyPoiDto = {
+    id: number;
+    name: string;
+    image: string | null;
+};
+
+export async function fetchMyPois(): Promise<MyPoiDto[]> {
+    const list = await jsonFetch<PoiDto[]>(`${API_BASE}/api/pois/mine`, {
+        credentials: "include",
+    });
+
+    return (list ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        image: p.image ?? null,
+    }));
 }
 
 /* =========================
@@ -197,7 +243,10 @@ export type DistrictUpdatePayload = {
     files?: string[] | null;
 };
 
-export async function updateDistrict(id: number, body: DistrictUpdatePayload): Promise<DistrictDto> {
+export async function updateDistrict(
+    id: number,
+    body: DistrictUpdatePayload
+): Promise<DistrictDto> {
     return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -214,18 +263,15 @@ export type FavoriteDto = {
     poiId: number;
     name: string;
     image: string | null;
-    createdAt: string; // Instant
+    createdAt: string;
 };
 
 export async function fetchFavorites(): Promise<FavoriteDto[]> {
-    return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`, { credentials: "include" });
+    return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`, {
+        credentials: "include",
+    });
 }
 
-/**
- * Status do favorito (POI):
- * - null => não autenticado (ou endpoint não disponível / 404)
- * - { favorited: true/false } => autenticado
- */
 export async function fetchFavoriteStatus(
     poiId: number
 ): Promise<{ favorited: boolean } | null> {
@@ -237,34 +283,13 @@ export async function fetchFavoriteStatus(
     if (res.status === 204) return { favorited: true };
     if (res.status === 404) return { favorited: false };
 
-    const text = await res.text();
-    let data: any;
+    const data = await parseJsonSafe(res);
 
-    try {
-        data = text ? JSON.parse(text) : null;
-    } catch {
-        data = text || null;
-    }
+    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
 
-    if (!res.ok) {
-        const msg =
-            (data && typeof data === "object" && (data.message || data.error)) ||
-            (typeof data === "string" && data) ||
-            `Erro HTTP ${res.status}`;
-        throw new Error(msg);
-    }
+    if (data && typeof data.favorite === "boolean") return { favorited: data.favorite };
+    if (data && typeof data.favorited === "boolean") return { favorited: data.favorited };
 
-    // ✅ backend atual: { favorite: true }
-    if (data && typeof data.favorite === "boolean") {
-        return { favorited: data.favorite };
-    }
-
-    // compat: { favorited: true }
-    if (data && typeof data.favorited === "boolean") {
-        return { favorited: data.favorited };
-    }
-
-    // fallback seguro
     return { favorited: false };
 }
 
@@ -320,5 +345,78 @@ export async function deletePoiComment(commentId: number): Promise<void> {
     await jsonFetch<void>(`${API_BASE}/api/comments/${commentId}`, {
         method: "DELETE",
         credentials: "include",
+    });
+}
+
+/* =========================
+   Geocoding
+========================= */
+
+export type GeocodeRequestDto = {
+    street: string;
+    houseNumber?: string;
+    postalCode?: string;
+
+    city: string; // aqui é concelho
+    district?: string;
+    country?: string;
+};
+
+export type GeocodeResponseDto = {
+    lat: number;
+    lon: number;
+    displayName: string;
+    provider: string;
+    confidence: number;
+};
+
+export async function geocodeAddress(req: GeocodeRequestDto): Promise<GeocodeResponseDto> {
+    return jsonFetch<GeocodeResponseDto>(`${API_BASE}/api/geocode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(req),
+    });
+}
+
+/* =========================
+   Business POIs (Create)
+========================= */
+
+export type CreatePoiPayload = {
+    name: string;
+    description?: string | null;
+    category: string;
+
+    districtId: number; // ✅ novo
+    municipality: string; // ✅ novo
+
+    lat: number;
+    lon: number;
+
+    image?: string | null;
+    images?: string[] | null;
+};
+
+// ✅ agora devolve só { id } (para navegar para detalhe)
+export async function createPoi(body: CreatePoiPayload): Promise<{ id: number }> {
+    return jsonFetch<{ id: number }>(`${API_BASE}/api/pois`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+            name: body.name,
+            description: body.description ?? null,
+            category: body.category,
+
+            districtId: body.districtId,
+            municipality: body.municipality,
+
+            lat: body.lat,
+            lon: body.lon,
+
+            image: body.image ?? null,
+            images: body.images ?? [],
+        }),
     });
 }

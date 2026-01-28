@@ -338,7 +338,11 @@
   &:active { transform: scale(0.98); }
   &.is-disabled { opacity: 0.55; cursor: default; pointer-events: none; }
 }
-
+.user-menu__item--full {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 10px;
+}
 /* mobile: stack */
 @media (max-width: 900px) {
   .user-menu__dropdown, .user-menu__flyout {

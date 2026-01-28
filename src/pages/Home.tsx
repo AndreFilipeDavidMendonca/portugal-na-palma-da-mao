@@ -1,13 +1,13 @@
-import {MapContainer, Pane, TileLayer} from "react-leaflet";
-import {useEffect, useMemo, useRef, useState} from "react";
+import { MapContainer, Pane, TileLayer } from "react-leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 
-import {loadGeo} from "@/lib/geo";
+import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
-import {type PoiCategory, WORLD_BASE, WORLD_LABELS} from "@/utils/constants";
+import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import TopDistrictFilter, {type SearchItem} from "@/features/topbar/TopDistrictFilter";
+import TopDistrictFilter, { type SearchItem } from "@/features/topbar/TopDistrictFilter";
 
 import {
     type CurrentUserDto,
@@ -19,45 +19,17 @@ import {
     type PoiDto,
 } from "@/lib/api";
 
-import {filterPointsInsideDistrict} from "@/lib/spatial";
+import { filterPointsInsideDistrict } from "@/lib/spatial";
 
 // ✅ POI modal (no Home)
 import PoiModal from "@/pages/poi/PoiModal";
-import {fetchPoiInfo, type PoiInfo} from "@/lib/poiInfo";
-import {searchWikimediaImagesByName} from "@/lib/wikimedia";
+import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
+import { searchWikimediaImagesByName } from "@/lib/wikimedia";
 import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 type AnyGeo = any;
 
 const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
-
-function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
-    return {
-        type: "FeatureCollection",
-        features: pois.map((p) => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-            properties: {
-                id: p.id,
-                poiId: p.id,
-                districtId: p.districtId,
-                name: p.name,
-                namePt: p.namePt ?? p.name,
-                category: p.category,
-                subcategory: p.subcategory,
-                description: p.description,
-                wikipediaUrl: p.wikipediaUrl,
-                sipaId: p.sipaId,
-                externalOsmId: p.externalOsmId,
-                source: p.source,
-                image: p.image,
-                images: p.images ?? [],
-                historic: p.category || "poi",
-                tags: { category: p.category, subcategory: p.subcategory },
-            },
-        })),
-    };
-}
 
 const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
@@ -65,29 +37,47 @@ function pickPoiLabelFromDto(p: PoiDto): string {
     return (p.namePt ?? p.name ?? "").trim();
 }
 
+/** ✅ comerciais => category="business" */
+function normalizeCategory(p: PoiDto): PoiCategory | string | null {
+    if (p.source === "business") return "business";
+    return p.category ?? null;
+}
+
 function poiDtoToFeature(p: PoiDto): any {
+    const category = normalizeCategory(p);
+
     return {
         type: "Feature",
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
         properties: {
             id: p.id,
             poiId: p.id,
-            districtId: p.districtId,
+            districtId: p.districtId ?? null,
+            ownerId: p.ownerId ?? null,
+
             name: p.name,
             namePt: p.namePt ?? p.name,
-            category: p.category,
-            subcategory: p.subcategory,
-            description: p.description,
-            wikipediaUrl: p.wikipediaUrl,
-            sipaId: p.sipaId,
-            externalOsmId: p.externalOsmId,
-            source: p.source,
-            image: p.image,
+
+            category,
+            subcategory: p.subcategory ?? null,
+
+            description: p.description ?? null,
+            wikipediaUrl: p.wikipediaUrl ?? null,
+            sipaId: p.sipaId ?? null,
+            externalOsmId: p.externalOsmId ?? null,
+            source: p.source ?? null,
+
+            image: p.image ?? null,
             images: p.images ?? [],
-            historic: p.category || "poi",
-            tags: { category: p.category, subcategory: p.subcategory },
+
+            historic: category || "poi",
+            tags: { category, subcategory: p.subcategory ?? null },
         },
     };
+}
+
+function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
+    return { type: "FeatureCollection", features: (pois ?? []).map(poiDtoToFeature) };
 }
 
 export default function Home() {
@@ -264,15 +254,11 @@ export default function Home() {
     }, [districtsGeo, districtDtos, featureByName]);
 
     const districtNames = useMemo(
-        () =>
-            Array.from(featureByName.keys()).sort((a, b) =>
-                a.localeCompare(b, "pt-PT", { sensitivity: "base" })
-            ),
+        () => Array.from(featureByName.keys()).sort((a, b) => a.localeCompare(b, "pt-PT", { sensitivity: "base" })),
         [featureByName]
     );
 
     const poiSearchItems = useMemo(() => {
-        // podes limitar aqui se quiseres (ex: 10k) mas eu deixei tudo
         return (allPois ?? [])
             .map((p) => ({
                 id: p.id,
@@ -318,7 +304,6 @@ export default function Home() {
         setActiveDistrictPois(null);
 
         try {
-            // ✅ já temos allPois em memória; evita mais uma chamada
             const pois = allPois.length ? allPois : await fetchPois();
             if (reqId !== poisReqRef.current) return;
 
@@ -371,7 +356,6 @@ export default function Home() {
                 animate,
                 paddingTopLeft: [10, topH + 50],
                 paddingBottomRight: [10, 10],
-                // ✅ aqui, usa maxZoom razoável (para PT ficar “aproximado”)
                 maxZoom: 6,
             });
 
@@ -391,7 +375,7 @@ export default function Home() {
     }
 
     // =========================
-    //   ✅ POI modal no Home (Opção B)
+    //   ✅ POI modal no Home
     // =========================
     async function openPoiFromDto(poiDto: PoiDto) {
         const reqId = ++homePoiReqRef.current;
@@ -422,7 +406,6 @@ export default function Home() {
                 return;
             }
 
-            // garantir pelo menos 5 imagens se possível
             let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 
             if (merged.length < 10) {
@@ -478,20 +461,16 @@ export default function Home() {
             return;
         }
 
-        // ✅ POI: abre já o POI modal
         const poiDto = allPois.find((p) => p.id === item.id);
         if (poiDto) openPoiFromDto(poiDto);
 
-        // ✅ em background abre o distrito correspondente (se existir)
         const districtId = item.districtId ?? null;
         const districtFeature = districtId != null ? districtFeatureById.get(districtId) : null;
 
         if (districtFeature) {
             zoomToFeatureBounds(districtFeature);
-            // Opção B => NÃO awaits
             openDistrictModal(districtFeature);
         } else if (districtId != null) {
-            // fallback: tentar via dto->name
             const dto = districtDtoById.get(districtId);
             const name = dto?.namePt ?? dto?.name ?? null;
             if (name) {
@@ -504,7 +483,6 @@ export default function Home() {
         }
     }
 
-    // overlay depende só de geo + distritos (user NÃO conta)
     const dataReady = Boolean(ptGeo && districtsGeo && !loadingDistricts);
     const showOverlay = !dataReady;
 
@@ -550,11 +528,7 @@ export default function Home() {
                     </Pane>
 
                     <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                        <TileLayer
-                            url={WORLD_LABELS}
-                            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            noWrap
-                        />
+                        <TileLayer url={WORLD_LABELS} attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>' noWrap />
                     </Pane>
 
                     {districtsGeo && (
@@ -577,15 +551,10 @@ export default function Home() {
                 isAdmin={isAdmin}
             />
 
-            {/* ✅ Loading do distrito/pois do distrito */}
-            {loadingDistrictPois && (
-                <LoadingOverlay message="A carregar…" />
-            )}
+            {loadingDistrictPois && <LoadingOverlay message="A carregar…" />}
 
-            {/* ✅ Loading do POI (o “spinner correcto” do fluxo do POI agora é este no Home) */}
-            {homePoiLoading && <SpinnerOverlay open={homePoiLoading}  message="A carregar…" />}
+            {homePoiLoading && <SpinnerOverlay open={homePoiLoading} message="A carregar…" />}
 
-            {/* ✅ POI Modal no Home */}
             <PoiModal
                 open={homePoiOpen}
                 onClose={() => {
@@ -597,7 +566,6 @@ export default function Home() {
                 poi={homePoiFeature}
                 isAdmin={isAdmin}
                 onSaved={(patch) => {
-                    // opcional: atualizar lista local (para não perder alterações no search)
                     setAllPois((prev) =>
                         prev.map((p) =>
                             p.id === patch.id

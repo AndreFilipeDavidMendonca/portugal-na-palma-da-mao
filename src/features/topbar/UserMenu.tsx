@@ -2,9 +2,24 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
-import { addFavorite, fetchFavorites, logout, removeFavorite, type FavoriteDto } from "@/lib/api";
+import {
+    addFavorite,
+    fetchFavorites,
+    fetchMyPois,
+    logout,
+    removeFavorite,
+    type FavoriteDto,
+} from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import "./UserMenu.scss";
+
+type MyPoiDto = {
+    id: number;
+    name: string;
+    image: string | null;
+};
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085";
 
 function initialsFromEmail(email?: string | null) {
     const s = (email ?? "").trim();
@@ -15,25 +30,48 @@ function initialsFromEmail(email?: string | null) {
     return left.slice(0, 2).toUpperCase();
 }
 
+async function deletePoiById(poiId: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/pois/${poiId}`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+
+    // backend pode devolver 200/204
+    if (res.status === 204) return;
+    if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `Falha ao eliminar POI (status ${res.status})`);
+    }
+}
+
 export default function UserMenu() {
     const { user, setUser } = useAuth();
 
     const [open, setOpen] = useState(false);
     const [favOpen, setFavOpen] = useState(false);
+    const [myPoisOpen, setMyPoisOpen] = useState(false);
 
     const [favLoading, setFavLoading] = useState(false);
     const [favError, setFavError] = useState<string | null>(null);
     const [favorites, setFavorites] = useState<FavoriteDto[]>([]);
     const [busyPoiIds, setBusyPoiIds] = useState<Set<number>>(() => new Set());
 
+    const [myPois, setMyPois] = useState<MyPoiDto[]>([]);
+    const [myPoisLoading, setMyPoisLoading] = useState(false);
+    const [myPoisError, setMyPoisError] = useState<string | null>(null);
+    const [busyDeletePoiIds, setBusyDeletePoiIds] = useState<Set<number>>(() => new Set());
+
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
     const from = useMemo(() => location.pathname ?? "/", [location.pathname]);
 
+    const isBusiness = user?.role === "BUSINESS" || user?.role === "ADMIN";
+
     const closeAll = useCallback(() => {
         setOpen(false);
         setFavOpen(false);
+        setMyPoisOpen(false);
     }, []);
 
     useEffect(() => {
@@ -44,6 +82,8 @@ export default function UserMenu() {
         document.addEventListener("mousedown", onClickOutside);
         return () => document.removeEventListener("mousedown", onClickOutside);
     }, [closeAll]);
+
+    /* ---------------- Favorites ---------------- */
 
     const loadFavorites = useCallback(async () => {
         if (!user) return;
@@ -59,18 +99,39 @@ export default function UserMenu() {
         }
     }, [user]);
 
+    /* ---------------- My POIs ---------------- */
+
+    const loadMyPois = useCallback(async () => {
+        if (!user || !isBusiness) return;
+        setMyPoisError(null);
+        setMyPoisLoading(true);
+        try {
+            const list = await fetchMyPois();
+            setMyPois(list ?? []);
+        } catch (e: any) {
+            setMyPoisError(e?.message ?? "Falha a carregar os meus POIs");
+        } finally {
+            setMyPoisLoading(false);
+        }
+    }, [user, isBusiness]);
+
     useEffect(() => {
         if (!open || !user) return;
         loadFavorites();
-    }, [open, user, loadFavorites]);
+        if (isBusiness) loadMyPois();
+    }, [open, user, loadFavorites, loadMyPois, isBusiness]);
 
     useEffect(() => {
         if (user) return;
         setFavOpen(false);
+        setMyPoisOpen(false);
         setFavorites([]);
-        setFavError(null);
+        setMyPois([]);
         setBusyPoiIds(new Set());
+        setBusyDeletePoiIds(new Set());
     }, [user]);
+
+    /* ---------------- Actions ---------------- */
 
     const goLogin = () => {
         closeAll();
@@ -86,6 +147,11 @@ export default function UserMenu() {
     const openPoi = (poiId: number) => {
         closeAll();
         window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId } }));
+    };
+
+    const goCreatePoi = () => {
+        closeAll();
+        navigate("/pois/new", { state: { from } });
     };
 
     const toggleFavorite = async (poiId: number) => {
@@ -109,6 +175,32 @@ export default function UserMenu() {
             setFavError(e?.message ?? "Falha a atualizar favorito");
         } finally {
             setBusyPoiIds((prev) => {
+                const next = new Set(prev);
+                next.delete(poiId);
+                return next;
+            });
+        }
+    };
+
+    const deleteMyPoi = async (poiId: number, poiName?: string) => {
+        if (!user) return;
+        if (busyDeletePoiIds.has(poiId)) return;
+
+        const ok = window.confirm(
+            `Tens a certeza que queres eliminar este POI${poiName ? ` (“${poiName}”)` : ""}?`
+        );
+        if (!ok) return;
+
+        setMyPoisError(null);
+        setBusyDeletePoiIds((prev) => new Set(prev).add(poiId));
+
+        try {
+            await deletePoiById(poiId);
+            setMyPois((prev) => prev.filter((p) => p.id !== poiId));
+        } catch (e: any) {
+            setMyPoisError(e?.message ?? "Falha ao eliminar POI");
+        } finally {
+            setBusyDeletePoiIds((prev) => {
                 const next = new Set(prev);
                 next.delete(poiId);
                 return next;
@@ -148,11 +240,32 @@ export default function UserMenu() {
                                 <button
                                     type="button"
                                     className={`user-menu__section ${favOpen ? "is-open" : ""}`}
-                                    onClick={() => setFavOpen((v) => !v)}
+                                    onClick={() => {
+                                        setFavOpen((v) => !v);
+                                        setMyPoisOpen(false);
+                                    }}
                                 >
                                     <span className="user-menu__section-title">Favoritos</span>
-                                    <span className="user-menu__chev" aria-hidden="true">▸</span>
+                                    <span className="user-menu__chev" aria-hidden="true">
+                    ▸
+                  </span>
                                 </button>
+
+                                {isBusiness && (
+                                    <button
+                                        type="button"
+                                        className={`user-menu__section ${myPoisOpen ? "is-open" : ""}`}
+                                        onClick={() => {
+                                            setMyPoisOpen((v) => !v);
+                                            setFavOpen(false);
+                                        }}
+                                    >
+                                        <span className="user-menu__section-title">Os meus POIs</span>
+                                        <span className="user-menu__chev" aria-hidden="true">
+                      ▸
+                    </span>
+                                    </button>
+                                )}
 
                                 <div className="user-menu__divider" />
 
@@ -166,13 +279,18 @@ export default function UserMenu() {
                                 </button>
                             </>
                         ) : (
-                            <button type="button" className="user-menu__item user-menu__item--primary" onClick={goLogin} role="menuitem">
+                            <button
+                                type="button"
+                                className="user-menu__item user-menu__item--primary"
+                                onClick={goLogin}
+                                role="menuitem"
+                            >
                                 Login
                             </button>
                         )}
                     </div>
 
-                    {/* ✅ Flyout à direita do dropdown 1 */}
+                    {/* ✅ Flyout Favoritos */}
                     {user && favOpen && (
                         <div className="user-menu__flyout" role="region" aria-label="Favoritos">
                             <div className="user-menu__flyout-header">
@@ -223,7 +341,6 @@ export default function UserMenu() {
                                                         <span className="user-menu__fav-name">{f.name}</span>
                                                     </button>
 
-                                                    {/* ✅ não é button, é só o X */}
                                                     <span
                                                         className={`user-menu__fav-x ${busy ? "is-disabled" : ""}`}
                                                         role="button"
@@ -240,6 +357,96 @@ export default function UserMenu() {
                                                             if (e.key === "Enter" || e.key === " ") {
                                                                 e.preventDefault();
                                                                 toggleFavorite(f.poiId);
+                                                            }
+                                                        }}
+                                                    >
+                            ×
+                          </span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ✅ Flyout Os meus POIs */}
+                    {user && isBusiness && myPoisOpen && (
+                        <div className="user-menu__flyout" role="region" aria-label="Os meus POIs">
+                            <div className="user-menu__flyout-header">
+                                <span>Os meus POIs</span>
+
+                                <button
+                                    type="button"
+                                    className="user-menu__flyout-close"
+                                    onClick={() => setMyPoisOpen(false)}
+                                    aria-label="Fechar"
+                                    title="Fechar"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className="user-menu__favorites">
+                                <button
+                                    type="button"
+                                    className="user-menu__item user-menu__item--primary user-menu__item--full"
+                                    onClick={goCreatePoi}
+                                >
+                                    + Criar POI
+                                </button>
+
+                                {myPoisLoading && <div className="user-menu__hint">A carregar…</div>}
+                                {myPoisError && <div className="user-menu__error">{myPoisError}</div>}
+
+                                {!myPoisLoading && !myPoisError && myPois.length === 0 && (
+                                    <div className="user-menu__hint">Ainda não criaste POIs.</div>
+                                )}
+
+                                {!myPoisLoading && !myPoisError && myPois.length > 0 && (
+                                    <ul className="user-menu__fav-list">
+                                        {myPois.map((p) => {
+                                            const hasImage = Boolean(p.image);
+                                            const busyDel = busyDeletePoiIds.has(p.id);
+
+                                            return (
+                                                <li key={p.id} className="user-menu__fav-item">
+                                                    <button
+                                                        type="button"
+                                                        className="user-menu__fav-link"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            openPoi(p.id);
+                                                        }}
+                                                        title={p.name}
+                                                    >
+                                                        {hasImage && (
+                                                            <span className="user-menu__fav-thumb">
+                                <img src={p.image!} alt={p.name} />
+                              </span>
+                                                        )}
+                                                        <span className="user-menu__fav-name">{p.name}</span>
+                                                    </button>
+
+                                                    {/* ✅ X para eliminar */}
+                                                    <span
+                                                        className={`user-menu__fav-x ${busyDel ? "is-disabled" : ""}`}
+                                                        role="button"
+                                                        tabIndex={busyDel ? -1 : 0}
+                                                        title="Eliminar POI"
+                                                        aria-label="Eliminar POI"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            if (!busyDel) deleteMyPoi(p.id, p.name);
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (busyDel) return;
+                                                            if (e.key === "Enter" || e.key === " ") {
+                                                                e.preventDefault();
+                                                                deleteMyPoi(p.id, p.name);
                                                             }
                                                         }}
                                                     >

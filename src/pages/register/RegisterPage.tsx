@@ -1,14 +1,20 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { register } from "@/lib/api";
+import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
 import "./RegisterPage.scss";
+
+type RegisterRole = "USER" | "BUSINESS";
 
 export default function RegisterPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { setUser } = useAuth();
 
     const from = useMemo(() => (location.state as any)?.from ?? "/", [location.state]);
+
+    const [role, setRole] = useState<RegisterRole>("USER");
 
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
@@ -49,7 +55,8 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
-            await register({
+            const newUser = await register({
+                role, // ✅ novo campo
                 firstName: firstName.trim() || null,
                 lastName: lastName.trim() || null,
                 age: age.trim() ? Number(age) : null,
@@ -59,7 +66,9 @@ export default function RegisterPage() {
                 password,
             });
 
-            // backend faz login automático -> vai para "from"
+            // 🔥 atualiza AuthContext (sem refresh)
+            setUser(newUser);
+
             navigate(from, { replace: true });
         } catch (e: any) {
             setError(e?.message ?? "Falha no registo");
@@ -76,9 +85,34 @@ export default function RegisterPage() {
                 </div>
 
                 <h2 className="register-title">Criar conta</h2>
-                <p className="register-subtitle">Preencha os seus dados</p>
 
                 <form onSubmit={onSubmit} className="register-form">
+
+                    {/* Role selector */}
+                    <div className="register-role">
+                        <div className="register-role-label">Tipo de conta</div>
+
+                        <div className="register-role-toggle">
+                            <button
+                                type="button"
+                                className={`register-role-btn ${role === "USER" ? "is-active" : ""}`}
+                                onClick={() => setRole("USER")}
+                                disabled={loading}
+                            >
+                                Utilizador
+                            </button>
+
+                            <button
+                                type="button"
+                                className={`register-role-btn ${role === "BUSINESS" ? "is-active" : ""}`}
+                                onClick={() => setRole("BUSINESS")}
+                                disabled={loading}
+                            >
+                                Comercial
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="register-grid">
                         <input
                             className="register-input"

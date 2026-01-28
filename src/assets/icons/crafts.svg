@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" fill="currentColor" width="30" height="30" viewBox="0 0 512 512" xml:space="preserve">
+  <g>
+    <!-- Hammer head -->
+      <rect x="96" y="96" width="256" height="80"/>
+      <rect x="352" y="112" width="64" height="48"/>
+
+      <!-- Neck -->
+      <rect x="224" y="176" width="48" height="48"/>
+
+      <!-- Handle -->
+      <path d="M248 224L112 360c-16 16-16 40 0 56s40 16 56 0l136-136v176h48V224h-104z"/>
+  </g>
+</svg>

@@ -1,12 +1,14 @@
 // src/pages/poi/PoiModal.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import ReactDOM from "react-dom";
 import type { PoiInfo } from "@/lib/poiInfo";
 import { useAuth } from "@/auth/AuthContext";
 import { updatePoi } from "@/lib/api";
 import "./PoiModal.scss";
+
 import usePoiFavorite from "@/hooks/usePoiFavorite";
 import usePoiComments from "@/hooks/usePoiComments";
+
 import PoiHeader from "@/components/PoiHeader";
 import PoiMedia from "@/components/PoiMedia";
 import PoiSide from "@/components/PoiSide";
@@ -38,13 +40,30 @@ export default function PoiModal({
                                  }: Props) {
     const { user } = useAuth();
 
-    const poiId: number | null = useMemo(
-        () => (typeof poi?.properties?.id === "number" ? poi.properties.id : null),
-        [poi]
-    );
+    /* =====================
+       IDs & Permissões
+    ===================== */
 
+    const poiId = useMemo<number | null>(() => {
+        return typeof poi?.properties?.id === "number" ? poi.properties.id : null;
+    }, [poi]);
+
+    const poiOwnerId = useMemo<string | null>(() => {
+        const v = poi?.properties?.ownerId;
+        return typeof v === "string" && v.trim() ? v.trim() : null;
+    }, [poi]);
+
+    const isOwner = useMemo(() => {
+        if (!user?.id || !poiOwnerId) return false;
+        return String(user.id) === String(poiOwnerId);
+    }, [user?.id, poiOwnerId]);
+
+    const canEdit = Boolean(poiId && (isAdmin || isOwner));
     const canRender = open && !!info;
-    const canEdit = Boolean(isAdmin && poiId);
+
+    /* =====================
+       Local state
+    ===================== */
 
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
@@ -55,7 +74,10 @@ export default function PoiModal({
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
 
-    // reset quando muda POI
+    /* =====================
+       Sync info → local state
+    ===================== */
+
     useEffect(() => {
         setLocalInfo(info);
         setEditing(false);
@@ -71,17 +93,34 @@ export default function PoiModal({
 
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
-        const gal = Array.from(new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean)));
+
+        const gal = Array.from(
+            new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean))
+        );
         setImagesList(gal);
     }, [info]);
 
-    const title = useMemo(() => localInfo?.label ?? "Ponto de interesse", [localInfo?.label]);
+    /* =====================
+       Derived
+    ===================== */
+
+    const title = useMemo(
+        () => localInfo?.label ?? "Ponto de interesse",
+        [localInfo?.label]
+    );
 
     const mediaUrls = useMemo(() => {
-        return Array.from(new Set([localInfo?.image ?? "", ...(localInfo?.images ?? [])].filter(Boolean)));
-    }, [localInfo?.image, localInfo?.images]);
+        const base = editing
+            ? imagesList
+            : [localInfo?.image ?? "", ...(localInfo?.images ?? [])];
 
-    // ⭐ Favoritos (hook)
+        return Array.from(new Set(base.filter(Boolean)));
+    }, [editing, imagesList, localInfo?.image, localInfo?.images]);
+
+    /* =====================
+       Hooks
+    ===================== */
+
     const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
         open,
         poiId,
@@ -89,14 +128,30 @@ export default function PoiModal({
         onError: setErrorMsg,
     });
 
-    // 💬 Comentários (hook)
     const commentsState = usePoiComments({ open, poiId, user });
 
-    const handleSave = async () => {
+    /* =====================
+       Guards
+    ===================== */
+
+    const requireCanEdit = useCallback(() => {
         if (!poiId) {
-            setErrorMsg("Não foi possível identificar o POI (id em falta).");
-            return;
+            setErrorMsg("Não foi possível identificar o POI.");
+            return false;
         }
+        if (!canEdit) {
+            setErrorMsg("Sem permissões para editar este POI.");
+            return false;
+        }
+        return true;
+    }, [poiId, canEdit]);
+
+    /* =====================
+       Save
+    ===================== */
+
+    const handleSave = async () => {
+        if (!requireCanEdit()) return;
 
         const primaryImage = imagesList[0] ?? null;
 
@@ -104,20 +159,20 @@ export default function PoiModal({
         setErrorMsg(null);
 
         try {
-            const updated = await updatePoi(poiId, {
+            const updated = await updatePoi(poiId!, {
                 name: titleInput || null,
                 namePt: titleInput || null,
                 description: descInput || null,
                 image: primaryImage,
-                images: imagesList.length > 0 ? imagesList : null,
+                images: imagesList.length ? imagesList : null,
             });
 
             setLocalInfo((prev) =>
                 prev
                     ? {
                         ...prev,
-                        label: (updated.namePt ?? updated.name ?? titleInput) || prev.label,
-                        description: updated.description ?? descInput,
+                        label: updated.namePt ?? updated.name ?? prev.label,
+                        description: updated.description ?? prev.description,
                         image: updated.image ?? primaryImage ?? prev.image ?? null,
                         images: updated.images ?? imagesList,
                     }
@@ -127,7 +182,7 @@ export default function PoiModal({
             setEditing(false);
 
             onSaved?.({
-                id: poiId,
+                id: poiId!,
                 name: updated.name,
                 namePt: updated.namePt,
                 description: updated.description,
@@ -143,9 +198,18 @@ export default function PoiModal({
 
     if (!canRender || !localInfo) return null;
 
+    /* =====================
+       Render
+    ===================== */
+
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
-            <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div
+                className="poi-card"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+            >
                 <PoiHeader
                     title={title}
                     titleInput={titleInput}
@@ -162,6 +226,7 @@ export default function PoiModal({
                         toggleFavorite();
                     }}
                     onToggleEdit={() => {
+                        if (!requireCanEdit()) return;
                         setEditing((v) => !v);
                         setErrorMsg(null);
                     }}
@@ -169,7 +234,6 @@ export default function PoiModal({
                     onClose={onClose}
                 />
 
-                {/* ✅ LEFT = um scroll para tudo (slideshow + uploader + comments)*/}
                 <div className="poi-body">
                     <div className="poi-left gold-scroll">
                         <section className="poi-media">

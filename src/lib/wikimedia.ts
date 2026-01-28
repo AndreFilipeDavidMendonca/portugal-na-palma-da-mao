@@ -330,7 +330,7 @@ async function searchCommonsImagesDetailed(query: string, limit: number = 12): P
 }
 
 /* =========================================
-   API pública base (continua disponível)
+   API pública base
    ========================================= */
 
 export async function searchWikimediaImagesByName(name: string, limit: number = 8): Promise<string[]> {
@@ -371,12 +371,8 @@ export async function getDistrictCommonsGallery(name: string, maxPhotos: number 
     return loadFirstValidImages(candidateUrls, maxPhotos);
 }
 
-export async function findDistrictGalleryImages(name: string, needed: number = 5): Promise<string[]> {
-    return getDistrictCommonsGallery(name, needed);
-}
-
 /* =====================================================================
-   ✅ NOVO: cache + inflight dedupe + helpers “no máximo 10”
+   ✅ cache + inflight dedupe + helpers “no máximo 10”
    ===================================================================== */
 
 type CacheEntry = { urls: string[]; updatedAt: number };
@@ -423,7 +419,7 @@ function mergeToLimit(base: string[], extra: string[], limit: number) {
 }
 
 /**
- * ✅ POI: devolve no máximo 10 urls.
+ * POI: devolve no máximo 10 urls.
  * - Se baseUrls já tiver 10 → 0 chamadas ao Wikimedia
  * - Caso contrário → 1 chamada (cache + inflight dedupe)
  */
@@ -433,7 +429,6 @@ export async function getPoiMedia10(label: string, baseUrls: string[] = [], limi
     if (base.length >= limit) return base;
 
     const key = cacheKey("poi", label, limit);
-
     const wiki = await getOrFetchCached(key, async () => {
         return searchWikimediaImagesByName(label, limit);
     });
@@ -442,7 +437,7 @@ export async function getPoiMedia10(label: string, baseUrls: string[] = [], limi
 }
 
 /**
- * ✅ District: idem, mas usa heurística forte (getDistrictCommonsGallery),
+ * District: idem, mas usa heurística forte (getDistrictCommonsGallery),
  * também com cache + inflight dedupe.
  */
 export async function getDistrictMedia10(name: string, baseUrls: string[] = [], limit = 10): Promise<string[]> {
@@ -451,7 +446,6 @@ export async function getDistrictMedia10(name: string, baseUrls: string[] = [], 
     if (base.length >= limit) return base;
 
     const key = cacheKey("district", name, limit);
-
     const wiki = await getOrFetchCached(key, async () => {
         return getDistrictCommonsGallery(name, limit);
     });

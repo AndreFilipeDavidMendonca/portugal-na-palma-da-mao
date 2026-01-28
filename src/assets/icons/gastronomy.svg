@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" fill="currentColor" width="30" height="30" viewBox="0 0 512 512" xml:space="preserve">
+  <g>
+    <!-- Fork -->
+      <rect x="96" y="56" width="32" height="208"/>
+      <rect x="144" y="56" width="32" height="208"/>
+      <rect x="192" y="56" width="32" height="208"/>
+      <rect x="96" y="264" width="128" height="48"/>
+      <rect x="144" y="312" width="32" height="144"/>
+
+      <!-- Knife -->
+      <path d="M336 56c-52 0-96 44-96 96v12c0 44 36 80 80 80h16v212h32V56h-32z"/>
+  </g>
+</svg>
