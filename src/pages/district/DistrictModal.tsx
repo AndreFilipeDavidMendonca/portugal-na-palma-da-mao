@@ -24,7 +24,21 @@ import DistrictMapPane from "@/components/DistrictMapPane";
 type AnyGeo = any;
 
 /* ---------------- Helpers ---------------- */
+const COMMERCIAL_MAP_PT: Record<string, PoiCategory> = {
+    Gastronomia: "gastronomy",
+    Artesanato: "crafts",
+    Alojamento: "accommodation",
+    Evento: "event",
+};
 
+const isCommercialCategory = (c: PoiCategory | null | undefined) =>
+    c === "gastronomy" || c === "crafts" || c === "accommodation" || c === "event";
+
+const normalizeCat = (raw: unknown): PoiCategory | null => {
+    if (typeof raw !== "string") return null;
+    if (isPoiCategory(raw)) return raw;
+    return COMMERCIAL_MAP_PT[raw] ?? null;
+};
 const uniqStrings = (arr: string[]): string[] => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 const isPoiCategory = (val: any): val is PoiCategory =>
@@ -272,9 +286,13 @@ export default function DistrictModal(props: Props) {
 
                 const nf = { ...f, properties: { ...props } as any };
 
-                const rawCat = props.category as string | undefined;
-                if (rawCat && isPoiCategory(rawCat)) {
-                    (nf.properties as any).__cat = rawCat as PoiCategory;
+                const rawCat = props.category as unknown;
+                const cat = normalizeCat(rawCat);
+
+                if (cat) {
+                    (nf.properties as any).__cat = cat;
+                    // opcional: guardar a versão normalizada também em "category"
+                    (nf.properties as any).category = cat;
                 }
 
                 return nf;
@@ -399,10 +417,13 @@ export default function DistrictModal(props: Props) {
                     return;
                 }
 
+                const featureCat = normalizeCat(selectedPoi?.properties?.category);
+                const allowWiki = !isCommercialCategory(featureCat);
+
                 // 2) Tenta completar para ter pelo menos 10 URLs (BD + wiki)
                 let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 
-                if (merged.length < 10) {
+                if (allowWiki && merged.length < 10) {
                     try {
                         const wiki5 = await searchWikimediaImagesByName(label, 10);
                         if (!alive || reqRef.current !== reqId) return;
@@ -410,6 +431,20 @@ export default function DistrictModal(props: Props) {
                     } catch {
                         // ignore
                     }
+                }
+
+                if (allowWiki) {
+                    (async () => {
+                        try {
+                            const wiki10 = await searchWikimediaImagesByName(label, 10);
+                            if (!wiki10) return;
+
+                            const full10 = mergeMedia(merged, wiki10, 10);
+                            // resto igual...
+                        } catch (e) {
+                            console.warn("[POI] background wiki10 failed", e);
+                        }
+                    })();
                 }
 
                 // 3) Prepara preload invisível (mesmo que tenha 0/1/2)

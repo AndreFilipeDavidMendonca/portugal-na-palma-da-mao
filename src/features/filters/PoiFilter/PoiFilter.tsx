@@ -16,9 +16,11 @@ type Props = {
 
 const CULTURE_KEYS = ["castle", "palace", "monument", "ruins", "church"] as const satisfies readonly PoiCategory[];
 const NATURE_KEYS = ["viewpoint", "park", "trail"] as const satisfies readonly PoiCategory[];
+const COMMERCIAL_KEYS = ["gastronomy", "crafts", "accommodation", "event"] as const satisfies readonly PoiCategory[];
 
 const CULTURE_SET: ReadonlySet<PoiCategory> = new Set(CULTURE_KEYS);
 const NATURE_SET: ReadonlySet<PoiCategory> = new Set(NATURE_KEYS);
+const COMMERCIAL_SET: ReadonlySet<PoiCategory> = new Set(COMMERCIAL_KEYS);
 
 export default function PoiFilter({
                                       selected,
@@ -31,7 +33,7 @@ export default function PoiFilter({
                                   }: Props) {
     const isTop = variant === "top";
 
-    const [openGroup, setOpenGroup] = useState<"culture" | "nature" | null>(null);
+    const [openGroup, setOpenGroup] = useState<"culture" | "nature" | "commercial" | null>(null);
     const wrapRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -45,19 +47,21 @@ export default function PoiFilter({
 
     const nodeCategories = useMemo(() => POI_CATEGORIES, []);
 
-    const { cultureCats, natureCats, otherCats } = useMemo(() => {
+    const { cultureCats, natureCats, commercialCats, otherCats } = useMemo(() => {
         const culture: typeof POI_CATEGORIES = [];
         const nature: typeof POI_CATEGORIES = [];
+        const commercial: typeof POI_CATEGORIES = [];
         const others: typeof POI_CATEGORIES = [];
 
         for (const c of nodeCategories) {
             const k = c.key;
             if (CULTURE_SET.has(k)) culture.push(c);
             else if (NATURE_SET.has(k)) nature.push(c);
+            else if (COMMERCIAL_SET.has(k)) commercial.push(c);
             else others.push(c);
         }
 
-        return { cultureCats: culture, natureCats: nature, otherCats: others };
+        return { cultureCats: culture, natureCats: nature, commercialCats: commercial, otherCats: others };
     }, [nodeCategories]);
 
     const renderChip = (key: PoiCategory, label: string) => {
@@ -138,7 +142,24 @@ export default function PoiFilter({
                 </div>
             )}
 
-            {otherCats.map(({ key, label }) => renderChip(key as PoiCategory, label))}
+            {commercialCats.length > 0 && (
+                <div className="poi-group">
+                    <button
+                        type="button"
+                        className={`poi-chip poi-chip--group ${openGroup === "commercial" ? "poi-chip--group-open" : ""}`}
+                        onClick={() => setOpenGroup((g) => (g === "commercial" ? null : "commercial"))}
+                    >
+                        <span className="poi-chip__label">Comercial</span>
+                        <span className="poi-chip__arrow">▾</span>
+                    </button>
+
+                    {openGroup === "commercial" && (
+                        <div className="poi-group-dropdown">
+                            {commercialCats.map(({ key, label }) => renderChip(key as PoiCategory, label))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <button type="button" className="btn-clear" onClick={handleClear}>
                 Limpar

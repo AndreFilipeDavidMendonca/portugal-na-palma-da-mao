@@ -73,6 +73,26 @@ export function getPoiCategory(f: any): PoiCategory | null {
             case "trilho":
             case "hiking":
                 return "trail";
+            case "gastronomy":
+            case "restaurant":
+            case "food":
+                return "gastronomy";
+
+            case "crafts":
+            case "artisan":
+            case "artesanato":
+                return "crafts";
+
+            case "accommodation":
+            case "hotel":
+            case "hostel":
+            case "lodging":
+                return "accommodation";
+
+            case "event":
+            case "evento":
+            case "events":
+                return "event";
         }
     }
 

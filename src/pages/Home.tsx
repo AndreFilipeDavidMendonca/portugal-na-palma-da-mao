@@ -37,9 +37,14 @@ function pickPoiLabelFromDto(p: PoiDto): string {
     return (p.namePt ?? p.name ?? "").trim();
 }
 
-/** ✅ comerciais => category="business" */
+const BUSINESS_SUBCAT_MAP: Record<string, PoiCategory> = {
+    evento: "event",
+    artesanato: "crafts",
+    gastronomia: "gastronomy",
+    alojamento: "accommodation",
+};
+
 function normalizeCategory(p: PoiDto): PoiCategory | string | null {
-    if (p.source === "business") return "business";
     return p.category ?? null;
 }
 

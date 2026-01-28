@@ -235,8 +235,6 @@ export default function UserMenu() {
                                     </div>
                                 </div>
 
-                                <div className="user-menu__divider" />
-
                                 <button
                                     type="button"
                                     className={`user-menu__section ${favOpen ? "is-open" : ""}`}
@@ -267,7 +265,6 @@ export default function UserMenu() {
                                     </button>
                                 )}
 
-                                <div className="user-menu__divider" />
 
                                 <button
                                     type="button"

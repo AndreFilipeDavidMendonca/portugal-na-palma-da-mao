@@ -1,3 +1,6 @@
+// src/lib/poiInfo.ts
+import type { PoiCategory } from "@/utils/constants";
+
 /* =====================================================================
    TIPOS
    ===================================================================== */
@@ -31,6 +34,9 @@ export type PoiInfo = {
     id?: number | null;
     ownerId?: string | null;
     source?: string | null;
+
+    // ✅ categoria normalizada (inclui comerciais)
+    category?: PoiCategory | null;
 
     label?: string | null;
     description?: string | null;
@@ -114,12 +120,7 @@ function hasAnyUsefulField(p: Partial<PoiInfo>): boolean {
 function extractCoords(sourceFeature: any, approx?: { lat?: number | null; lon?: number | null } | null) {
     const geom = sourceFeature?.geometry ?? null;
 
-    if (
-        geom &&
-        geom.type === "Point" &&
-        Array.isArray(geom.coordinates) &&
-        geom.coordinates.length >= 2
-    ) {
+    if (geom && geom.type === "Point" && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
         const lon = asNumber(geom.coordinates[0]);
         const lat = asNumber(geom.coordinates[1]);
         if (lat != null && lon != null) return { lat, lon };
@@ -128,6 +129,39 @@ function extractCoords(sourceFeature: any, approx?: { lat?: number | null; lon?:
     const lat = approx?.lat ?? null;
     const lon = approx?.lon ?? null;
     if (typeof lat === "number" && typeof lon === "number") return { lat, lon };
+
+    return null;
+}
+
+// ✅ Normalização categoria (PT -> key)
+const COMMERCIAL_MAP_PT: Record<string, PoiCategory> = {
+    Gastronomia: "gastronomy",
+    Artesanato: "crafts",
+    Alojamento: "accommodation",
+    Evento: "event",
+};
+
+const ALL_KEYS: ReadonlySet<string> = new Set([
+    "castle",
+    "palace",
+    "monument",
+    "ruins",
+    "church",
+    "viewpoint",
+    "park",
+    "trail",
+    "gastronomy",
+    "crafts",
+    "accommodation",
+    "event",
+]);
+
+function normalizePoiCategory(raw: unknown): PoiCategory | null {
+    const s = cleanString(raw);
+    if (!s) return null;
+
+    if (ALL_KEYS.has(s)) return s as PoiCategory;
+    if (COMMERCIAL_MAP_PT[s]) return COMMERCIAL_MAP_PT[s];
 
     return null;
 }
@@ -157,25 +191,16 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
 
     const props = sourceFeature.properties ?? {};
 
-    // ----------------------------------------
-    // Coords: geometry → approx
-    // ----------------------------------------
     const coords = extractCoords(sourceFeature, approx);
 
-    // ----------------------------------------
     // IDs / permissões (comerciais)
-    // ----------------------------------------
     const id = asNumber(props.id);
-    const ownerId =
-        cleanString(props.ownerId) ??
-        cleanString(props.owner_id) ??
-        null;
-
+    const ownerId = cleanString(props.ownerId) ?? cleanString(props.owner_id) ?? null;
     const source = cleanString(props.source);
 
-    // ----------------------------------------
-    // Label / título
-    // ----------------------------------------
+    // ✅ categoria normalizada (inclui comerciais)
+    const category = normalizePoiCategory(props.category);
+
     const label =
         cleanString(props["name:pt"]) ??
         cleanString(props.namePt) ??
@@ -183,9 +208,7 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
         cleanString(approx?.name) ??
         null;
 
-    // ----------------------------------------
-    // Imagens da BD (GeoJSON)
-    // ----------------------------------------
+    // imagens da BD (GeoJSON)
     const dbImages = asStringArray(props.images);
 
     const mainImageFromProps =
@@ -199,22 +222,19 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
 
     const finalImage = mergedImages.length > 0 ? mergedImages[0] : null;
 
-    // ----------------------------------------
-    // Contacts (se vierem no GeoJSON)
-    // ----------------------------------------
+    // Contacts
     const phone = cleanString(props.phone);
     const email = cleanString(props.email);
     const website = cleanString(props.website);
 
     const contacts: Contacts | null = phone || email || website ? { phone, email, website } : null;
 
-    // ----------------------------------------
-    // Montar PoiInfo
-    // ----------------------------------------
     const poi: Partial<PoiInfo> = {
         id,
         ownerId,
         source,
+
+        category,
 
         label,
         description: cleanString(props.description) ?? null,
@@ -244,6 +264,5 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
     };
 
     if (!hasAnyUsefulField(poi)) return null;
-
     return poi as PoiInfo;
 }
