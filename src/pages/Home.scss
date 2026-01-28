@@ -1,0 +1,30 @@
+/* src/pages/home/HomePage.scss */
+
+.top-district-filter {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-h);
+  z-index: 9990;
+  pointer-events: none;
+
+  .tdf-inner {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--topbar-pad-x);
+    gap: var(--topbar-gap);
+    pointer-events: auto;
+  }
+}
+
+.home-map {
+  height: 100vh;
+  width: 100vw;
+
+  .leaflet-container {
+    height: 100vh;
+    width: 100vw;
+  }
+}
