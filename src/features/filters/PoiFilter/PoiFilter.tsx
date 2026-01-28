@@ -47,7 +47,7 @@ export default function PoiFilter({
 
     const nodeCategories = useMemo(() => POI_CATEGORIES, []);
 
-    const { cultureCats, natureCats, commercialCats, otherCats } = useMemo(() => {
+    const { cultureCats, natureCats, commercialCats } = useMemo(() => {
         const culture: typeof POI_CATEGORIES = [];
         const nature: typeof POI_CATEGORIES = [];
         const commercial: typeof POI_CATEGORIES = [];
