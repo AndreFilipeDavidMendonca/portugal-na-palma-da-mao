@@ -53,7 +53,8 @@
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 14px;
-  padding: 14px;
+
+  padding: 20px; /* era 14px */
 }
 
 /* Layout interno: left + side */

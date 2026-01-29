@@ -1,11 +1,12 @@
 /* src/components/PoiComments.scss */
 
-.poi-comments {
-  margin-top: 0;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+.poi-comments__list {
+  max-height: 360px;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  padding-right: 6px;
+  padding-bottom: 20px;
 }
 
 .poi-comments__head {
@@ -19,7 +20,7 @@
     margin: 0;
     font-family: var(--font-title), serif;
     color: var(--gold);
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 700;
   }
 }
@@ -124,9 +125,10 @@
 }
 
 .poi-comment__author {
-  font-weight: 800;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.92);
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--gold);
+  font-family: var(--font-title), serif;
 }
 
 .poi-comment__meta {
