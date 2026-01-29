@@ -377,8 +377,6 @@ export default function Home() {
             if (reqId !== homePoiReqRef.current) return;
             if (!base) return;
 
-            const featureCat: PoiCategory | null = normalizeCat(feature?.properties?.category);
-
             let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 
             if (merged.length < 10) {
