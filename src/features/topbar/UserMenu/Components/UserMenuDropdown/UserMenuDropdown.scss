@@ -1,0 +1,97 @@
+.user-menu__dropdown {
+  position: fixed;
+  top: var(--um-top);
+  left: 0;
+
+  width: var(--um-w);
+  min-width: unset;
+
+  padding: 14px;
+  border-radius: var(--um-radius);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  z-index: 9999;
+
+  overflow: visible;
+}
+
+.user-menu__divider {
+  height: 1px;
+  margin: 10px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.user-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  text-align: left;
+  font-weight: 500;
+  font-size: 16px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+}
+
+.user-menu__item--primary {
+  background: rgba(212, 175, 55, 0.14);
+  border-color: rgba(212, 175, 55, 0.28);
+  color: rgba(212, 175, 55, 0.95);
+
+  &:hover {
+    background: rgba(212, 175, 55, 0.18);
+    border-color: rgba(212, 175, 55, 0.36);
+  }
+}
+
+.user-menu__item--danger {
+  color: rgba(255, 140, 140, 0.95);
+
+  &:hover {
+    background: rgba(255, 80, 80, 0.10);
+    border-color: rgba(255, 80, 80, 0.18);
+  }
+}
+
+.user-menu__section {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 10px 6px 8px;
+  cursor: pointer;
+  color: rgba(212, 175, 55, 0.95);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+
+  &:hover {
+    color: rgba(212, 175, 55, 1);
+    border-bottom-color: rgba(212, 175, 55, 0.34);
+  }
+}
+
+.user-menu__section-title { font-size: 14px; }
+
+.user-menu__chev {
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  opacity: 0.85;
+}
+
+.user-menu__section.is-open .user-menu__chev {
+  transform: rotate(90deg);
+  opacity: 1;
+}

@@ -3,7 +3,7 @@
 ------------------------------- */
 
 /* Import das fontes (1x global) */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Poppins:wght@300;400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Poppins:wght@300;400;500&display=swap");
 
 /* Paleta + fontes globais */
 :root {
@@ -16,11 +16,11 @@
   --gold: #d7b25a;
   --gold-dark: #b38f3b;
   --gold-strong: #f1d27a;
-  --muted: rgba(215,178,90,.75);
+  --muted: rgba(215, 178, 90, 0.75);
 
   /* Fontes */
-  --font-body: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --font-title: 'Cormorant Garamond', serif;
+  --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-title: "Cormorant Garamond", serif;
   --font-weight-body: 400;
   --font-weight-title: 600;
 
@@ -29,16 +29,18 @@
   --logo-shift-y: 0%;
 
   /* ===== Topbars (único source of truth) ===== */
-  --top-left-slot: 64px;          /* largura reservada para o UserMenu no topo esquerdo */
-  --topbar-h: 64px;               /* altura ÚNICA das barras */
-  --topbar-pad-x: 12px;           /* padding lateral das barras */
-  --topbar-gap: 12px;             /* gap base entre items */
-  --topbar-brand-icon: 44px;      /* tamanho do logo/ícone do usermenu */
-  --topbar-radius: 10px;          /* radius comum para input/dropdowns */
+  --top-left-slot: 64px;
+  --topbar-h: 64px;
+  --topbar-pad-x: 12px;
+  --topbar-gap: 12px;
+  --topbar-brand-icon: 44px;
+  --topbar-radius: 10px;
 }
 
 /* Estrutura base */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -53,24 +55,29 @@ body {
   line-height: 1.6;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-title), serif;
   font-weight: var(--font-weight-title);
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
   color: var(--gold);
   margin: 0;
 }
 
 /* Botão base (genérico) */
 .btn {
-  padding: .45rem .75rem;
+  padding: 0.45rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-panel);
   color: var(--gold);
   cursor: pointer;
   font-family: var(--font-body), serif;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
 
   &:hover {
     background: var(--bg-panel-2);
@@ -85,11 +92,11 @@ h1, h2, h3, h4, h5, h6 {
   &:focus {
     outline: none;
     border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
   }
 
   &:disabled {
-    opacity: .65;
+    opacity: 0.65;
     cursor: default;
   }
 }
@@ -104,7 +111,7 @@ h1, h2, h3, h4, h5, h6 {
 .country-label span {
   font: 600 12px/1.2 var(--font-body);
   color: var(--gold);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   user-select: none;
   pointer-events: none;
 }
@@ -117,7 +124,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   line-height: 1;
   text-align: center;
-  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   white-space: nowrap;
   user-select: none;
   pointer-events: none;
@@ -136,7 +143,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: var(--font-weight-title);
   font-size: 16px;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: all 0.18s ease;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -148,12 +155,14 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--gold-strong);
   }
 
-  &:active { transform: translateY(1px); }
+  &:active {
+    transform: translateY(1px);
+  }
 
   &:focus {
     outline: none;
     border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
+    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
   }
 }
 
@@ -167,11 +176,11 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-title), serif;
   font-weight: 600;
   font-size: clamp(14px, 1.4vw, 18px);
-  letter-spacing: .3px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
   pointer-events: none;
-  animation: district-badge-pop .18s ease-out both;
+  animation: district-badge-pop 0.18s ease-out both;
 }
 
 .leaflet-tooltip-top.district-badge:before {
@@ -181,26 +190,34 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Transições suaves em geometrias */
 .leaflet-interactive {
-  transition: fill-opacity .22s ease, stroke .22s ease, stroke-width .22s ease, fill .22s ease;
+  transition: fill-opacity 0.22s ease, stroke 0.22s ease, stroke-width 0.22s ease, fill 0.22s ease;
 }
 
-/* Scrollbar dourada (global util) */
-.gold-scroll {
+/* ============================
+   Scrollbar dourada (reutilizável)
+   ============================ */
+@mixin gold-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--gold) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--gold);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
 }
-.gold-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.gold-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.gold-scroll::-webkit-scrollbar-thumb {
-  background-color: var(--gold);
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+
+/* util global (continua a existir) */
+.gold-scroll {
+  @include gold-scroll;
 }
 
 /* Overlay de loading global */
@@ -212,7 +229,11 @@ h1, h2, h3, h4, h5, h6 {
   display: grid;
   place-items: center;
 }
-.loading-frame { position: relative; width: 100vw; height: 100vh; }
+.loading-frame {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
 .loading-video {
   position: absolute;
   inset: 0;

@@ -1,10 +1,8 @@
+// src/pages/district/DistrictModal.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { loadGeo } from "@/lib/geo";
-import {
-    POI_LABELS,
-    type PoiCategory,
-} from "@/utils/constants";
+import { POI_LABELS, type PoiCategory } from "@/utils/constants";
 
 import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
@@ -13,8 +11,11 @@ import SpinnerOverlay from "@/components/SpinnerOverlay";
 
 import { type DistrictUpdatePayload, fetchDistrictById, updateDistrict } from "@/lib/api";
 import { type DistrictInfo, fetchDistrictInfo } from "@/lib/districtInfo";
-import { getDistrictCommonsGallery, searchWikimediaImagesByName } from "@/lib/wikimedia";
 
+import { getDistrictCommonsGallery } from "@/lib/wikimedia";
+import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
+
+import { normalizeCat } from "@/utils/poiCategory";
 
 import "./DistrictModal.scss";
 import DistrictAsidePanel from "@/components/DistrictAsidePanel";
@@ -24,21 +25,7 @@ import DistrictMapPane from "@/components/DistrictMapPane";
 type AnyGeo = any;
 
 /* ---------------- Helpers ---------------- */
-const COMMERCIAL_MAP_PT: Record<string, PoiCategory> = {
-    Gastronomia: "gastronomy",
-    Artesanato: "crafts",
-    Alojamento: "accommodation",
-    Evento: "event",
-};
 
-const isCommercialCategory = (c: PoiCategory | null | undefined) =>
-    c === "gastronomy" || c === "crafts" || c === "accommodation" || c === "event";
-
-const normalizeCat = (raw: unknown): PoiCategory | null => {
-    if (typeof raw !== "string") return null;
-    if (isPoiCategory(raw)) return raw;
-    return COMMERCIAL_MAP_PT[raw] ?? null;
-};
 const uniqStrings = (arr: string[]): string[] => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 const isPoiCategory = (val: any): val is PoiCategory =>
@@ -198,13 +185,13 @@ export default function DistrictModal(props: Props) {
         let alive = true;
 
         (async () => {
-            if (!districtFeature?.properties?.name) {
+            const name = districtFeature?.properties?.name;
+            if (!name || typeof name !== "string") {
                 if (alive) setDistrictInfo(null);
                 return;
             }
 
             try {
-                const name = districtFeature.properties.name as string;
                 const info = await fetchDistrictInfo(name);
                 if (!alive) return;
                 setDistrictInfo(info);
@@ -229,8 +216,8 @@ export default function DistrictModal(props: Props) {
 
         if (districtInfo) {
             setDistPopulation(districtInfo.population != null ? String(districtInfo.population) : "");
-            setDistMunicipalities((districtInfo as any).municipalities != null ? String((districtInfo as any).municipalities) : "");
-            setDistParishes((districtInfo as any).parishes != null ? String((districtInfo as any).parishes) : "");
+            setDistMunicipalities(districtInfo.municipalities != null ? String(districtInfo.municipalities) : "");
+            setDistParishes(districtInfo.parishes != null ? String(districtInfo.parishes) : "");
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
             setDistDescription(districtInfo.description ?? "");
             setDistHistory(districtInfo.history ?? "");
@@ -291,7 +278,6 @@ export default function DistrictModal(props: Props) {
 
                 if (cat) {
                     (nf.properties as any).__cat = cat;
-                    // opcional: guardar a versão normalizada também em "category"
                     (nf.properties as any).category = cat;
                 }
 
@@ -332,7 +318,7 @@ export default function DistrictModal(props: Props) {
         setSelectedPoi(feature);
     };
 
-    /* ---------------- POI: fetch base + wiki, preparar preload ---------------- */
+    /* ---------------- POI: fetch base + (gate) wiki ---------------- */
 
     useEffect(() => {
         let alive = true;
@@ -362,7 +348,7 @@ export default function DistrictModal(props: Props) {
                 return;
             }
 
-            // Cache
+            // Cache hit
             if (poiId != null) {
                 const cached = poiCacheRef.current.get(poiId);
                 if (cached) {
@@ -372,8 +358,6 @@ export default function DistrictModal(props: Props) {
                     setPreloadInfo(cached.info);
                     setPreloadItems(cached.media10);
                     setPreloadReqId(reqId);
-
-                    // ⚠️ NÃO desligamos loading aqui. Só quando abrir modal (onReady/timeout).
                     return;
                 }
 
@@ -398,7 +382,6 @@ export default function DistrictModal(props: Props) {
             }
 
             const task = (async () => {
-                // 1) Base
                 const approxLat = selectedPoi.geometry?.coordinates?.[1];
                 const approxLon = selectedPoi.geometry?.coordinates?.[0];
 
@@ -412,42 +395,23 @@ export default function DistrictModal(props: Props) {
                 });
 
                 if (!alive || reqRef.current !== reqId) return;
+
                 if (!base) {
                     setLoadingPoi(false);
                     return;
                 }
 
-                const featureCat = normalizeCat(selectedPoi?.properties?.category);
-                const allowWiki = !isCommercialCategory(featureCat);
+                // ✅ fonte de verdade do gate
+                const baseCategory = base.category ?? null;
 
-                // 2) Tenta completar para ter pelo menos 10 URLs (BD + wiki)
                 let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 
-                if (allowWiki && merged.length < 10) {
-                    try {
-                        const wiki5 = await searchWikimediaImagesByName(label, 10);
-                        if (!alive || reqRef.current !== reqId) return;
-                        merged = mergeMedia(merged, wiki5 ?? [], 10);
-                    } catch {
-                        // ignore
-                    }
+                if (merged.length < 10) {
+                    const wiki10 = await searchWikimediaIfAllowed(label, 10, baseCategory);
+                    if (!alive || reqRef.current !== reqId) return;
+                    merged = mergeMedia(merged, wiki10 ?? [], 10);
                 }
 
-                if (allowWiki) {
-                    (async () => {
-                        try {
-                            const wiki10 = await searchWikimediaImagesByName(label, 10);
-                            if (!wiki10) return;
-
-                            const full10 = mergeMedia(merged, wiki10, 10);
-                            // resto igual...
-                        } catch (e) {
-                            console.warn("[POI] background wiki10 failed", e);
-                        }
-                    })();
-                }
-
-                // 3) Prepara preload invisível (mesmo que tenha 0/1/2)
                 const infoNow: PoiInfo = {
                     ...base,
                     image: merged[0] ?? base.image ?? null,
@@ -459,16 +423,15 @@ export default function DistrictModal(props: Props) {
                 setPreloadItems(merged);
                 setPreloadReqId(reqId);
 
-                // cache imediato
                 if (poiId != null) {
                     poiCacheRef.current.set(poiId, { info: infoNow, media10: merged, updatedAt: Date.now() });
                 }
 
-                // 4) Background: completar até 10 (não bloqueia)
+                // background: tentar completar (gate aplicado)
                 (async () => {
                     try {
-                        const wiki10 = await searchWikimediaImagesByName(label, 10);
-                        if (!wiki10) return;
+                        const wiki10 = await searchWikimediaIfAllowed(label, 10, baseCategory);
+                        if (!wiki10 || wiki10.length === 0) return;
 
                         const full10 = mergeMedia(merged, wiki10, 10);
 
@@ -495,8 +458,6 @@ export default function DistrictModal(props: Props) {
             if (poiId != null) poiInflightRef.current.set(poiId, task);
             await task;
             if (poiId != null) poiInflightRef.current.delete(poiId);
-
-            // ⚠️ Não desligar loading aqui.
         })();
 
         return () => {
@@ -504,7 +465,8 @@ export default function DistrictModal(props: Props) {
         };
     }, [selectedPoi]);
 
-    /* ---------------- Fallback: abre modal após timeout mesmo sem 3 ---------------- */
+    /* ---------------- Fallback: abre modal após timeout ---------------- */
+
     useEffect(() => {
         if (!loadingPoi) return;
         if (!preloadInfo) return;
@@ -599,8 +561,8 @@ export default function DistrictModal(props: Props) {
 
         if (districtInfo) {
             setDistPopulation(districtInfo.population != null ? String(districtInfo.population) : "");
-            setDistMunicipalities((districtInfo as any).municipalities != null ? String((districtInfo as any).municipalities) : "");
-            setDistParishes((districtInfo as any).parishes != null ? String((districtInfo as any).parishes) : "");
+            setDistMunicipalities(districtInfo.municipalities != null ? String(districtInfo.municipalities) : "");
+            setDistParishes(districtInfo.parishes != null ? String(districtInfo.parishes) : "");
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
             setDistDescription(districtInfo.description ?? "");
             setDistHistory(districtInfo.history ?? "");
@@ -659,8 +621,8 @@ export default function DistrictModal(props: Props) {
                             ? {
                                 ...prev,
                                 population: dto.population ?? prev.population,
-                                municipalities: dto.municipalitiesCount ?? (prev as any).municipalities,
-                                parishes: dto.parishesCount ?? (prev as any).parishes,
+                                municipalities: dto.municipalitiesCount ?? prev.municipalities,
+                                parishes: dto.parishesCount ?? prev.parishes,
                                 inhabited_since: dto.inhabitedSince ?? prev.inhabited_since,
                                 description: dto.description ?? prev.description,
                                 history: dto.history ?? prev.history,
@@ -796,7 +758,6 @@ export default function DistrictModal(props: Props) {
                 />
             </div>
 
-            {/* PoiModal */}
             <PoiModal
                 open={showPoiModal}
                 onClose={() => {

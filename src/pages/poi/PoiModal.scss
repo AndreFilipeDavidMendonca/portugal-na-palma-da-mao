@@ -1,96 +1,71 @@
-/* src/pages/poi/PoiModal.scss */
+@use "@/styles/base.scss" as *;
 
-.poi-card {
-  --modal-h: min(92vh, 1080px);
+:root {
+  --poi-top: calc(var(--topbar-h));
+  --poi-gap: 10px;
+  --poi-max-w: 1180px;
+  --poi-radius: 16px;
 }
 
+/* Overlay ocupa tudo */
 .poi-overlay {
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
   display: grid;
-  place-items: center;
-  padding: 20px;
+  place-items: start center;
+
+  padding: var(--poi-top) var(--poi-gap) var(--poi-gap);
 }
 
+/* Card do modal: não pode rebentar o ecrã */
 .poi-card {
-  width: min(1280px, calc(100vw - 60px));
-  height: var(--modal-h);
+  width: min(var(--poi-max-w), calc(100vw - (var(--poi-gap) * 2)));
+  max-height: calc(100vh - var(--poi-top) - var(--poi-gap));
+  overflow: hidden;
+
+  border-radius: var(--poi-radius);
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+
   display: flex;
   flex-direction: column;
 }
 
-/*
-  GRID:
-  Desktop:
-    [left | side]
-  Mobile:
-    left -> side
-  Onde LEFT contém: media + comments
-*/
+/* Header fica fixo (não scrolla) */
+.poi-header {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Corpo é que scrolla */
 .poi-body {
-  display: grid;
-  grid-template-columns: 1.8fr 1fr;
-  grid-template-rows: 1fr;
-  grid-template-areas: "left side";
-  height: calc(var(--modal-h) - 80px);
-  overflow: hidden;
-  background: var(--bg-panel-2);
-}
-
-/* LEFT: um scroll para tudo (media + comments) */
-.poi-left {
-  grid-area: left;
-  border-right: 1px solid var(--border);
-  background: var(--bg-deep);
-
-  overflow: auto;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: auto;
 
-  padding: 12px 16px 18px;
-  box-sizing: border-box;
+  @include gold-scroll;
 
   display: grid;
-  grid-template-rows: auto auto; /* media (fixo) + comments (depois) */
+  grid-template-columns: 1fr 360px;
   gap: 14px;
+  padding: 14px;
 }
 
-/* SIDE: scroll macro direito */
+/* Layout interno: left + side */
+.poi-left,
 .poi-side {
-  grid-area: side;
-  padding: 20px 26px 18px;
-  overflow: auto;
   min-height: 0;
+  overflow: visible; /* o scroll está no poi-body */
 }
 
-/* No LEFT: media e comments são blocos normais */
-.poi-media {
-  overflow: visible;
-}
-
-.poi-comments-wrap {
-  overflow: visible;
-}
-
-/* mobile order => slideshow -> direções -> descrição -> comentários (side fica no meio) */
-@media (max-width: 980px) {
+/* Mobile: stack vertical e scroll continua no body */
+@media (max-width: 900px) {
   .poi-body {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
-    grid-template-areas:
-      "left"
-      "side";
-    height: calc(var(--modal-h) - 72px);
-  }
-
-  .poi-left {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
   }
 }

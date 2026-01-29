@@ -1,0 +1,50 @@
+/* src/features/topbar/UserMenu/UserMenu.scss */
+
+/* ✅ TUNING (ajusta aqui) */
+:root {
+  --um-top: calc(var(--topbar-h) + 7px); /* baixa as dropdowns */
+  --um-w: 400px;                         /* largura dropdown 1 (ajusta) */
+  --um-gap: 30px;                        /* espaço entre dropdowns */
+  --um-radius: 14px;                     /* radius menor */
+}
+
+/* wrapper do botão continua igual */
+.user-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ✅ Button styles ficam AQUI (UserMenuButton não tem scss) */
+.user-menu__btn {
+  border: none;
+  background: transparent;
+  padding: 6px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+
+  &:hover { background: rgba(255, 255, 255, 0.06); }
+
+  img {
+    width: 45px;
+    height: 45px;
+    object-fit: contain;
+    display: block;
+  }
+}
+
+/* mobile: stack */
+@media (max-width: 900px) {
+  .user-menu__dropdown, .user-menu__flyout {
+    position: fixed;
+    left: 0;
+    width: calc(100vw - 16px);
+    margin: 0 8px;
+  }
+
+  .user-menu__flyout {
+    top: calc(var(--um-top) + 18px);
+  }
+}
