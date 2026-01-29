@@ -1,10 +1,6 @@
 import React, { createContext, useContext, useMemo, useState, useCallback } from "react";
 import type { PoiCategory } from "@/utils/constants";
 
-type PoiFiltersState = {
-    selected: Set<PoiCategory>;
-};
-
 type PoiFiltersApi = {
     selected: Set<PoiCategory>;
     has: (k: PoiCategory) => boolean;

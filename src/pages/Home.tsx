@@ -377,9 +377,7 @@ export default function Home() {
             if (reqId !== homePoiReqRef.current) return;
             if (!base) return;
 
-            // ✅ wiki só para não-comerciais
             const featureCat: PoiCategory | null = normalizeCat(feature?.properties?.category);
-            const allowWiki = !isCommercialCategory(featureCat);
 
             let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
 

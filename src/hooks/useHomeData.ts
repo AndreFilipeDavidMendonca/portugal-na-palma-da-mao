@@ -1,5 +1,5 @@
-// src/pages/home/hooks/useHomeData.ts
-import { useEffect, useMemo, useRef, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import { loadGeo } from "@/lib/geo";
 import {

@@ -28,9 +28,6 @@ type AnyGeo = any;
 
 const uniqStrings = (arr: string[]): string[] => Array.from(new Set((arr ?? []).filter(Boolean)));
 
-const isPoiCategory = (val: any): val is PoiCategory =>
-    val != null && Object.prototype.hasOwnProperty.call(POI_LABELS, val);
-
 const pickPoiLabel = (feature: any): string | null => {
     const p = feature?.properties ?? {};
     const label = p.namePt ?? p["name:pt"] ?? p.name ?? p["name:en"] ?? p.label ?? null;

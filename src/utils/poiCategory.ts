@@ -7,11 +7,6 @@ const COMMERCIAL_MAP_PT: Record<string, PoiCategory> = {
     artesanato: "crafts",
     alojamento: "accommodation",
     evento: "event",
-
-    // variações comuns (se aparecerem)
-    "alojamento local": "accommodation",
-    "restauração": "gastronomy",
-    "restauracao": "gastronomy",
 };
 
 export const isPoiCategory = (val: any): val is PoiCategory =>
