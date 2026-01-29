@@ -45,3 +45,36 @@
     grid-template-columns: minmax(420px, 1.4fr) minmax(420px, 1.1fr);
   }
 }
+
+/* =========================
+   Responsive (iPad / mobile)
+   ========================= */
+
+@media (max-width: 1024px) {
+  .district-modal.theme-dark {
+    .modal-content {
+      grid-template-columns: 1fr; /* stack */
+      grid-template-rows: 1fr auto;
+    }
+
+    .left-pane {
+      /* garante que o mapa/galeria tem espaço */
+      min-height: 0;
+    }
+  }
+
+  .district-modal.theme-dark.district-modal--gallery-open {
+    .modal-content {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .district-modal.theme-dark {
+    .district-gallery-left {
+      padding: 14px 12px 12px;
+    }
+  }
+}

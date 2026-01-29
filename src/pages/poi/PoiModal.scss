@@ -70,3 +70,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* iPad / tablet: side um pouco mais estreita */
+@media (max-width: 1024px) {
+  .poi-body {
+    grid-template-columns: 1fr 320px;
+    gap: 12px;
+    padding: 16px;
+  }
+}
+
+/* Mobile: padding mais compacto */
+@media (max-width: 600px) {
+  :root {
+    --poi-gap: 8px;
+  }
+
+  .poi-body {
+    padding: 14px;
+  }
+}

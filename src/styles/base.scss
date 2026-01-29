@@ -37,6 +37,32 @@
   --topbar-radius: 10px;
 }
 
+/* ==============================
+   Responsive globals
+   ============================== */
+
+/* iPad / tablet */
+@media (max-width: 1024px) {
+  :root {
+    --topbar-h: 60px;
+    --topbar-pad-x: 10px;
+    --topbar-gap: 10px;
+    --top-left-slot: 60px;
+    --topbar-brand-icon: 42px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  :root {
+    --topbar-h: 56px;
+    --topbar-pad-x: 8px;
+    --topbar-gap: 8px;
+    --top-left-slot: 56px;
+    --topbar-brand-icon: 40px;
+  }
+}
+
 /* Estrutura base */
 html,
 body,

@@ -9,10 +9,10 @@ import "./PoiModal.scss";
 import usePoiFavorite from "@/hooks/usePoiFavorite";
 import usePoiComments from "@/hooks/usePoiComments";
 
-import PoiHeader from "@/components/PoiHeader";
-import PoiMedia from "@/components/PoiMedia";
-import PoiSide from "@/components/PoiSide";
-import PoiComments from "@/components/PoiComments";
+import PoiHeader from "@/components/PoiHeader/PoiHeader";
+import PoiMedia from "@/components/PoiMedia/PoiMedia";
+import PoiSide from "@/components/PoiSide/PoiSide";
+import PoiComments from "@/components/PoiComment/PoiComments";
 
 type Props = {
     open: boolean;

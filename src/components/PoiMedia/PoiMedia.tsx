@@ -1,6 +1,6 @@
 import React from "react";
-import ImageDropField from "@/components/ImageDropField";
-import MediaStack from "@/components/MediaStack";
+import ImageDropField from "@/components/ImageDropField/ImageDropField";
+import MediaStack from "@/components/MediaStack/MediaStack";
 import "./PoiMedia.scss";
 
 type Props = {

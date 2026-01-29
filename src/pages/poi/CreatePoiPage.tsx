@@ -9,7 +9,7 @@ import {
     type GeocodeRequestDto,
 } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
-import ImageDropField from "@/components/ImageDropField";
+import ImageDropField from "@/components/ImageDropField/ImageDropField";
 import "./CreatePoiPage.scss";
 
 type Category = "Evento" | "Artesanato" | "Gastronomia" | "Alojamento";

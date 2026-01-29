@@ -1,5 +1,5 @@
 import type { FavoriteDto } from "@/lib/api";
-import "./FavoritesFlyout.scss";
+import "../shared/UserMenuFlyout.scss";
 
 type Props = {
     loading: boolean;

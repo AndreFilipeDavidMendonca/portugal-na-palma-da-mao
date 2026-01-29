@@ -7,7 +7,7 @@ import { POI_LABELS, type PoiCategory } from "@/utils/constants";
 import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
-import SpinnerOverlay from "@/components/SpinnerOverlay";
+import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
 
 import { type DistrictUpdatePayload, fetchDistrictById, updateDistrict } from "@/lib/api";
 import { type DistrictInfo, fetchDistrictInfo } from "@/lib/districtInfo";
@@ -18,9 +18,9 @@ import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
 import { normalizeCat } from "@/utils/poiCategory";
 
 import "./DistrictModal.scss";
-import DistrictAsidePanel from "@/components/DistrictAsidePanel";
-import DistrictGalleryPane from "@/components/DistrictGalleryPane";
-import DistrictMapPane from "@/components/DistrictMapPane";
+import DistrictAsidePanel from "@/components/DistrictAsidePanel/DistrictAsidePanel";
+import DistrictGalleryPane from "@/components/DistrictGalleryPane/DistrictGalleryPane";
+import DistrictMapPane from "@/components/DistrictMapPane/DistrictMapPane";
 
 type AnyGeo = any;
 

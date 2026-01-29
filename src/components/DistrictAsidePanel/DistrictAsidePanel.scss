@@ -5,6 +5,35 @@
   overflow: auto;
 }
 
+/* =========================
+   Responsive (iPad / mobile)
+   ========================= */
+
+@media (max-width: 1024px) {
+  .right-panel {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .right-inner {
+    padding: 16px 14px 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .right-inner {
+    padding: 14px 12px 18px;
+
+    .district-title {
+      font-size: 1.3rem;
+    }
+
+    .district-row {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
 .right-inner {
   padding: 22px 20px 24px;
 

@@ -102,3 +102,39 @@
     transform: scale(1.05);
   }
 }
+
+/* =========================
+   Responsive
+   ========================= */
+
+@media (max-width: 1024px) {
+  .poi-header {
+    padding: 12px 14px;
+  }
+
+  .poi-title-row {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .poi-header {
+    padding: 10px 12px;
+  }
+
+  .poi-title {
+    font-size: 20px;
+  }
+
+  .poi-actions {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .poi-close {
+    width: 34px;
+    height: 34px;
+    font-size: 24px;
+  }
+}

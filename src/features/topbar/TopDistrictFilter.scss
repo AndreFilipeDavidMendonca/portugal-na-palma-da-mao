@@ -119,3 +119,47 @@
     border: 1px solid var(--gold-dark);
   }
 }
+
+/* =========================
+   Responsive
+   ========================= */
+
+@media (max-width: 1024px) {
+  .tdf-inputbox {
+    min-width: 200px;
+    flex-basis: 260px;
+  }
+
+  .tdf-list {
+    max-height: 46vh;
+  }
+}
+
+@media (max-width: 900px) {
+  .tdf-label {
+    display: none;
+  }
+
+  .tdf-inner {
+    gap: 10px;
+  }
+
+  .tdf-input {
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .top-district-filter {
+    padding-left: var(--top-left-slot);
+  }
+
+  .tdf-inner {
+    padding: 0 10px;
+  }
+
+  .tdf-list {
+    max-height: 56vh;
+  }
+}

@@ -9,13 +9,16 @@ import "./styles/leaflet-fixes.css";
 import "@/styles/base.scss";
 
 import { AuthProvider } from "@/auth/AuthContext";
+import { PoiFiltersProvider } from "@/state/PoiFiltersContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <AuthProvider>
-            <BrowserRouter>
-                <App />
-            </BrowserRouter>
+            <PoiFiltersProvider>
+                <BrowserRouter>
+                    <App />
+                </BrowserRouter>
+            </PoiFiltersProvider>
         </AuthProvider>
     </React.StrictMode>
 );

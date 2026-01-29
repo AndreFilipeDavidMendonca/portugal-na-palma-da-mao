@@ -7,7 +7,7 @@ import { loadGeo } from "@/lib/geo";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
 import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingOverlay from "@/components/LoadingOverlay/LoadingOverlay";
 import TopDistrictFilter, { type SearchItem } from "@/features/topbar/TopDistrictFilter";
 
 import {
@@ -24,7 +24,7 @@ import { filterPointsInsideDistrict } from "@/lib/spatial";
 
 import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-import SpinnerOverlay from "@/components/SpinnerOverlay";
+import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
 
 import { isCommercialCategory, normalizeCat } from "@/utils/poiCategory";
 import {searchWikimediaIfAllowed} from "@/lib/wikiGate";

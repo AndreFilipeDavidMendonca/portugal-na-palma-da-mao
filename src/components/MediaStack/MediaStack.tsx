@@ -1,5 +1,5 @@
 import React from "react";
-import MediaSlideshow from "@/components/MediaSlideshow";
+import MediaSlideshow from "@/components/MediaSlideshow/MediaSlideshow";
 import "./MediaStack.scss";
 
 type Props = {

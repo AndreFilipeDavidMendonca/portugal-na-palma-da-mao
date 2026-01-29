@@ -1,4 +1,4 @@
-import "./MyPoisFlyout.scss";
+import '../shared/UserMenuFlyout.scss';
 
 type MyPoiDto = { id: number; name: string; image: string | null };
 
