@@ -21,6 +21,7 @@ import "./DistrictModal.scss";
 import DistrictAsidePanel from "@/components/DistrictAsidePanel/DistrictAsidePanel";
 import DistrictGalleryPane from "@/components/DistrictGalleryPane/DistrictGalleryPane";
 import DistrictMapPane from "@/components/DistrictMapPane/DistrictMapPane";
+import PoiFiltersMobileDropdown from "@/features/filters/PoiFilter/PoiFiltersMobileDropdown";
 
 type AnyGeo = any;
 
@@ -683,6 +684,17 @@ export default function DistrictModal(props: Props) {
     return (
         <div className={rootClass}>
             <div className="poi-top">
+                <PoiFiltersMobileDropdown
+                    selected={selectedTypes}
+                    onToggle={onToggleType}
+                    onClear={() => {
+                        onClearTypes();
+                        setRenderNonce((n) => n + 1);
+                    }}
+                    countsByCat={countsByCat}
+                />
+
+                {/* ✅ Desktop: barra normal */}
                 <PoiFilter
                     variant="top"
                     selected={selectedTypes}
@@ -696,7 +708,6 @@ export default function DistrictModal(props: Props) {
                     onClose={onClose}
                 />
             </div>
-
             <div className="modal-content">
                 <div className="left-pane">
                     {!showGallery ? (

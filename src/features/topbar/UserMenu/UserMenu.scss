@@ -8,13 +8,6 @@
   --um-radius: 14px;                     /* radius menor */
 }
 
-/* wrapper do botão continua igual */
-.user-menu {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
 /* ✅ Button styles ficam AQUI (UserMenuButton não tem scss) */
 .user-menu__btn {
   border: none;
@@ -40,7 +33,7 @@
   .user-menu__dropdown, .user-menu__flyout {
     position: fixed;
     left: 0;
-    width: calc(100vw - 16px);
+    width: calc(60vw - 16px);
     margin: 0 8px;
   }
 

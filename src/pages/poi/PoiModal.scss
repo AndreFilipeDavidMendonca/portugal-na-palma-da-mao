@@ -1,7 +1,8 @@
+/* src/pages/poi/PoiModal.scss */
 @use "@/styles/base.scss" as *;
 
 :root {
-  --poi-top: calc(var(--topbar-h));
+  --poi-top: calc(var(--topbar-h) + var(--safe-top) + 10px);
   --poi-gap: 10px;
   --poi-max-w: 1180px;
   --poi-radius: 16px;
@@ -18,13 +19,17 @@
   display: grid;
   place-items: start center;
 
-  padding: var(--poi-top) var(--poi-gap) var(--poi-gap);
+  /* respeita notch / safe areas */
+  padding-top: var(--poi-top);
+  padding-right: calc(var(--poi-gap) + var(--safe-right));
+  padding-bottom: calc(var(--poi-gap) + var(--safe-bottom));
+  padding-left: calc(var(--poi-gap) + var(--safe-left));
 }
 
 /* Card do modal: não pode rebentar o ecrã */
 .poi-card {
   width: min(var(--poi-max-w), calc(100vw - (var(--poi-gap) * 2)));
-  max-height: calc(100vh - var(--poi-top) - var(--poi-gap));
+  max-height: calc(100vh - var(--poi-top) - var(--poi-gap) - var(--safe-bottom));
   overflow: hidden;
 
   border-radius: var(--poi-radius);
@@ -36,57 +41,108 @@
   flex-direction: column;
 }
 
-/* Header fica fixo (não scrolla) */
+/* Header fixo */
 .poi-header {
   flex: 0 0 auto;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Corpo é que scrolla */
+/* Corpo scrolla (só aqui) */
 .poi-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  -webkit-overflow-scrolling: touch; /* iOS */
 
   @include gold-scroll;
 
   display: grid;
   grid-template-columns: 1fr 360px;
+  grid-template-areas:
+    "media side"
+    "comments side";
   gap: 14px;
 
-  padding: 20px; /* era 14px */
+  padding: 20px;
 }
 
-/* Layout interno: left + side */
-.poi-left,
-.poi-side {
+/* Áreas */
+.poi-media {
+  grid-area: media;
   min-height: 0;
-  overflow: visible; /* o scroll está no poi-body */
 }
 
-/* Mobile: stack vertical e scroll continua no body */
+.poi-side {
+  grid-area: side;
+  min-height: 0;
+  align-self: start;
+  overflow: visible;
+}
+
+.poi-comments-wrap {
+  grid-area: comments;
+  min-height: 0;
+
+  padding-bottom: 14px;
+
+}
+
+/* iPad / laptops pequenos: side mais estreito */
+@media (max-width: 1200px) {
+  .poi-body {
+    grid-template-columns: 1fr 320px;
+    padding: 16px;
+    gap: 15px;
+  }
+}
+/* =========================
+   Mobile layout (clean)
+========================= */
 @media (max-width: 900px) {
   .poi-body {
     grid-template-columns: 1fr;
-  }
-}
-
-/* iPad / tablet: side um pouco mais estreita */
-@media (max-width: 1024px) {
-  .poi-body {
-    grid-template-columns: 1fr 320px;
-    gap: 12px;
-    padding: 16px;
-  }
-}
-
-/* Mobile: padding mais compacto */
-@media (max-width: 600px) {
-  :root {
-    --poi-gap: 8px;
-  }
-
-  .poi-body {
+    grid-template-areas:
+      "media"
+      "side"
+      "comments";
     padding: 14px;
+    gap: 15px;
+  }
+
+  /* ✅ o bloco da media manda na altura e prende tudo lá dentro */
+  .poi-media {
+    grid-area: media;
+    min-height: 300px;
+    overflow: hidden;       /* IMPORTANTÍSSIMO: impede overlap */
+    position: relative;     /* cria stacking context */
+    z-index: 1;
+  }
+
+  /* ✅ força o componente do slideshow a ocupar o bloco inteiro */
+  .poi-media > * {
+    height: 100%;
+  }
+
+  /* ✅ imagens/vídeos ocupam o container, sem “sair” */
+  .poi-media img,
+  .poi-media video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* ✅ o side vem depois e nunca fica por cima */
+  .poi-side {
+    grid-area: side;
+    position: relative;
+    z-index: 0;
+    margin-top: 5px;
+    padding: 5px;
+  }
+
+  .poi-comments-wrap {
+    grid-area: comments;
+    margin-top: 70px;
   }
 }

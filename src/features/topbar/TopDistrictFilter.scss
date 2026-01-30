@@ -9,10 +9,11 @@
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   padding-left: var(--top-left-slot);
+  padding-top: var(--safe-top);
 }
 
 .tdf-inner {
-  height: var(--topbar-h);
+  height: calc(var(--topbar-h) + var(--safe-top));
   padding: 0 var(--topbar-pad-x);
   display: flex;
   align-items: center;
@@ -31,18 +32,42 @@
 
 /* ✅ UserMenu slot (centra verticalmente e ocupa a altura toda) */
 .tdf-wrap .user-menu {
-  height: var(--topbar-h);
+  height: calc(var(--topbar-h) + var(--safe-top));
   display: inline-flex;
   align-items: center;
 }
 
 .tdf-wrap .user-menu__btn {
-  height: var(--topbar-h);
+  height: calc(var(--topbar-h) + var(--safe-top));
   width: var(--top-left-slot);
   padding: 0;
   border-radius: 12px;
   display: grid;
   place-items: center;
+}
+
+@media (max-width: 900px) {
+  .top-district-filter {
+    padding-left: 0;
+  }
+
+  .tdf-inner {
+    padding: 0 10px;
+  }
+
+  .tdf-wrap {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .tdf-label {
+    display: none;
+  }
+
+  .tdf-inputbox {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
 }
 
 .tdf-wrap .user-menu__btn img {

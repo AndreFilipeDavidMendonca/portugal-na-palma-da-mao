@@ -1,11 +1,13 @@
 /* src/components/PoiComments.scss */
 
+.poi-comments {
+  padding: 5px;
+}
 .poi-comments__list {
   max-height: 360px;
   overflow: auto;
   display: grid;
-  gap: 12px;
-  padding-right: 6px;
+  gap: 25px;
   padding-bottom: 20px;
 }
 
@@ -101,7 +103,6 @@
   overflow: auto;
   display: grid;
   gap: 10px;
-  padding-right: 4px;
 }
 
 .poi-comments__empty {

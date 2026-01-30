@@ -94,9 +94,7 @@ export default function PoiModal({
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
 
-        const gal = Array.from(
-            new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean))
-        );
+        const gal = Array.from(new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean)));
         setImagesList(gal);
     }, [info]);
 
@@ -104,16 +102,10 @@ export default function PoiModal({
        Derived
     ===================== */
 
-    const title = useMemo(
-        () => localInfo?.label ?? "Ponto de interesse",
-        [localInfo?.label]
-    );
+    const title = useMemo(() => localInfo?.label ?? "Ponto de interesse", [localInfo?.label]);
 
     const mediaUrls = useMemo(() => {
-        const base = editing
-            ? imagesList
-            : [localInfo?.image ?? "", ...(localInfo?.images ?? [])];
-
+        const base = editing ? imagesList : [localInfo?.image ?? "", ...(localInfo?.images ?? [])];
         return Array.from(new Set(base.filter(Boolean)));
     }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
@@ -204,12 +196,7 @@ export default function PoiModal({
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
-            <div
-                className="poi-card"
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-            >
+            <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
                 <PoiHeader
                     title={title}
                     titleInput={titleInput}
@@ -234,25 +221,20 @@ export default function PoiModal({
                     onClose={onClose}
                 />
 
+                {/* ✅ Ordem: media (esq) + side (dir); comentários por baixo do media */}
                 <div className="poi-body">
-                    <div className="poi-left gold-scroll">
-                        <section className="poi-media">
-                            <PoiMedia
-                                title={title}
-                                mediaUrls={mediaUrls}
-                                editing={editing}
-                                canEdit={canEdit}
-                                imagesList={imagesList}
-                                setImagesList={setImagesList}
-                            />
-                        </section>
+                    <section className="poi-media" aria-label="Galeria">
+                        <PoiMedia
+                            title={title}
+                            mediaUrls={mediaUrls}
+                            editing={editing}
+                            canEdit={canEdit}
+                            imagesList={imagesList}
+                            setImagesList={setImagesList}
+                        />
+                    </section>
 
-                        <section className="poi-comments-wrap">
-                            <PoiComments {...commentsState} />
-                        </section>
-                    </div>
-
-                    <aside className="poi-side gold-scroll">
+                    <aside className="poi-side" aria-label="Detalhes">
                         <PoiSide
                             coords={localInfo?.coords}
                             editing={editing}
@@ -263,6 +245,10 @@ export default function PoiModal({
                             errorMsg={errorMsg}
                         />
                     </aside>
+
+                    <section className="poi-comments-wrap" aria-label="Comentários">
+                        <PoiComments {...commentsState} />
+                    </section>
                 </div>
             </div>
         </div>,

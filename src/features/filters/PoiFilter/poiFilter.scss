@@ -16,6 +16,10 @@
     padding-left: var(--top-left-slot);
   }
 
+  &--panel {
+    border-bottom: 0;
+  }
+
   &__inner {
     position: relative;
     display: flex;
@@ -23,33 +27,14 @@
     gap: 10px;
     padding: 10px 14px;
     min-height: var(--poi-bar-h);
-
-    /* deixa a dropdown sair para fora da barra */
-    overflow: visible;
+    overflow: visible; /* dropdowns saem */
+    flex-wrap: nowrap;
   }
-}
 
-/* LOGO */
-.poi-logo {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  height: var(--poi-bar-h);
-  margin-right: clamp(8px, 1vw, 16px);
-}
-
-.poi-logo img {
-  height: calc(var(--poi-bar-h) - 9px);
-  width: auto;
-  object-fit: contain;
-  transform: scale(1.35);
-  transform-origin: left center;
-  filter: brightness(1.05) saturate(1.1);
-  transition: transform .25s ease;
-}
-
-.poi-logo:hover img {
-  transform: scale(1.4);
+  &__inner--panel {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
 }
 
 /* ===========================
@@ -68,19 +53,18 @@
   gap: var(--chip-gap);
   padding: var(--chip-py) var(--chip-px);
   min-height: var(--chip-minh);
+
   border: 1.3px solid var(--gold-dark);
   border-radius: 12px;
   background: var(--gold);
   color: var(--bg-panel);
+
   font-family: var(--font-title, "Cormorant Garamond", serif), serif;
   font-size: var(--chip-fs);
   font-weight: 600;
   cursor: pointer;
-  transition:
-          color .15s ease,
-          background-color .15s ease,
-          border-color .15s ease,
-          box-shadow .15s ease;
+
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
 
   input {
     position: absolute;
@@ -130,22 +114,19 @@
   &.poi-chip--on {
     background: var(--gold-strong);
     border: 1.3px solid var(--gold-dark);
-    box-shadow:
-            0 0 0 2px var(--gold-dark),
-            0 0 6px rgba(179, 143, 59, .28);
+    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179, 143, 59, .28);
   }
 }
 
 /* ===========================
-   Grupo (Cultura / Natureza)
+   Grupo (Cultura / Natureza / Comercial)
 =========================== */
 .poi-group {
-  position: relative; /* anchor da dropdown */
+  position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-/* botão que abre a dropdown (reutiliza o chip) */
 .poi-chip--group {
   .poi-chip__arrow {
     margin-left: 6px;
@@ -163,31 +144,26 @@
 =========================== */
 .poi-group-dropdown {
   position: absolute;
-  top: calc(100% + 6px); /* logo por baixo do chip */
+  top: calc(100% + 6px);
   left: 0;
 
   box-sizing: border-box;
   min-width: 220px;
-  max-width: 260px;
+  max-width: 280px;
   padding: 8px;
   border-radius: 14px;
 
-  /* mesma linguagem da barra */
   background: var(--bg-panel);
   border: 2px solid var(--gold-dark);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
 
   display: flex;
-  flex-direction: column;   /* chips na vertical */
+  flex-direction: column;
   gap: 6px;
 
   z-index: 9999;
-  overflow: visible;
 
   .poi-chip {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
     margin: 0;
     padding: 4px 10px;
     min-height: 30px;
@@ -218,7 +194,6 @@
 }
 
 .btn-clear {
-  margin-left: 8px;
   padding: 5px 12px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -228,9 +203,7 @@
   color: var(--gold);
   cursor: pointer;
   white-space: nowrap;
-  transition:
-          background-color .2s ease,
-          color .2s ease;
+  transition: background-color .2s ease, color .2s ease;
 
   &:hover {
     background: var(--gold);
@@ -239,7 +212,6 @@
 }
 
 .gold-close {
-  margin-left: 10px;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -253,11 +225,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition:
-          background-color .25s ease,
-          border-color .25s ease,
-          color .25s ease,
-          box-shadow .25s ease;
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease;
 
   &:hover {
     background-color: var(--gold-strong);
@@ -266,8 +234,37 @@
     box-shadow: 0 0 10px rgba(215, 178, 90, .5);
   }
 }
-.poi-user {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 10px;
+
+@media (max-width: 900px) {
+  /* o painel/dropdown não pode passar a largura do ecrã */
+  .poi-group-dropdown {
+    width: min(420px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+
+    /* impede "rebentar" horizontalmente */
+    overflow-x: hidden;
+  }
+
+  /* chips dentro do dropdown: sempre dentro da caixa */
+  .poi-group-dropdown .poi-chip {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;           /* ✅ crítico para flex */
+    box-sizing: border-box;
+  }
+
+  /* tornar o chip "layout" mais robusto */
+  .poi-group-dropdown .poi-chip__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* empurra o count para a direita sem quebrar */
+  .poi-group-dropdown .poi-chip__count {
+    margin-left: auto;
+    white-space: nowrap;
+  }
 }

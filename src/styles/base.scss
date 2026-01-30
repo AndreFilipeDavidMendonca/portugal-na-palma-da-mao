@@ -7,6 +7,12 @@
 
 /* Paleta + fontes globais */
 :root {
+  /* Safe areas (iOS notch, etc.) */
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+
   /* Cores */
   --bg-deep: #0f2418;
   --bg-panel: #122b1a;
@@ -156,9 +162,7 @@ h6 {
   pointer-events: none;
 }
 
-/* Botão Limpar — mesmo “visual” do DistrictModal */
 .btn-clear {
-  margin-left: 10px;
   height: 36px;
   padding: 0 12px;
   border-radius: 999px;
@@ -268,6 +272,28 @@ h6 {
   object-fit: contain;
   object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
   background: #0e3b2e;
+}
+
+/* =========================
+   Responsive foundation
+========================= */
+
+@media (max-width: 1024px) {
+  :root {
+    --topbar-h: 60px;
+    --top-left-slot: 60px;
+    --topbar-brand-icon: 42px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --topbar-h: 56px;
+    --top-left-slot: 56px;
+    --topbar-pad-x: 10px;
+    --topbar-gap: 10px;
+    --topbar-brand-icon: 40px;
+  }
 }
 
 /* Acessibilidade / motion */

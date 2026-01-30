@@ -7,6 +7,8 @@
   background: var(--bg-deep);
   color: var(--gold);
   overflow: hidden;
+  box-sizing: border-box;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 
   .modal-content {
     display: grid;
@@ -47,18 +49,19 @@
 }
 
 /* =========================
-   Responsive (iPad / mobile)
-   ========================= */
+   Tablet / Mobile (stack)
+========================= */
 
 @media (max-width: 1024px) {
   .district-modal.theme-dark {
     .modal-content {
-      grid-template-columns: 1fr; /* stack */
-      grid-template-rows: 1fr auto;
+      grid-template-columns: 1fr;
+      /* mapa em cima, info em baixo */
+      grid-template-rows: minmax(62vh, 1fr) minmax(0, 1fr);
+      min-height: 0;
     }
 
     .left-pane {
-      /* garante que o mapa/galeria tem espaço */
       min-height: 0;
     }
   }
@@ -66,15 +69,33 @@
   .district-modal.theme-dark.district-modal--gallery-open {
     .modal-content {
       grid-template-columns: 1fr;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: minmax(60vh, 1fr) minmax(0, 1fr);
     }
   }
 }
 
+/* Mobile: mais mapa + padding ligeiramente maior */
+@media (max-width: 900px) {
+
+  .district-modal.theme-dark .district-gallery-left {
+    padding: 14px 12px 12px;
+  }
+  .poi-filter--top {
+    display: none;
+  }
+}
+
+/* Phone pequeno: mapa ainda mais alto */
 @media (max-width: 600px) {
   .district-modal.theme-dark {
-    .district-gallery-left {
-      padding: 14px 12px 12px;
+    .modal-content {
+      grid-template-rows: minmax(50vh, 1fr) minmax(0, 1fr);
+    }
+  }
+
+  .district-modal.theme-dark.district-modal--gallery-open {
+    .modal-content {
+      grid-template-rows: minmax(70vh, 1fr) minmax(0, 1fr);
     }
   }
 }
