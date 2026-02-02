@@ -248,15 +248,39 @@ export default function DistrictModal(props: Props) {
             }
         };
 
-        safeLoad("/geo/rios_pt.geojson", setRivers, riversProp);
-        safeLoad("/geo/lagos_pt.geojson", setLakes, lakesProp);
-        safeLoad("/geo/ferrovias_pt.geojson", setRails, railsProp);
-        safeLoad("/geo/estradas_pt.geojson", setRoads, roadsProp);
-        safeLoad("/geo/picos_pt.geojson", setPeaks, peaksProp);
-        safeLoad("/geo/cidades_pt.geojson", setPlaces, placesProp);
+        const safeLoadParts = async (
+            paths: string[],
+            set: (v: any) => void,
+            already: any
+        ) => {
+            if (already) return;
+            try {
+                const parts = await Promise.all(paths.map((p) => loadGeo(p)));
+                const features = parts.flatMap((p: any) => (p?.features ?? []));
+                if (features.length > 0) {
+                    set({ type: "FeatureCollection", features });
+                } else {
+                    set(null);
+                }
+            } catch {
+                set(null);
+            }
+        };
+
+        // rios e lagos também estão em pt1/pt2 no teu repo
+        safeLoadParts(["/geo/rios_pt1.geojson", "/geo/rios_pt2.geojson"], setRivers, riversProp);
+        safeLoadParts(["/geo/lagos_pt1.geojson", "/geo/lagos_pt2.geojson"], setLakes, lakesProp);
+
+        // ferrovias e estradas estão em pt1/pt2
+        safeLoadParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"], setRails, railsProp);
+        safeLoadParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"], setRoads, roadsProp);
+
+        // estes só ativa se existirem mesmo no public/geo
+        // safeLoad("/geo/picos_pt.geojson", setPeaks, peaksProp);
+        // safeLoad("/geo/cidades_pt.geojson", setPlaces, placesProp);
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
     /* ---------------- POIs normalization ---------------- */
 
     const normalizedPoints = useMemo(() => {
