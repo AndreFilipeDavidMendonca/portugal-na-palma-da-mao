@@ -275,11 +275,6 @@ export default function DistrictModal(props: Props) {
         safeLoadParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"], setRails, railsProp);
         safeLoadParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"], setRoads, roadsProp);
 
-        // estes só ativa se existirem mesmo no public/geo
-        // safeLoad("/geo/picos_pt.geojson", setPeaks, peaksProp);
-        // safeLoad("/geo/cidades_pt.geojson", setPlaces, placesProp);
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     /* ---------------- POIs normalization ---------------- */
 
