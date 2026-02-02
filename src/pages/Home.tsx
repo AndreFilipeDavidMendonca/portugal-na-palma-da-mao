@@ -129,13 +129,14 @@ export default function Home() {
     /* =========================
        Current user
     ========================= */
-    fetch("https://portugal-na-mao-api.vercel.app/api/districts", {
-        credentials: "include"
-    })
-        .then(r => r.status)
-        .then(console.log)
 
     useEffect(() => {
+        fetch("https://portugal-na-mao-api.vercel.app/api/districts", {
+            credentials: "include"
+        })
+            .then(r => r.status)
+            .then(console.log)
+
         let alive = true;
         fetchCurrentUser()
             .then((u) => alive && setCurrentUser(u))
