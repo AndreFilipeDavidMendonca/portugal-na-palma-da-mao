@@ -129,6 +129,11 @@ export default function Home() {
     /* =========================
        Current user
     ========================= */
+    fetch("https://portugal-na-mao-api.vercel.app/api/districts", {
+        credentials: "include"
+    })
+        .then(r => r.status)
+        .then(console.log)
 
     useEffect(() => {
         let alive = true;
