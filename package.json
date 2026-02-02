@@ -13,7 +13,7 @@
     "@turf/boolean-point-in-polygon": "^7.2.0",
     "@turf/helpers": "^7.2.0",
     "leaflet": "^1.9.4",
-    "osmtogeojson": "^3.0.0-beta.5",
+    "osmtogeojson": "^2.2.12",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-leaflet": "^5.0.0",
