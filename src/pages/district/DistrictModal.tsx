@@ -1,5 +1,4 @@
-// src/pages/district/DistrictModal.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 
 import { loadGeo } from "@/lib/geo";
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
@@ -40,8 +39,7 @@ const pickPoiId = (feature: any): number | null => {
     return typeof id === "number" ? id : null;
 };
 
-const mergeMedia = (base: string[], extra: string[], limit = 10) =>
-    uniqStrings([...base, ...extra]).slice(0, limit);
+const mergeMedia10 = (base: string[], extra: string[]) => uniqStrings([...base, ...extra]).slice(0, 10);
 
 /* ---------------- Types ---------------- */
 
@@ -79,7 +77,6 @@ type Props = {
 
 type PoiCacheEntry = {
     info: PoiInfo;
-    media10: string[];
     updatedAt: number;
 };
 
@@ -110,20 +107,12 @@ export default function DistrictModal(props: Props) {
     const [showPoiModal, setShowPoiModal] = useState(false);
     const [loadingPoi, setLoadingPoi] = useState(false);
 
-    // preload gate invisível
-    const [preloadReqId, setPreloadReqId] = useState(0);
-    const [preloadInfo, setPreloadInfo] = useState<PoiInfo | null>(null);
-    const [preloadItems, setPreloadItems] = useState<string[]>([]);
-
+    // request guard
     const reqRef = useRef(0);
 
     // cache + inflight
     const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
-    const poiInflightRef = useRef<Map<number, Promise<void>>>(new Map());
-
-    // progresso do preload (para abrir por timeout com 0/1/2)
-    const preloadProgressRef = useRef<{ ready: boolean; loaded: string[]; failed: string[]; total: number } | null>(null);
-    const preloadOpenedRef = useRef(false);
+    const poiInflightRef = useRef<Map<number, Promise<PoiInfo | null>>>(new Map());
 
     /* ---------------- Layers / filtros ---------------- */
 
@@ -155,6 +144,8 @@ export default function DistrictModal(props: Props) {
     const [showGallery, setShowGallery] = useState(false);
     const [loadingGallery, setLoadingGallery] = useState(false);
 
+    const districtNameFallback = (districtFeature?.properties?.name as string | undefined) || "Distrito";
+
     /* ---------------- Reset ao fechar ---------------- */
 
     useEffect(() => {
@@ -167,13 +158,6 @@ export default function DistrictModal(props: Props) {
             setPoiInfo(null);
             setShowPoiModal(false);
             setLoadingPoi(false);
-
-            setPreloadInfo(null);
-            setPreloadItems([]);
-            setPreloadReqId(0);
-
-            preloadProgressRef.current = null;
-            preloadOpenedRef.current = false;
         }
     }, [open]);
 
@@ -237,46 +221,25 @@ export default function DistrictModal(props: Props) {
     /* ---------------- Lazy load geo layers ---------------- */
 
     useEffect(() => {
-        const safeLoad = async (path: string, set: (v: any) => void, already: any) => {
-            if (already) return;
-            try {
-                const gj = await loadGeo(path);
-                if (gj && (gj.type === "FeatureCollection" || gj.type === "Feature")) set(gj);
-                else set(null);
-            } catch {
-                set(null);
-            }
-        };
-
-        const safeLoadParts = async (
-            paths: string[],
-            set: (v: any) => void,
-            already: any
-        ) => {
+        const safeLoadParts = async (paths: string[], set: (v: any) => void, already: any) => {
             if (already) return;
             try {
                 const parts = await Promise.all(paths.map((p) => loadGeo(p)));
                 const features = parts.flatMap((p: any) => (p?.features ?? []));
-                if (features.length > 0) {
-                    set({ type: "FeatureCollection", features });
-                } else {
-                    set(null);
-                }
+                set(features.length > 0 ? { type: "FeatureCollection", features } : null);
             } catch {
                 set(null);
             }
         };
 
-        // rios e lagos também estão em pt1/pt2 no teu repo
+        // Intencional: layers “static geo”, carregam 1x.
         safeLoadParts(["/geo/rios_pt1.geojson", "/geo/rios_pt2.geojson"], setRivers, riversProp);
         safeLoadParts(["/geo/lagos_pt1.geojson", "/geo/lagos_pt2.geojson"], setLakes, lakesProp);
-
-        // ferrovias e estradas estão em pt1/pt2
         safeLoadParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"], setRails, railsProp);
         safeLoadParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"], setRoads, roadsProp);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    }, []);
-    /* ---------------- POIs normalization ---------------- */
+    /* ---------------- POIs normalization (+ counts + filter) ---------------- */
 
     const normalizedPoints = useMemo(() => {
         if (!poiPoints) return null;
@@ -290,9 +253,7 @@ export default function DistrictModal(props: Props) {
 
                 const nf = { ...f, properties: { ...props } as any };
 
-                const rawCat = props.category as unknown;
-                const cat = normalizeCat(rawCat);
-
+                const cat = normalizeCat(props.category as unknown);
                 if (cat) {
                     (nf.properties as any).__cat = cat;
                     (nf.properties as any).category = cat;
@@ -305,37 +266,69 @@ export default function DistrictModal(props: Props) {
         return { ...poiPoints, features: feats };
     }, [poiPoints]);
 
-    const countsByCat = useMemo<Record<PoiCategory, number>>(() => {
+    const { countsByCat, filteredPoints } = useMemo(() => {
         const counts = Object.create(null) as Record<PoiCategory, number>;
         const allCats = Object.keys(POI_LABELS) as PoiCategory[];
         for (const c of allCats) counts[c] = 0;
 
-        for (const f of normalizedPoints?.features ?? []) {
+        if (!normalizedPoints) {
+            return { countsByCat: counts, filteredPoints: null as any };
+        }
+
+        const hasFilter = selectedTypes && selectedTypes.size > 0;
+
+        const feats = [];
+        for (const f of normalizedPoints.features ?? []) {
             const cat = (f.properties as any).__cat as PoiCategory | undefined;
             if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
+
+            if (!hasFilter) {
+                feats.push(f);
+            } else if (cat && selectedTypes.has(cat)) {
+                feats.push(f);
+            }
         }
-        return counts;
-    }, [normalizedPoints]);
 
-    const filteredPoints = useMemo(() => {
-        if (!normalizedPoints) return null;
-        if (!selectedTypes || selectedTypes.size === 0) return normalizedPoints;
-
-        const feats = normalizedPoints.features.filter((f: any) => {
-            const cat = (f.properties as any).__cat as PoiCategory | undefined;
-            return cat ? selectedTypes.has(cat) : false;
-        });
-
-        return { ...normalizedPoints, features: feats };
+        return {
+            countsByCat: counts,
+            filteredPoints: { ...normalizedPoints, features: feats },
+        };
     }, [normalizedPoints, selectedTypes]);
 
-    /* ---------------- POI click ---------------- */
+    /* ---------------- POI open logic (clean) ---------------- */
 
-    const onPoiClick = (feature: any) => {
-        setSelectedPoi(feature);
-    };
+    const buildPoiInfo = useCallback(async (feature: any): Promise<PoiInfo | null> => {
+        const label = pickPoiLabel(feature);
+        if (!label) return null;
 
-    /* ---------------- POI: fetch base + (gate) wiki ---------------- */
+        const approxLat = feature?.geometry?.coordinates?.[1];
+        const approxLon = feature?.geometry?.coordinates?.[0];
+
+        const base = await fetchPoiInfo({
+            approx: {
+                name: label,
+                lat: typeof approxLat === "number" ? approxLat : null,
+                lon: typeof approxLon === "number" ? approxLon : null,
+            },
+            sourceFeature: feature,
+        });
+
+        if (!base) return null;
+
+        const baseCategory = base.category ?? null;
+
+        let merged = mergeMedia10([base.image ?? "", ...(base.images ?? [])], []);
+        if (merged.length < 10) {
+            const wiki10 = await searchWikimediaIfAllowed(label, 10, baseCategory);
+            merged = mergeMedia10(merged, wiki10 ?? []);
+        }
+
+        return {
+            ...base,
+            image: merged[0] ?? base.image ?? null,
+            images: merged,
+        };
+    }, []);
 
     useEffect(() => {
         let alive = true;
@@ -345,182 +338,77 @@ export default function DistrictModal(props: Props) {
 
             const reqId = ++reqRef.current;
 
-            // reset UI POI
+            setLoadingPoi(true);
             setShowPoiModal(false);
             setPoiInfo(null);
-            setPreloadInfo(null);
-            setPreloadItems([]);
-            setPreloadReqId(reqId);
-
-            preloadProgressRef.current = null;
-            preloadOpenedRef.current = false;
-
-            setLoadingPoi(true);
 
             const poiId = pickPoiId(selectedPoi);
-            const label = pickPoiLabel(selectedPoi);
 
-            if (!label) {
-                if (alive && reqRef.current === reqId) setLoadingPoi(false);
-                return;
-            }
-
-            // Cache hit
+            // 1) cache hit
             if (poiId != null) {
                 const cached = poiCacheRef.current.get(poiId);
                 if (cached) {
-                    if (!alive || reqRef.current !== reqId) return;
-
-                    setPoiInfo(cached.info);
-                    setPreloadInfo(cached.info);
-                    setPreloadItems(cached.media10);
-                    setPreloadReqId(reqId);
+                    if (alive && reqRef.current === reqId) {
+                        setPoiInfo(cached.info);
+                        setShowPoiModal(true);
+                        setLoadingPoi(false);
+                    }
                     return;
                 }
 
-                // inflight dedupe
+                // 2) inflight dedupe
                 const inflight = poiInflightRef.current.get(poiId);
                 if (inflight) {
-                    await inflight;
+                    const info = await inflight;
                     if (!alive || reqRef.current !== reqId) return;
 
-                    const after = poiCacheRef.current.get(poiId);
-                    if (after) {
-                        setPoiInfo(after.info);
-                        setPreloadInfo(after.info);
-                        setPreloadItems(after.media10);
-                        setPreloadReqId(reqId);
-                        return;
-                    }
-
-                    if (alive && reqRef.current === reqId) setLoadingPoi(false);
+                    if (info) setPoiInfo(info);
+                    setShowPoiModal(Boolean(info));
+                    setLoadingPoi(false);
                     return;
                 }
             }
 
+            // 3) fetch
             const task = (async () => {
-                const approxLat = selectedPoi.geometry?.coordinates?.[1];
-                const approxLon = selectedPoi.geometry?.coordinates?.[0];
-
-                const base = await fetchPoiInfo({
-                    approx: {
-                        name: label,
-                        lat: typeof approxLat === "number" ? approxLat : null,
-                        lon: typeof approxLon === "number" ? approxLon : null,
-                    },
-                    sourceFeature: selectedPoi,
-                });
-
-                if (!alive || reqRef.current !== reqId) return;
-
-                if (!base) {
-                    setLoadingPoi(false);
-                    return;
+                try {
+                    return await buildPoiInfo(selectedPoi);
+                } catch (e) {
+                    console.warn("[POI] Falha a carregar info:", e);
+                    return null;
                 }
-
-                // ✅ fonte de verdade do gate
-                const baseCategory = base.category ?? null;
-
-                let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
-
-                if (merged.length < 10) {
-                    const wiki10 = await searchWikimediaIfAllowed(label, 10, baseCategory);
-                    if (!alive || reqRef.current !== reqId) return;
-                    merged = mergeMedia(merged, wiki10 ?? [], 10);
-                }
-
-                const infoNow: PoiInfo = {
-                    ...base,
-                    image: merged[0] ?? base.image ?? null,
-                    images: merged,
-                };
-
-                setPoiInfo(infoNow);
-                setPreloadInfo(infoNow);
-                setPreloadItems(merged);
-                setPreloadReqId(reqId);
-
-                if (poiId != null) {
-                    poiCacheRef.current.set(poiId, { info: infoNow, media10: merged, updatedAt: Date.now() });
-                }
-
-                // background: tentar completar (gate aplicado)
-                (async () => {
-                    try {
-                        const wiki10 = await searchWikimediaIfAllowed(label, 10, baseCategory);
-                        if (!wiki10 || wiki10.length === 0) return;
-
-                        const full10 = mergeMedia(merged, wiki10, 10);
-
-                        const info10: PoiInfo = {
-                            ...base,
-                            image: full10[0] ?? base.image ?? null,
-                            images: full10,
-                        };
-
-                        if (poiId != null) {
-                            poiCacheRef.current.set(poiId, { info: info10, media10: full10, updatedAt: Date.now() });
-                        }
-
-                        if (!alive || reqRef.current !== reqId) return;
-
-                        setPoiInfo(info10);
-                        setPreloadItems(full10);
-                    } catch (e) {
-                        console.warn("[POI] background wiki10 failed", e);
-                    }
-                })();
             })();
 
             if (poiId != null) poiInflightRef.current.set(poiId, task);
-            await task;
+
+            const info = await task;
+
             if (poiId != null) poiInflightRef.current.delete(poiId);
+
+            if (!alive || reqRef.current !== reqId) return;
+
+            if (info) {
+                setPoiInfo(info);
+                setShowPoiModal(true);
+
+                if (poiId != null) {
+                    poiCacheRef.current.set(poiId, { info, updatedAt: Date.now() });
+                }
+            } else {
+                setShowPoiModal(false);
+            }
+
+            setLoadingPoi(false);
         })();
 
         return () => {
             alive = false;
         };
-    }, [selectedPoi]);
+    }, [selectedPoi, buildPoiInfo]);
 
-    /* ---------------- Fallback: abre modal após timeout ---------------- */
-
-    useEffect(() => {
-        if (!loadingPoi) return;
-        if (!preloadInfo) return;
-
-        const reqId = preloadReqId;
-        const TIMEOUT_MS = 900;
-
-        const t = window.setTimeout(() => {
-            if (reqId !== reqRef.current) return;
-            if (preloadOpenedRef.current) return;
-            if (showPoiModal) return;
-
-            const progress = preloadProgressRef.current;
-            const loaded = uniqStrings(progress?.loaded ?? []).slice(0, 10);
-
-            const rest = preloadItems.filter((u) => !loaded.includes(u));
-            const finalMedia = [...loaded, ...rest].slice(0, 10);
-
-            const base = poiInfo ?? preloadInfo;
-
-            const readyInfo: PoiInfo = {
-                ...base,
-                image: finalMedia[0] ?? base.image ?? null,
-                images: finalMedia,
-            };
-
-            setPoiInfo(readyInfo);
-            setShowPoiModal(true);
-
-            setLoadingPoi(false);
-            setPreloadInfo(null);
-            setPreloadItems([]);
-            preloadOpenedRef.current = true;
-        }, TIMEOUT_MS);
-
-        return () => window.clearTimeout(t);
-    }, [loadingPoi, preloadInfo, preloadItems, preloadReqId, poiInfo, showPoiModal]);
+    const onPoiClick = (feature: any) => {
+        setSelectedPoi(feature);
+    };
 
     /* ---------------- District save / cancel ---------------- */
 
@@ -593,8 +481,6 @@ export default function DistrictModal(props: Props) {
 
     /* ---------------- District gallery ---------------- */
 
-    const districtNameFallback = (districtFeature?.properties?.name as string | undefined) || "Distrito";
-
     const mediaUrls = useMemo(() => {
         const uniq: string[] = [];
         for (const u of distMedia ?? []) {
@@ -658,6 +544,7 @@ export default function DistrictModal(props: Props) {
                 setShowGallery(true);
                 setLoadingGallery(false);
 
+                // completar até 10 (se possível) e persistir se houver ID
                 if (merged.length < 10) {
                     try {
                         const fullCommons = await getDistrictCommonsGallery(nameForSearch, 10);
@@ -666,14 +553,14 @@ export default function DistrictModal(props: Props) {
                         if (mergedFull.length > merged.length) {
                             merged = mergedFull;
                             setDistMedia(mergedFull);
+                        }
 
-                            if (districtInfo?.id) {
-                                try {
-                                    const updated = await updateDistrict(districtInfo.id, { files: mergedFull });
-                                    setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? mergedFull } : prev));
-                                } catch (e) {
-                                    console.warn("[DistrictModal] Falha ao atualizar ficheiros do distrito (batch completo)", e);
-                                }
+                        if (districtInfo?.id) {
+                            try {
+                                const updated = await updateDistrict(districtInfo.id, { files: merged });
+                                setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? merged } : prev));
+                            } catch (e) {
+                                console.warn("[DistrictModal] Falha ao atualizar ficheiros do distrito (galeria)", e);
                             }
                         }
                     } catch (e) {
@@ -713,7 +600,6 @@ export default function DistrictModal(props: Props) {
                     countsByCat={countsByCat}
                 />
 
-                {/* ✅ Desktop: barra normal */}
                 <PoiFilter
                     variant="top"
                     selected={selectedTypes}
@@ -727,6 +613,7 @@ export default function DistrictModal(props: Props) {
                     onClose={onClose}
                 />
             </div>
+
             <div className="modal-content">
                 <div className="left-pane">
                     {!showGallery ? (
@@ -791,11 +678,7 @@ export default function DistrictModal(props: Props) {
                     setShowPoiModal(false);
                     setSelectedPoi(null);
                     setPoiInfo(null);
-                    setPreloadInfo(null);
-                    setPreloadItems([]);
                     setLoadingPoi(false);
-                    preloadProgressRef.current = null;
-                    preloadOpenedRef.current = false;
                 }}
                 info={poiInfo}
                 poi={selectedPoi}

@@ -1,4 +1,3 @@
-// src/pages/home/HomePage.tsx
 import { MapContainer, Pane, TileLayer } from "react-leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
@@ -25,31 +24,19 @@ import { filterPointsInsideDistrict } from "@/lib/spatial";
 import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
-
-import { isCommercialCategory, normalizeCat } from "@/utils/poiCategory";
-import {searchWikimediaIfAllowed} from "@/lib/wikiGate";
+import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
 
 type AnyGeo = any;
 
 const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
-
-/* =========================
-   Helpers (local, simples)
-========================= */
-
 const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 function pickPoiLabelFromDto(p: PoiDto): string {
     return (p.namePt ?? p.name ?? "").trim();
 }
 
-function normalizeCategory(p: PoiDto): PoiCategory | string | null {
-    // category já vem normalizada (gastronomy, etc.)
-    return p.category ?? null;
-}
-
 function poiDtoToFeature(p: PoiDto): any {
-    const category = normalizeCategory(p);
+    const category = p.category ?? null;
 
     return {
         type: "Feature",
@@ -85,41 +72,36 @@ function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
     return { type: "FeatureCollection", features: (pois ?? []).map(poiDtoToFeature) };
 }
 
-/* =========================
-   Component
-========================= */
-
 export default function Home() {
-    // ----- Geo base -----
+    // Geo
     const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
     const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
-    // ----- Distritos (API) -----
+    // API
     const [districtDtos, setDistrictDtos] = useState<DistrictDto[]>([]);
-    const [loadingDistricts, setLoadingDistricts] = useState(false);
-
-    // ----- POIs (API) -----
     const [allPois, setAllPois] = useState<PoiDto[]>([]);
+    const [loadingDistricts, setLoadingDistricts] = useState(false);
     const [loadingAllPois, setLoadingAllPois] = useState(false);
 
-    // ----- Utilizador atual -----
+    // Dedupe fetchPois
+    const poisPromiseRef = useRef<Promise<PoiDto[]> | null>(null);
+
+    // User
     const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
+    const isAdmin = useMemo(() => currentUser?.role?.toLowerCase() === "admin", [currentUser]);
 
-    // ----- Filtros POI (DistrictModal) -----
+    // District modal state
     const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(new Set());
-
-    // ----- Modal de Distrito -----
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeDistrictFeature, setActiveDistrictFeature] = useState<any | null>(null);
-
     const [activeDistrictPois, setActiveDistrictPois] = useState<AnyGeo | null>(null);
     const [loadingDistrictPois, setLoadingDistrictPois] = useState(false);
-    const poisReqRef = useRef(0);
+    const districtPoisReqRef = useRef(0);
 
     // Map ref
     const mapRef = useRef<L.Map | null>(null);
 
-    // ----- POI Modal (Home) -----
+    // POI modal (Home)
     const [homePoiOpen, setHomePoiOpen] = useState(false);
     const [homePoiLoading, setHomePoiLoading] = useState(false);
     const [homePoiInfo, setHomePoiInfo] = useState<PoiInfo | null>(null);
@@ -129,14 +111,7 @@ export default function Home() {
     /* =========================
        Current user
     ========================= */
-
     useEffect(() => {
-        fetch("https://portugal-na-mao-api.vercel.app/api/districts", {
-            credentials: "include"
-        })
-            .then(r => r.status)
-            .then(console.log)
-
         let alive = true;
         fetchCurrentUser()
             .then((u) => alive && setCurrentUser(u))
@@ -146,16 +121,16 @@ export default function Home() {
         };
     }, []);
 
-    const isAdmin = useMemo(() => currentUser?.role?.toLowerCase() === "admin", [currentUser]);
-
     /* =========================
        Load Geo
     ========================= */
-
     useEffect(() => {
         let aborted = false;
 
-        Promise.all([loadGeo("/geo/portugal.geojson"), loadGeo("/geo/distritos.geojson").catch(() => null)])
+        Promise.all([
+            loadGeo("/geo/portugal.geojson"),
+            loadGeo("/geo/distritos.geojson").catch(() => null),
+        ])
             .then(([ptData, distData]) => {
                 if (aborted) return;
                 setPtGeo(ptData);
@@ -169,37 +144,67 @@ export default function Home() {
     }, []);
 
     /* =========================
+       ensureAllPois (dedupe)
+    ========================= */
+    const ensureAllPois = useCallback(async (): Promise<PoiDto[]> => {
+        if (allPois.length > 0) return allPois;
+
+        if (poisPromiseRef.current) return await poisPromiseRef.current;
+
+        setLoadingAllPois(true);
+
+        const p = fetchPois()
+            .then((ps) => {
+                const next = ps ?? [];
+                setAllPois(next);
+                return next;
+            })
+            .catch((e) => {
+                console.error("[api] Falha a carregar POIs:", e);
+                setAllPois([]);
+                return [];
+            })
+            .finally(() => {
+                setLoadingAllPois(false);
+                poisPromiseRef.current = null;
+            });
+
+        poisPromiseRef.current = p;
+        return await p;
+    }, [allPois]);
+
+    /* =========================
        Load API data
     ========================= */
-
     useEffect(() => {
         let alive = true;
+
         setLoadingDistricts(true);
-        fetchDistricts()
-            .then((ds) => alive && setDistrictDtos(ds ?? []))
-            .catch((e) => console.error("[api] Falha a carregar distritos:", e))
-            .finally(() => alive && setLoadingDistricts(false));
-        return () => {
-            alive = false;
-        };
-    }, []);
 
-    useEffect(() => {
-        let alive = true;
-        setLoadingAllPois(true);
-        fetchPois()
-            .then((ps) => alive && setAllPois(ps ?? []))
-            .catch((e) => console.error("[api] Falha a carregar POIs (Top search):", e))
-            .finally(() => alive && setLoadingAllPois(false));
+        Promise.all([
+            fetchDistricts().catch((e) => {
+                console.error("[api] Falha a carregar distritos:", e);
+                return [];
+            }),
+            ensureAllPois(),
+        ])
+            .then(([ds]) => {
+                if (!alive) return;
+                setDistrictDtos(ds ?? []);
+            })
+            .finally(() => {
+                if (!alive) return;
+                setLoadingDistricts(false);
+            });
+
         return () => {
             alive = false;
         };
-    }, []);
+    }, [ensureAllPois]);
 
     /* =========================
        Indexes
     ========================= */
-
     const districtDtoByName = useMemo(() => {
         const m = new Map<string, DistrictDto>();
         for (const d of districtDtos) {
@@ -212,7 +217,8 @@ export default function Home() {
     const districtDtoById = useMemo(() => {
         const m = new Map<number, DistrictDto>();
         for (const d of districtDtos) {
-            if (typeof (d as any).id === "number") m.set((d as any).id, d);
+            const id = (d as any).id;
+            if (typeof id === "number") m.set(id, d);
         }
         return m;
     }, [districtDtos]);
@@ -226,7 +232,6 @@ export default function Home() {
         return m;
     }, [districtsGeo]);
 
-    // tenta id direto; fallback dto.id -> dto.name -> featureByName
     const districtFeatureById = useMemo(() => {
         const m = new Map<number, any>();
 
@@ -250,7 +255,10 @@ export default function Home() {
     }, [districtsGeo, districtDtos, featureByName]);
 
     const districtNames = useMemo(
-        () => Array.from(featureByName.keys()).sort((a, b) => a.localeCompare(b, "pt-PT", { sensitivity: "base" })),
+        () =>
+            Array.from(featureByName.keys()).sort((a, b) =>
+                a.localeCompare(b, "pt-PT", { sensitivity: "base" })
+            ),
         [featureByName]
     );
 
@@ -263,7 +271,6 @@ export default function Home() {
     /* =========================
        Map utils
     ========================= */
-
     const fitGeoJSONBoundsTight = useCallback((map: L.Map, geo: any, animate = true) => {
         if (!map || !geo) return;
         try {
@@ -299,44 +306,46 @@ export default function Home() {
     /* =========================
        District modal
     ========================= */
-
-    const togglePoiType = (k: PoiCategory) => {
+    const togglePoiType = useCallback((k: PoiCategory) => {
         setSelectedPoiTypes((prev) => {
             const next = new Set(prev);
             next.has(k) ? next.delete(k) : next.add(k);
             return next;
         });
-    };
+    }, []);
 
-    const clearPoiTypes = () => setSelectedPoiTypes(new Set());
+    const clearPoiTypes = useCallback(() => setSelectedPoiTypes(new Set()), []);
 
     const loadPoisForDistrictFeature = useCallback(
         async (feature: any) => {
-            const name = feature?.properties?.name || feature?.properties?.NAME || feature?.properties?.["name:pt"];
-            if (!name) return setActiveDistrictPois(null);
+            const name =
+                feature?.properties?.name || feature?.properties?.NAME || feature?.properties?.["name:pt"];
+            if (!name) {
+                setActiveDistrictPois(null);
+                return;
+            }
 
-            const dto = districtDtoByName.get(name);
-            if (!dto) return setActiveDistrictPois(null);
-
-            const reqId = ++poisReqRef.current;
+            const reqId = ++districtPoisReqRef.current;
             setLoadingDistrictPois(true);
             setActiveDistrictPois(null);
 
             try {
-                const pois = allPois.length ? allPois : await fetchPois();
-                if (reqId !== poisReqRef.current) return;
+                const pois = await ensureAllPois();
+                if (reqId !== districtPoisReqRef.current) return;
 
                 const allGeo = poiDtosToGeoJSON(pois);
-                const clipped = filterPointsInsideDistrict(allGeo, feature) ?? { type: "FeatureCollection", features: [] };
+                const clipped =
+                    filterPointsInsideDistrict(allGeo, feature) ?? { type: "FeatureCollection", features: [] };
+
                 setActiveDistrictPois(clipped);
             } catch (e) {
                 console.error("[api] Falha a carregar POIs do distrito:", e);
-                if (reqId === poisReqRef.current) setActiveDistrictPois(null);
+                if (reqId === districtPoisReqRef.current) setActiveDistrictPois(null);
             } finally {
-                if (reqId === poisReqRef.current) setLoadingDistrictPois(false);
+                if (reqId === districtPoisReqRef.current) setLoadingDistrictPois(false);
             }
         },
-        [allPois, districtDtoByName]
+        [districtDtoByName, ensureAllPois]
     );
 
     const openDistrictModal = useCallback(
@@ -357,10 +366,16 @@ export default function Home() {
         if (map && ptGeo) fitGeoJSONBoundsTight(map, ptGeo);
     }, [fitGeoJSONBoundsTight, ptGeo]);
 
+    const handleClickDistrict = useCallback(
+        (_name: string | undefined, feature: any) => {
+            if (feature) openDistrictModal(feature);
+        },
+        [openDistrictModal]
+    );
+
     /* =========================
        POI modal (Home)
     ========================= */
-
     const openPoiFromDto = useCallback(async (poiDto: PoiDto) => {
         const reqId = ++homePoiReqRef.current;
 
@@ -399,7 +414,6 @@ export default function Home() {
         }
     }, []);
 
-    // ✅ listener estável para abrir POI por id
     useEffect(() => {
         const handler = async (e: Event) => {
             const ce = e as CustomEvent<{ poiId: number }>;
@@ -421,7 +435,6 @@ export default function Home() {
     /* =========================
        Top search pick
     ========================= */
-
     const handlePickFromTop = useCallback(
         (item: SearchItem) => {
             if (item.kind === "district") {
@@ -467,7 +480,6 @@ export default function Home() {
     /* =========================
        Render
     ========================= */
-
     const dataReady = Boolean(ptGeo && districtsGeo && !loadingDistricts);
     const showOverlay = !dataReady;
 
@@ -501,7 +513,6 @@ export default function Home() {
                     dragging
                     doubleClickZoom
                     attributionControl
-                    preferCanvas
                     maxBounds={WORLD_BOUNDS}
                     maxBoundsViscosity={1.0}
                     minZoom={2}
@@ -524,10 +535,7 @@ export default function Home() {
                     </Pane>
 
                     {districtsGeo && (
-                        <DistrictsHoverLayer
-                            data={districtsGeo as any}
-                            onClickDistrict={(_name, feature) => feature && openDistrictModal(feature)}
-                        />
+                        <DistrictsHoverLayer data={districtsGeo as any} onClickDistrict={handleClickDistrict} />
                     )}
                 </MapContainer>
             </div>
@@ -557,7 +565,6 @@ export default function Home() {
                 poi={homePoiFeature}
                 isAdmin={isAdmin}
                 onSaved={(patch) => {
-                    // ✅ mantém allPois coerente
                     setAllPois((prev) =>
                         prev.map((p) =>
                             p.id === patch.id
@@ -573,7 +580,6 @@ export default function Home() {
                         )
                     );
 
-                    // ✅ mantém o feature atual coerente (evita reabrir com imagens antigas)
                     setHomePoiFeature((prev: any) => {
                         if (!prev?.properties || prev.properties.id !== patch.id) return prev;
                         return {
