@@ -3,6 +3,28 @@
 }
 
 /* ===========================
+   Mostrar 1 topbar de cada vez
+   (Desktop: PoiFilter | Mobile: PoiFiltersMobileDropdown)
+=========================== */
+.poi-filters-mobile {
+  display: none;
+}
+
+.poi-filter--top {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .poi-filter--top {
+    display: none !important;
+  }
+
+  .poi-filters-mobile {
+    display: flex !important;
+  }
+}
+
+/* ===========================
    Barra de filtros (POI)
 =========================== */
 .poi-filter {
@@ -64,7 +86,7 @@
   font-weight: 600;
   cursor: pointer;
 
-  transition: color .15s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
   input {
     position: absolute;
@@ -86,8 +108,12 @@
       display: block !important;
     }
 
-    svg [fill] { fill: currentColor !important; }
-    svg [stroke] { stroke: currentColor !important; }
+    svg [fill] {
+      fill: currentColor !important;
+    }
+    svg [stroke] {
+      stroke: currentColor !important;
+    }
   }
 
   .poi-chip__label {
@@ -107,14 +133,14 @@
   }
 
   &:hover {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, .12);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
     border-color: var(--gold-strong);
   }
 
   &.poi-chip--on {
     background: var(--gold-strong);
     border: 1.3px solid var(--gold-dark);
-    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179, 143, 59, .28);
+    box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179, 143, 59, 0.28);
   }
 }
 
@@ -160,7 +186,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-
   z-index: 9999;
 
   .poi-chip {
@@ -203,7 +228,7 @@
   color: var(--gold);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color .2s ease, color .2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 
   &:hover {
     background: var(--gold);
@@ -225,46 +250,112 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
 
   &:hover {
     background-color: var(--gold-strong);
     border-color: var(--gold);
     color: var(--bg-panel);
-    box-shadow: 0 0 10px rgba(215, 178, 90, .5);
+    box-shadow: 0 0 10px rgba(215, 178, 90, 0.5);
   }
 }
+
 .gold-close--left {
   margin-right: 8px;
 }
 
-/* opcional: se o .poi-filter__inner for flex */
-.poi-filter__inner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* ===========================
+   Mobile (apenas o dropdown mobile)
+=========================== */
 @media (max-width: 900px) {
-  /* o painel/dropdown não pode passar a largura do ecrã */
+  /* Container do header mobile */
+  .poi-filters-mobile {
+    align-items: center;
+    width: 100%;
+    padding: 12px;
+    gap: 12px;
+    margin-left: 0;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  /* ✅ SÓ o chip pai (Filters) cresce */
+  .poi-filters-mobile__btn--parent.poi-chip {
+    flex: 0 1 auto;
+    max-width: 70vw;
+
+    --chip-px: 18px;
+    --chip-py: 8px;
+    --chip-fs: 18px;
+
+    border-radius: 16px;
+  }
+
+  /* Spacer p/ empurrar hamburguer */
+  .poi-filters-mobile__spacer {
+    flex: 1 1 auto;
+    min-width: 8px;
+  }
+
+  /* Painel do mobile */
+  .poi-filters-mobile__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 9999;
+
+    width: min(92vw, 420px);
+    padding: 10px;
+    border-radius: 16px;
+    background: var(--bg-panel);
+    border: 2px solid var(--gold-dark);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    box-sizing: border-box;
+  }
+
+  .poi-filters-mobile__panel-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .poi-filters-mobile__clear {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px;
+  }
+
+  /* Dentro do painel: grupos 100% */
+  .poi-filters-mobile__panel .poi-group,
+  .poi-filters-mobile__panel .poi-chip--group {
+    width: 100%;
+  }
+
+  .poi-filters-mobile__panel .poi-chip--group {
+    justify-content: space-between;
+  }
+
+  .poi-filters-mobile__panel .poi-group-dropdown {
+    left: 0;
+    right: 0;
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  /* Dropdown dos grupos: garantir que não rebenta */
   .poi-group-dropdown {
     width: min(420px, calc(100vw - 24px));
     max-width: calc(100vw - 24px);
-    box-sizing: border-box;
-
-    /* impede "rebentar" horizontalmente */
     overflow-x: hidden;
   }
 
-  /* chips dentro do dropdown: sempre dentro da caixa */
   .poi-group-dropdown .poi-chip {
     width: 100%;
     max-width: 100%;
-    min-width: 0;           /* ✅ crítico para flex */
+    min-width: 0;
     box-sizing: border-box;
   }
 
-  /* tornar o chip "layout" mais robusto */
   .poi-group-dropdown .poi-chip__label {
     min-width: 0;
     overflow: hidden;
@@ -272,7 +363,6 @@
     white-space: nowrap;
   }
 
-  /* empurra o count para a direita sem quebrar */
   .poi-group-dropdown .poi-chip__count {
     margin-left: auto;
     white-space: nowrap;

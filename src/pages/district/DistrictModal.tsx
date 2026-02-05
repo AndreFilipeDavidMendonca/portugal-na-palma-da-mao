@@ -598,6 +598,7 @@ export default function DistrictModal(props: Props) {
                         setRenderNonce((n) => n + 1);
                     }}
                     countsByCat={countsByCat}
+                    onClose={onClose}
                 />
 
                 <PoiFilter

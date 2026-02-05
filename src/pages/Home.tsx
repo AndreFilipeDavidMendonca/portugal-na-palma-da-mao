@@ -107,6 +107,23 @@ export default function Home() {
     const [homePoiInfo, setHomePoiInfo] = useState<PoiInfo | null>(null);
     const [homePoiFeature, setHomePoiFeature] = useState<any | null>(null);
     const homePoiReqRef = useRef(0);
+    const CONTINENTAL_PT_BOUNDS = L.latLngBounds(
+        [36.90, -7.50], // SW (um pouco mais a Este do que -9.55)
+        [42.15, -5.90]  // NE (mais realista; -100 estava errado)
+    );
+
+    const isMobile = useMediaQuery("(max-width: 900px)");
+
+    const initialCenter = useMemo<[number, number]>(() => {
+        // Mobile: mais “apertado” no continente
+        if (isMobile) return [37.5, -8.0];
+        // Desktop: um pouco mais “wide”
+        return [37.0, -15.0];
+    }, [isMobile]);
+
+    function isMobileViewport() {
+        return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
+    }
 
     /* =========================
        Current user
@@ -143,6 +160,21 @@ export default function Home() {
         };
     }, []);
 
+
+    const fitContinentalPT = useCallback((map: L.Map, animate = false) => {
+        const topbar = document.querySelector<HTMLElement>(".top-district-filter");
+        const topH = topbar?.offsetHeight ?? 0;
+
+        map.fitBounds(CONTINENTAL_PT_BOUNDS, {
+            animate,
+            paddingTopLeft: [10, topH + 50],
+            paddingBottomRight: [10, 10],
+            maxZoom: 7,
+        });
+
+        // não prender maxBounds ao continente, mantém WORLD_BOUNDS para não “cortar” o mapa
+        setTimeout(() => map.invalidateSize(), 0);
+    }, []);
     /* =========================
        ensureAllPois (dedupe)
     ========================= */
@@ -303,6 +335,32 @@ export default function Home() {
         if (b.isValid()) map.fitBounds(b.pad(0.08), { animate: true });
     }, []);
 
+    function useMediaQuery(query: string) {
+        const [matches, setMatches] = useState(() =>
+            typeof window !== "undefined" ? window.matchMedia(query).matches : false
+        );
+
+        useEffect(() => {
+            if (typeof window === "undefined") return;
+
+            const mql = window.matchMedia(query);
+            const onChange = () => setMatches(mql.matches);
+
+            // Safari/old: addListener
+            if ("addEventListener" in mql) mql.addEventListener("change", onChange);
+            else (mql as any).addListener(onChange);
+
+            setMatches(mql.matches);
+
+            return () => {
+                if ("removeEventListener" in mql) mql.removeEventListener("change", onChange);
+                else (mql as any).removeListener(onChange);
+            };
+        }, [query]);
+
+        return matches;
+    }
+
     /* =========================
        District modal
     ========================= */
@@ -363,8 +421,14 @@ export default function Home() {
         setActiveDistrictPois(null);
 
         const map = mapRef.current;
-        if (map && ptGeo) fitGeoJSONBoundsTight(map, ptGeo);
-    }, [fitGeoJSONBoundsTight, ptGeo]);
+        if (!map) return;
+
+        if (isMobileViewport()) {
+            fitContinentalPT(map, true);
+        } else if (ptGeo) {
+            fitGeoJSONBoundsTight(map, ptGeo, true);
+        }
+    }, [fitContinentalPT, fitGeoJSONBoundsTight, ptGeo]);
 
     const handleClickDistrict = useCallback(
         (_name: string | undefined, feature: any) => {
@@ -503,11 +567,14 @@ export default function Home() {
             <div className="map-shell">
                 <MapContainer
                     ref={mapRef as any}
-                    center={[37, -15]}
-                    zoom={5.5}
+                    center={initialCenter}
+                    zoom={isMobile ? 6 : 5.5}
                     whenReady={() => {
                         const map = mapRef.current;
-                        if (map && ptGeo) fitGeoJSONBoundsTight(map, ptGeo, false);
+                        if (!map) return;
+
+                        if (isMobile) fitContinentalPT(map, false);
+                        else if (ptGeo) fitGeoJSONBoundsTight(map, ptGeo, false);
                     }}
                     scrollWheelZoom
                     dragging

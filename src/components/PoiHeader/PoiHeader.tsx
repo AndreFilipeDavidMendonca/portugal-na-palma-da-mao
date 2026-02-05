@@ -83,7 +83,7 @@ export default function PoiHeader({
                 </h2>
             </div>
 
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="poi-actions">
                 {canEdit && (
                     <button className="poi-edit-btn" type="button" onClick={onToggleEdit}>
                         {editing ? "Cancelar" : "Editar"}

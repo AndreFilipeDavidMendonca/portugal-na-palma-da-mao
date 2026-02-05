@@ -1,32 +1,61 @@
-.poi-filters-mobile {
-  position: relative;
-  display: none; /* só mobile */
-}
-
 @media (max-width: 900px) {
   .poi-filters-mobile {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px;
+    gap: 12px;
+    margin-left: 0;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  .poi-filters-mobile__btn--parent.poi-chip {
+    flex: 0 1 auto;
+    max-width: 70vw;
+    --chip-px: 18px;
+    --chip-py: 8px;
+    --chip-fs: 18px;
+    border-radius: 16px;
+  }
+
+  /* empurra hamburguer para a direita */
+  .poi-filters-mobile__spacer {
+    flex: 1 1 auto;
+    min-width: 8px;
+  }
+
+  .poi-filters-mobile .user-menu {
+    margin-left: auto;
     display: inline-flex;
     align-items: center;
-    padding: 12px;
-    margin-left: 14%;
   }
 
-  .poi-filters-mobile__btn {
-    white-space: nowrap;
+  .poi-filters-mobile .user-menu__btn {
+    padding: 6px 8px;
+    border-radius: 12px;
   }
 
-    .poi-filters-mobile__panel {
-      position: absolute;
-      top: calc(100%);
-      left: 0;
-      z-index: 9999;
-      width: min(60vw, 400px);
-      padding: 10px;
-      border-radius: 16px;
-      background: var(--bg-panel);
-      border: 2px solid var(--gold-dark);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-    }
+  .poi-filters-mobile .user-menu__hamburger {
+    display: inline-block;
+    font-size: 26px;
+    line-height: 1;
+    transform: translateY(1px);
+  }
+
+  .poi-filters-mobile__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 9999;
+    width: min(92vw, 420px);
+    padding: 10px;
+    border-radius: 16px;
+    background: var(--bg-panel);
+    border: 2px solid var(--gold-dark);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    box-sizing: border-box;
+  }
 
   .poi-filters-mobile__panel-inner {
     display: flex;
@@ -34,23 +63,17 @@
     gap: 10px;
   }
 
-  .poi-filters-mobile__clear {
-    width: 100%;
-    justify-content: center;
-    padding: 10px 14px;
-  }
-
-  /* dropdowns dos grupos no mobile: ocupar largura toda */
-  .poi-filters-mobile .poi-group {
+  /* ✅ no painel, grupos ocupam 100% (sem mexer em tamanhos de chip) */
+  .poi-filters-mobile__panel .poi-group,
+  .poi-filters-mobile__panel .poi-chip--group {
     width: 100%;
   }
 
-  .poi-filters-mobile .poi-chip--group {
-    width: 100%;
+  .poi-filters-mobile__panel .poi-chip--group {
     justify-content: space-between;
   }
 
-  .poi-filters-mobile .poi-group-dropdown {
+  .poi-filters-mobile__panel .poi-group-dropdown {
     left: 0;
     right: 0;
     min-width: 100%;

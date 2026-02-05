@@ -7,23 +7,34 @@
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   padding: 18px 26px;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px; /* ✅ espaço entre título e ações */
+}
+
+/* ✅ permite o título encolher (ellipsis funciona em flex) */
+.poi-title-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .poi-title {
   margin: 0;
+  min-width: 0;
+
   font-family: var(--font-title), serif;
   color: var(--gold-strong);
   font-size: clamp(26px, 3vw, 36px);
   font-weight: 800;
-  letter-spacing: .3px;
-  text-shadow: 0 0 6px rgba(215, 178, 90, .3);
+  letter-spacing: 0.3px;
+  text-shadow: 0 0 6px rgba(215, 178, 90, 0.3);
 }
 
+/* linha: título + estrela */
 .poi-title-row {
-  display: inline-flex;
+  display: flex; /* ✅ melhor que inline-flex aqui */
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -36,6 +47,7 @@
   white-space: nowrap;
 }
 
+/* favoritos */
 .poi-fav-btn {
   border: none;
   background: transparent;
@@ -43,22 +55,30 @@
   border-radius: 999px;
   cursor: pointer;
   color: var(--gold-dark);
+
   display: inline-grid;
   place-items: center;
   line-height: 1;
+  flex: 0 0 auto; /* ✅ nunca encolhe */
+
   transition: transform 0.12s ease, color 0.15s ease, opacity 0.15s ease;
 
   &:hover:not(:disabled) {
     color: var(--gold-strong);
     transform: translateY(-1px);
   }
+
   &:disabled {
     opacity: 0.55;
     cursor: default;
   }
 }
-.poi-fav-btn.is-active { color: var(--gold); }
 
+.poi-fav-btn.is-active {
+  color: var(--gold);
+}
+
+/* input editar título */
 .poi-edit-input {
   width: 100%;
   padding: 4px 6px;
@@ -67,6 +87,15 @@
   border: 1px solid #555;
   background: #111;
   color: #f0f0f0;
+}
+
+/* ✅ ações (Editar/Guardar/Fechar) nunca saem fora */
+.poi-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto; /* ✅ bloco fixo */
+  white-space: nowrap;
 }
 
 .poi-edit-btn,
@@ -79,9 +108,15 @@
   cursor: pointer;
   font-size: 0.8rem;
 
-  &:hover { background: #2b2113; }
+  &:hover {
+    background: #2b2113;
+  }
 }
-.poi-save-btn[disabled] { opacity: 0.6; cursor: default; }
+
+.poi-save-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
 
 .poi-close {
   appearance: none;
@@ -94,7 +129,10 @@
   font-size: 26px;
   line-height: 30px;
   cursor: pointer;
-  transition: all .2s ease;
+
+  flex: 0 0 auto; /* ✅ nunca encolhe */
+
+  transition: all 0.2s ease;
 
   &:hover {
     background: var(--bg-panel);
@@ -115,21 +153,28 @@
   .poi-title-row {
     gap: 8px;
   }
+
+  .poi-actions {
+    gap: 8px;
+  }
 }
 
 @media (max-width: 600px) {
   .poi-header {
     padding: 10px 12px;
+    gap: 10px;
   }
 
   .poi-title {
     font-size: 20px;
   }
 
-  .poi-actions {
+  .poi-title-row {
     gap: 8px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+  }
+
+  .poi-actions {
+    gap: 6px;
   }
 
   .poi-close {

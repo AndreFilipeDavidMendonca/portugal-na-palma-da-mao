@@ -1,21 +1,20 @@
 /* src/features/topbar/UserMenu/UserMenu.scss */
 
-/* ✅ TUNING (ajusta aqui) */
 :root {
-  --um-top: calc(var(--topbar-h) + 7px); /* baixa as dropdowns */
-  --um-w: 400px;                         /* largura dropdown 1 (ajusta) */
-  --um-gap: 30px;                        /* espaço entre dropdowns */
-  --um-radius: 14px;                     /* radius menor */
+  --um-top: calc(var(--topbar-h) + 7px);
+  --um-w: 400px;
+  --um-gap: 30px;
+  --um-radius: 14px;
 }
 
-/* ✅ wrapper precisa ser relative para ancorar dropdowns */
+/* wrapper */
 .user-menu {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-/* ✅ Button styles ficam AQUI */
+/* botão */
 .user-menu__btn {
   border: none;
   background: transparent;
@@ -23,7 +22,6 @@
   border-radius: 12px;
   cursor: pointer;
 
-  /* texto + logo */
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -33,8 +31,8 @@
   }
 }
 
-/* Texto "Iniciar sessão" */
-.user-menu__login-text {
+/* desktop label */
+.user-menu__label {
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--gold);
@@ -42,8 +40,8 @@
   line-height: 1;
 }
 
-/* Logo */
-.user-menu__btn img {
+/* desktop logo */
+.user-menu__logo {
   width: 45px;
   height: 45px;
   object-fit: contain;
@@ -51,51 +49,84 @@
   flex: 0 0 auto;
 }
 
+/* hamburger (hidden by default) */
+.user-menu__hamburger {
+  display: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--gold);
+}
+
 /* ===========================
-   ✅ Desktop anchoring
-   A dropdown abre encostada ao botão (à direita)
+   Desktop anchoring (menu está à direita)
 =========================== */
-.user-menu__dropdown,
-.user-menu__flyout {
+.user-menu__dropdown {
   position: absolute;
   top: var(--um-top);
   right: 0;
   left: auto;
   z-index: 9999;
-}
 
-/* (opcional) se quiseres limitar largura sem depender do componente */
-.user-menu__dropdown {
   width: min(var(--um-w), calc(100vw - 24px));
   border-radius: var(--um-radius);
 }
 
 .user-menu__flyout {
-  width: min(var(--um-w), calc(100vw - 24px));
-  border-radius: var(--um-radius);
-}
+  position: absolute;
+  top: var(--um-top);
+  left: auto;
+  right: calc(100% + var(--um-gap)); /* abre encostado ao dropdown (à esquerda dele) */
+  z-index: 10000;
 
-/* Se tens dois painéis lado a lado (dropdown + flyout), podes usar offset */
-.user-menu__flyout {
-  /* empurra o flyout para a esquerda do dropdown quando está tudo no lado direito */
-  transform: translateX(calc(-1 * var(--um-gap)));
+  width: min(450px, calc(100vw - 24px));
+  border-radius: var(--um-radius);
 }
 
 /* ===========================
-   Mobile: stack (mantém a tua lógica)
+   Mobile
 =========================== */
 @media (max-width: 900px) {
+  /* botão pequeno */
+  .user-menu__btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 10px;
+    gap: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* mobile: só hambúrguer */
+  .user-menu__label,
+  .user-menu__logo {
+    display: none;
+  }
+
+  .user-menu__hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    padding-bottom: 9px;
+  }
+
+  /* dropdowns fixos à direita no mobile */
   .user-menu__dropdown,
   .user-menu__flyout {
     position: fixed;
-    left: 0;
-    right: auto;
-    width: calc(60vw - 16px);
-    margin: 0 8px;
-    transform: none; /* no mobile não queremos offset lateral */
+    top: var(--um-top);
+    right: 8px;
+    left: auto;
+
+    width: min(260px, calc(100vw - 16px));
+    margin: 0;
+    z-index: 9999;
   }
 
   .user-menu__flyout {
     top: calc(var(--um-top) + 18px);
+    z-index: 10000;
   }
 }
