@@ -36,7 +36,7 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
             weight: 2.2,
             color: hoverBorder,
             fillColor: fillHover,
-            fillOpacity: 0.6, // ✅ transparência exacta do hover
+            fillOpacity: 0.6, // ✅ a transparência do hover
         }),
         [hoverBorder, fillHover]
     );
@@ -44,9 +44,12 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
     const getName = (f: any): string | undefined =>
         f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"] || undefined;
 
-    // 🔒 estado global (1 distrito ativo no mobile)
+    // 🔒 “estado global” do hover em mobile
     const activeKeyRef = useRef<string | number | null>(null);
     const activeLayerRef = useRef<L.Path | null>(null);
+
+    // 👮 guard para não limpar no mesmo tap (map click logo a seguir)
+    const suppressMapClearUntilRef = useRef<number>(0);
 
     const clearActive = () => {
         const layer = activeLayerRef.current;
@@ -59,16 +62,20 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
         activeKeyRef.current = null;
     };
 
-    // ✅ no mobile: tocar fora limpa hover/tooltip
+    // ✅ no mobile: tocar no mapa (fora) limpa
     useEffect(() => {
-        const onMapPointerDown = () => {
+        const onMapClick = () => {
             if (!isMobileViewport()) return;
+
+            // se acabámos de tocar num distrito, não limpar já
+            if (Date.now() < suppressMapClearUntilRef.current) return;
+
             clearActive();
         };
 
-        map.on("pointerdown", onMapPointerDown);
+        map.on("click", onMapClick);
         return () => {
-            map.off("pointerdown", onMapPointerDown);
+            map.off("click", onMapClick);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, baseStyle]);
@@ -76,12 +83,11 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
     function onEachFeature(feature: any, layer: L.Path) {
         const name = getName(feature);
 
-        // bind tooltip 1x
         if (name) {
             (layer as any).bindTooltip(name, {
                 className: "district-badge",
                 direction: "top",
-                sticky: !isMobileViewport(), // desktop segue cursor; mobile fica “fixa”
+                sticky: !isMobileViewport(), // desktop segue cursor; mobile “fixo”
                 opacity: 1,
                 offset: [0, -10],
             });
@@ -92,6 +98,7 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
             feature?.properties?.NAME ??
             feature?.properties?.name ??
             feature?.properties?.["name:pt"] ??
+            name ??
             Math.random();
 
         const openDistrict = (e?: any) => {
@@ -100,10 +107,9 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
         };
 
         const applyHover = (e?: any) => {
-            // se havia outro ativo, limpa
+            // fecha o anterior se for outro
             if (activeKeyRef.current != null && activeKeyRef.current !== key) clearActive();
 
-            // ✅ aplica hover EXACTAMENTE como no desktop
             (layer as any).setStyle?.(hoverStyle);
             (layer as any).bringToFront?.();
 
@@ -112,6 +118,9 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
 
             activeKeyRef.current = key;
             activeLayerRef.current = layer;
+
+            // impede o map click de fechar no mesmo tap
+            suppressMapClearUntilRef.current = Date.now() + 250;
 
             const domEv = e?.originalEvent;
             if (domEv) {
@@ -127,7 +136,7 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
         };
 
         // -------------------
-        // Desktop hover real
+        // Desktop hover
         // -------------------
         layer.on("mouseover", () => {
             if (isMobileViewport()) return;
@@ -143,32 +152,37 @@ export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
         });
 
         // -------------------
-        // Mobile: 1º toque = hover, 2º toque = open
-        // (usar pointerdown é mais fiável que click/touchstart)
+        // Desktop click abre
         // -------------------
-        layer.on("pointerdown", (e: any) => {
-            if (!isMobileViewport()) return; // desktop usa click normal
+        layer.on("click", (e: any) => {
+            if (isMobileViewport()) return;
+            openDistrict(e);
+        });
 
-            // 1º toque
+        // -------------------
+        // Mobile: 1º toque = hover, 2º toque = abre
+        // -------------------
+        const onMobileTap = (e: any) => {
+            if (!isMobileViewport()) return;
+
+            // 1º toque: hover
             if (activeKeyRef.current !== key) {
                 applyHover(e);
                 return;
             }
 
-            // 2º toque (mesmo distrito) -> abre
+            // 2º toque: abre
             const domEv = e?.originalEvent;
             if (domEv) {
                 L.DomEvent.preventDefault(domEv);
                 L.DomEvent.stopPropagation(domEv);
             }
             openDistrict(e);
-        });
+        };
 
-        // Desktop click abre
-        layer.on("click", (e: any) => {
-            if (isMobileViewport()) return;
-            openDistrict(e);
-        });
+        // iOS/Android mais fiável assim:
+        layer.on("touchstart", onMobileTap);
+        layer.on("mousedown", onMobileTap); // Android/Chrome às vezes prefere mousedown
     }
 
     return <GeoJSON data={data} style={baseStyle} onEachFeature={onEachFeature} />;
