@@ -1,10 +1,10 @@
 // src/features/topbar/TopRightUserMenu.tsx
 import UserMenu from "@/features/topbar/UserMenu/UserMenu";
-import "./TopLeftUserMenu.scss";
+import "./TopRightUserMenu.scss";
 
-export default function TopLeftUserMenu() {
+export default function TopRightUserMenu() {
     return (
-        <div className="top-left-user-menu">
+        <div className="top-right-user-menu">
             <UserMenu />
         </div>
     );

@@ -1,7 +1,10 @@
 .user-menu__flyout {
-  position: fixed;
+  position: absolute;
   top: var(--um-top);
-  left: calc(var(--um-w) + var(--um-gap));
+
+  /* ✅ cola o flyout à esquerda da dropdown (que está em right:0) */
+  right: calc(var(--um-w) + var(--um-gap));
+  left: auto;
 
   width: 450px;
   max-height: 520px;

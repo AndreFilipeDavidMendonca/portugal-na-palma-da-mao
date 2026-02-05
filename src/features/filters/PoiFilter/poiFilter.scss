@@ -234,6 +234,16 @@
     box-shadow: 0 0 10px rgba(215, 178, 90, .5);
   }
 }
+.gold-close--left {
+  margin-right: 8px;
+}
+
+/* opcional: se o .poi-filter__inner for flex */
+.poi-filter__inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 @media (max-width: 900px) {
   /* o painel/dropdown não pode passar a largura do ecrã */

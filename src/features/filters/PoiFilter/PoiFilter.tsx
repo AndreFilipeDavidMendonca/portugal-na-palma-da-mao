@@ -3,6 +3,7 @@ import { POI_CATEGORIES, type PoiCategory, CATEGORY_COLORS } from "@/utils/const
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
 
 import PoiGroup from "./components/PoiGroup";
+import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 
 import "./poiFilter.scss";
 
@@ -43,7 +44,6 @@ export default function PoiFilter({
                                   }: Props) {
     const isTop = variant === "top";
 
-    // Fecha dropdowns ao clicar fora (o grupo também já fecha, mas isto evita ficar aberto se mudares de layout)
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const [closeSignal, setCloseSignal] = useState(0);
 
@@ -87,11 +87,23 @@ export default function PoiFilter({
         setCloseSignal((n) => n + 1);
     };
 
-    // Panel = lista “full” (sem grupos)
     if (!isTop) {
         return (
             <div className="poi-filter poi-filter--panel" data-poi-filter="panel" ref={wrapRef}>
                 <div className="poi-filter__inner poi-filter__inner--panel">
+                    {showClose && <div className="poi-spacer" />}
+                    {showClose && (
+                        <button
+                            className="gold-close gold-close--left"
+                            onClick={onClose}
+                            aria-label="Voltar"
+                            title="Voltar"
+                            type="button"
+                        >
+                            ←
+                        </button>
+                    )}
+
                     {POI_CATEGORIES.map(({ key, label }) => {
                         const k = key as PoiCategory;
                         const checked = selected.has(k);
@@ -111,8 +123,8 @@ export default function PoiFilter({
                                     <span className="poi-chip__icon" style={{ color }} dangerouslySetInnerHTML={{ __html: svg }} />
                                 )}
                                 <span className="poi-chip__text">
-                                  <span className="poi-chip__label">{label}</span>
-                                  <em className="poi-chip__count">{count}</em>
+                                    <span className="poi-chip__label">{label}</span>
+                                    <em className="poi-chip__count">{count}</em>
                                 </span>
                             </label>
                         );
@@ -121,68 +133,46 @@ export default function PoiFilter({
                     <button type="button" className="btn-clear" onClick={handleClear}>
                         Limpar
                     </button>
-
-                    {showClose && <div className="poi-spacer" />}
-                    {showClose && (
-                        <button className="gold-close" onClick={onClose} aria-label="Fechar" title="Fechar" type="button">
-                            ×
-                        </button>
-                    )}
                 </div>
             </div>
         );
     }
 
-    // Top = 3 grupos + limpar + close
     return (
         <div className="poi-filter poi-filter--top" data-poi-filter="top" ref={wrapRef}>
             <div className="poi-filter__inner">
+                {/* SETA À ESQUERDA (substitui o X) */}
+                {showClose && (
+                    <button
+                        className="gold-close gold-close--left"
+                        onClick={onClose}
+                        aria-label="Voltar à Home"
+                        title="Voltar à Home"
+                        type="button"
+                    >
+                        ←
+                    </button>
+                )}
+
                 {grouped.culture.length > 0 && (
-                    <PoiGroup
-                        label="Cultura"
-                        items={grouped.culture}
-                        selected={selected}
-                        onToggle={onToggle}
-                        closeSignal={closeSignal}
-                    />
+                    <PoiGroup label="Cultura" items={grouped.culture} selected={selected} onToggle={onToggle} closeSignal={closeSignal} />
                 )}
 
                 {grouped.nature.length > 0 && (
-                    <PoiGroup
-                        label="Natureza"
-                        items={grouped.nature}
-                        selected={selected}
-                        onToggle={onToggle}
-                        closeSignal={closeSignal}
-                    />
+                    <PoiGroup label="Natureza" items={grouped.nature} selected={selected} onToggle={onToggle} closeSignal={closeSignal} />
                 )}
 
                 {grouped.commercial.length > 0 && (
-                    <PoiGroup
-                        label="Comercial"
-                        items={grouped.commercial}
-                        selected={selected}
-                        onToggle={onToggle}
-                        closeSignal={closeSignal}
-                    />
+                    <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={onToggle} closeSignal={closeSignal} />
                 )}
 
                 <button type="button" className="btn-clear" onClick={handleClear}>
                     Limpar
                 </button>
 
-                {showClose && <div className="poi-spacer" />}
-                {showClose && (
-                    <button
-                        className="gold-close"
-                        onClick={onClose}
-                        aria-label="Fechar distrito"
-                        title="Fechar distrito"
-                        type="button"
-                    >
-                        ×
-                    </button>
-                )}
+                {/* ✅ empurra o user menu para a direita */}
+                <div className="poi-spacer" />
+                <TopRightUserMenu />
             </div>
         </div>
     );

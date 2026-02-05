@@ -29,9 +29,13 @@ export default function UserMenuDropdown({
                 <>
                     <UserMenuHeader email={user.email ?? null} role={user.role ?? null} />
 
-                    <button type="button" className={`user-menu__section ${favOpen ? "is-open" : ""}`} onClick={onToggleFavorites}>
+                    <button
+                        type="button"
+                        className={`user-menu__section ${favOpen ? "is-open" : ""}`}
+                        onClick={onToggleFavorites}
+                    >
+                        <span className="user-menu__chev" aria-hidden="true">◂</span>
                         <span className="user-menu__section-title">Favoritos</span>
-                        <span className="user-menu__chev" aria-hidden="true">▸</span>
                     </button>
 
                     {isBusiness && (
@@ -40,19 +44,29 @@ export default function UserMenuDropdown({
                             className={`user-menu__section ${myPoisOpen ? "is-open" : ""}`}
                             onClick={onToggleMyPois}
                         >
+                            <span className="user-menu__chev" aria-hidden="true">◂</span>
                             <span className="user-menu__section-title">Os meus POIs</span>
-                            <span className="user-menu__chev" aria-hidden="true">▸</span>
                         </button>
                     )}
 
                     <div className="user-menu__divider" />
 
-                    <button type="button" className="user-menu__item user-menu__item--danger" onClick={onLogout} role="menuitem">
+                    <button
+                        type="button"
+                        className="user-menu__item user-menu__item--danger"
+                        onClick={onLogout}
+                        role="menuitem"
+                    >
                         Logout
                     </button>
                 </>
             ) : (
-                <button type="button" className="user-menu__item user-menu__item--primary" onClick={onLogin} role="menuitem">
+                <button
+                    type="button"
+                    className="user-menu__item user-menu__item--primary"
+                    onClick={onLogin}
+                    role="menuitem"
+                >
                     Login
                 </button>
             )}

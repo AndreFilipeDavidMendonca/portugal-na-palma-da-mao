@@ -1,5 +1,6 @@
 // src/features/topbar/TopDistrictFilter.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 import "./TopDistrictFilter.scss";
 
 export type PoiSearchItem = {
@@ -246,6 +247,10 @@ export default function TopDistrictFilter({
                     Limpar
                 </button>
             )}
+
+            {/* ✅ UserMenu/Logo à direita */}
+            <div className="tdf-spacer" />
+            <TopRightUserMenu />
         </div>
     );
 }

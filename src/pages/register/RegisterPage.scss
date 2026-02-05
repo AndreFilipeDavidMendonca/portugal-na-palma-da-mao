@@ -1,30 +1,44 @@
 /* ===========================
-   Register Page – match District theme (no-scroll + mobile safe)
+   Register Page – match District theme (responsive + safe)
    =========================== */
 
 .register-page {
-  height: 100svh; /* ✅ melhor no mobile do que 100vh */
+  min-height: 100svh;
   display: grid;
+
+  /* quando há espaço: centro; quando não há: começa no topo e permite scroll */
   place-items: center;
+
   background: var(--bg-deep);
   color: var(--gold);
 
-  /* ✅ safe areas + padding base */
+  /* safe areas + padding base */
   padding: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 14px)
   calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 14px);
 
-  overflow: hidden; /* 🔒 sem scroll */
+  /* ✅ permitir scroll quando necessário */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .register-card {
   width: min(520px, 100%);
   box-sizing: border-box;
-  padding: 34px 26px 26px;
+
+  /* ✅ padding mais “responsivo” (não rebenta em ecrãs baixos) */
+  padding: clamp(18px, 3.2vh, 34px) clamp(14px, 2.5vw, 26px) clamp(14px, 2.2vh, 26px);
+
   border-radius: 20px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
   text-align: center;
+
+  /* ✅ nunca ultrapassar altura disponível, e deixa rolar por dentro se preciso */
+  max-height: calc(100svh - var(--safe-top) - var(--safe-bottom) - 32px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 
   *,
   *::before,
@@ -177,8 +191,7 @@
   border: 1px solid var(--gold-dark);
   background: var(--bg-panel-2);
   color: var(--gold);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
-  transform 0.06s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.06s ease;
 
   &:hover:not(:disabled) {
     background: var(--bg-panel);
@@ -215,7 +228,26 @@
 }
 
 /* ===========================
-   Mobile: subir card + evitar cortes laterais + empilhar ações
+   Small height screens (laptops/zoom): não cortar
+   =========================== */
+
+@media (max-height: 720px) {
+  .register-page {
+    place-items: start center;
+  }
+
+  .register-logo img {
+    width: 78px;
+    height: 78px;
+  }
+
+  .register-title {
+    font-size: 20px;
+  }
+}
+
+/* ===========================
+   Mobile: coluna única + botões empilhados
    =========================== */
 
 @media (max-width: 600px) {
@@ -227,9 +259,9 @@
   }
 
   .register-card {
-    margin-top: 6px;
-    padding: 26px 18px 18px;
+    width: 100%;
     border-radius: 18px;
+    max-height: calc(100svh - var(--safe-top) - var(--safe-bottom) - 24px);
   }
 
   .register-logo {
@@ -278,12 +310,12 @@
 }
 
 @media (max-width: 380px) {
-  .register-card {
-    padding: 22px 14px 14px;
-  }
-
   .register-logo img {
     width: 78px;
     height: 78px;
+  }
+
+  .register-card {
+    padding: 18px 14px 14px;
   }
 }

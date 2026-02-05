@@ -3,12 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import Home from "@/pages/Home";
-import TopLeftUserMenu from "@/features/topbar/TopLeftUserMenu";
 
 import { fetchCurrentUser, type CurrentUserDto } from "@/lib/api";
 import RegisterPage from "@/pages/register/RegisterPage";
 import LoginPage from "@/pages/login/LoginPage";
 import CreatePoiPage from "@/pages/poi/CreatePoiPage";
+
 export default function App() {
     const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
 
@@ -25,10 +25,8 @@ export default function App() {
 
     return (
         <div className="app-root">
-            <TopLeftUserMenu  />
-
             <Routes>
-                <Route path="/" element={<Home  />} />
+                <Route path="/" element={<Home />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/pois/new" element={<CreatePoiPage />} />

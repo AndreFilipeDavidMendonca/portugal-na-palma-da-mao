@@ -8,33 +8,91 @@
   --um-radius: 14px;                     /* radius menor */
 }
 
-/* ✅ Button styles ficam AQUI (UserMenuButton não tem scss) */
+/* ✅ wrapper precisa ser relative para ancorar dropdowns */
+.user-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ✅ Button styles ficam AQUI */
 .user-menu__btn {
   border: none;
   background: transparent;
-  padding: 6px;
+  padding: 6px 10px;
   border-radius: 12px;
   cursor: pointer;
-  display: grid;
-  place-items: center;
 
-  &:hover { background: rgba(255, 255, 255, 0.06); }
+  /* texto + logo */
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 
-  img {
-    width: 45px;
-    height: 45px;
-    object-fit: contain;
-    display: block;
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
   }
 }
 
-/* mobile: stack */
+/* Texto "Iniciar sessão" */
+.user-menu__login-text {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--gold);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Logo */
+.user-menu__btn img {
+  width: 45px;
+  height: 45px;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* ===========================
+   ✅ Desktop anchoring
+   A dropdown abre encostada ao botão (à direita)
+=========================== */
+.user-menu__dropdown,
+.user-menu__flyout {
+  position: absolute;
+  top: var(--um-top);
+  right: 0;
+  left: auto;
+  z-index: 9999;
+}
+
+/* (opcional) se quiseres limitar largura sem depender do componente */
+.user-menu__dropdown {
+  width: min(var(--um-w), calc(100vw - 24px));
+  border-radius: var(--um-radius);
+}
+
+.user-menu__flyout {
+  width: min(var(--um-w), calc(100vw - 24px));
+  border-radius: var(--um-radius);
+}
+
+/* Se tens dois painéis lado a lado (dropdown + flyout), podes usar offset */
+.user-menu__flyout {
+  /* empurra o flyout para a esquerda do dropdown quando está tudo no lado direito */
+  transform: translateX(calc(-1 * var(--um-gap)));
+}
+
+/* ===========================
+   Mobile: stack (mantém a tua lógica)
+=========================== */
 @media (max-width: 900px) {
-  .user-menu__dropdown, .user-menu__flyout {
+  .user-menu__dropdown,
+  .user-menu__flyout {
     position: fixed;
     left: 0;
+    right: auto;
     width: calc(60vw - 16px);
     margin: 0 8px;
+    transform: none; /* no mobile não queremos offset lateral */
   }
 
   .user-menu__flyout {
