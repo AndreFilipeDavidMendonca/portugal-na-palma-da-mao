@@ -1,5 +1,5 @@
 // src/pages/pois/CreatePoiPage.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     createPoi,
@@ -20,23 +20,20 @@ export default function CreatePoiPage() {
 
     const canCreate = user?.role === "BUSINESS" || user?.role === "ADMIN";
 
+    /* ---------------- Form state ---------------- */
+
     const [name, setName] = useState("");
     const [category, setCategory] = useState<Category>("Evento");
     const [description, setDescription] = useState("");
 
-    // Morada
     const [street, setStreet] = useState("");
     const [houseNumber, setHouseNumber] = useState("");
     const [postalCode, setPostalCode] = useState("");
-
-    // Município (Concelho) -> obrigatório p/ geocode
     const [municipality, setMunicipality] = useState("");
 
-    // Distrito -> select
     const [districts, setDistricts] = useState<DistrictDto[]>([]);
     const [districtId, setDistrictId] = useState<number | "">("");
 
-    // Geo
     const [lat, setLat] = useState<number | null>(null);
     const [lon, setLon] = useState<number | null>(null);
     const [geoStatus, setGeoStatus] = useState<string | null>(null);
@@ -47,19 +44,35 @@ export default function CreatePoiPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!canCreate) navigate("/");
-    }, [canCreate, navigate]);
+    /* ---------------- Lifecycle guards ---------------- */
 
-    // Carregar distritos para o select
+    const aliveRef = useRef(true);
+    useEffect(() => {
+        aliveRef.current = true;
+        return () => {
+            aliveRef.current = false;
+        };
+    }, []);
+
+    /* ---------------- Permissions ---------------- */
+
+    useEffect(() => {
+        if (user == null) return;
+        if (!canCreate) navigate("/");
+    }, [user, canCreate, navigate]);
+
+    /* ---------------- Districts ---------------- */
+
     useEffect(() => {
         if (!canCreate) return;
+
         (async () => {
             try {
                 const list = await fetchDistricts();
+                if (!aliveRef.current) return;
                 setDistricts(list ?? []);
             } catch {
-                // se falhar não bloqueia, mas o districtId ficará por preencher
+                if (!aliveRef.current) return;
                 setDistricts([]);
             }
         })();
@@ -71,12 +84,7 @@ export default function CreatePoiPage() {
         return d?.namePt ?? d?.name ?? "";
     }, [districtId, districts]);
 
-    /* ===========================
-       Geocode automático (debounce)
-       Só corre quando:
-       - concelho (municipality) está preenchido
-       - e rua está preenchida
-    =========================== */
+    /* ---------------- Geocode (debounced) ---------------- */
 
     const addressKey = useMemo(
         () =>
@@ -85,51 +93,45 @@ export default function CreatePoiPage() {
     );
 
     useEffect(() => {
-        // ✅ regra: só chama geocode quando concelho está preenchido
-        if (!street.trim()) return;
-        if (!municipality.trim()) return;
+        if (loading) return;
+        if (!street.trim() || !municipality.trim()) return;
 
         const timer = setTimeout(async () => {
             const req: GeocodeRequestDto = {
                 street: street.trim(),
                 houseNumber: houseNumber.trim() || undefined,
                 postalCode: postalCode.trim() || undefined,
-
-                // city = concelho
                 city: municipality.trim(),
-
-                // district = nome do distrito (para ajudar)
                 district: selectedDistrictName || undefined,
-
                 country: "Portugal",
             };
 
             try {
+                if (!aliveRef.current) return;
                 setGeoLoading(true);
                 setGeoStatus("A localizar morada…");
 
                 const res = await geocodeAddress(req);
 
+                if (!aliveRef.current) return;
                 setLat(res.lat);
                 setLon(res.lon);
-                setGeoStatus(
-                    `Localizado ✅ (confiança ${(res.confidence * 100).toFixed(0)}%)`
-                );
+                setGeoStatus(`Localizado ✅ (${Math.round(res.confidence * 100)}%)`);
             } catch {
+                if (!aliveRef.current) return;
                 setLat(null);
                 setLon(null);
                 setGeoStatus("Não foi possível localizar a morada");
             } finally {
+                if (!aliveRef.current) return;
                 setGeoLoading(false);
             }
         }, 900);
 
         return () => clearTimeout(timer);
-    }, [addressKey]);
+    }, [addressKey, loading, street, municipality, houseNumber, postalCode, selectedDistrictName]);
 
-    /* ===========================
-       Submit
-    =========================== */
+    /* ---------------- Submit ---------------- */
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -141,40 +143,42 @@ export default function CreatePoiPage() {
         if (!districtId) return setError("Seleciona o distrito.");
         if (!municipality.trim()) return setError("Concelho é obrigatório.");
         if (!street.trim()) return setError("Rua é obrigatória.");
-        if (!lat || !lon) return setError("Morada não localizada.");
+        if (lat == null || lon == null) return setError("Morada não localizada.");
         if (images.length === 0) return setError("Adiciona pelo menos uma imagem.");
 
         setLoading(true);
 
         try {
-            const { id } = await createPoi({
+            const created = await createPoi({
                 name: name.trim(),
                 category,
                 description: description.trim() || null,
-
                 districtId: Number(districtId),
                 municipality: municipality.trim(),
-
                 lat,
                 lon,
-
                 image: images[0],
                 images,
             });
 
-            // ✅ navega para detalhe do POI
-            navigate(`/pois/${id}`);
+            window.dispatchEvent(
+                new CustomEvent("pt:open-poi", { detail: { poiId: created.id } })
+            );
+
+            navigate("/");
         } catch (e: any) {
             setError(e?.message ?? "Falha ao criar POI");
         } finally {
-            setLoading(false);
+            if (aliveRef.current) setLoading(false);
         }
     }
+
+    /* ---------------- Render ---------------- */
 
     return (
         <div className="create-poi-page">
             <div className="create-poi-card">
-                <h2 className="create-poi-title">Criar POI Comercial</h2>
+                <h2 className="create-poi-title">Criar ponto Comercial</h2>
 
                 <form onSubmit={onSubmit} className="create-poi-form">
                     <input
@@ -183,6 +187,7 @@ export default function CreatePoiPage() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         disabled={loading}
+                        autoComplete="off"
                     />
 
                     <select
@@ -205,13 +210,10 @@ export default function CreatePoiPage() {
                         disabled={loading}
                     />
 
-                    {/* ✅ Distrito select */}
                     <select
                         className="create-poi-input"
                         value={districtId}
-                        onChange={(e) =>
-                            setDistrictId(e.target.value ? Number(e.target.value) : "")
-                        }
+                        onChange={(e) => setDistrictId(e.target.value ? Number(e.target.value) : "")}
                         disabled={loading}
                     >
                         <option value="">Seleciona o distrito…</option>
@@ -228,6 +230,7 @@ export default function CreatePoiPage() {
                             value={municipality}
                             onChange={(e) => setMunicipality(e.target.value)}
                             disabled={loading}
+                            autoComplete="address-level2"
                         />
 
                         <input
@@ -235,6 +238,7 @@ export default function CreatePoiPage() {
                             value={street}
                             onChange={(e) => setStreet(e.target.value)}
                             disabled={loading}
+                            autoComplete="street-address"
                         />
 
                         <input
@@ -242,6 +246,8 @@ export default function CreatePoiPage() {
                             value={houseNumber}
                             onChange={(e) => setHouseNumber(e.target.value)}
                             disabled={loading}
+                            inputMode="numeric"
+                            autoComplete="address-line2"
                         />
 
                         <input
@@ -249,6 +255,8 @@ export default function CreatePoiPage() {
                             value={postalCode}
                             onChange={(e) => setPostalCode(e.target.value)}
                             disabled={loading}
+                            inputMode="numeric"
+                            autoComplete="postal-code"
                         />
                     </div>
 
@@ -264,11 +272,8 @@ export default function CreatePoiPage() {
                     {error && <div className="create-poi-error">{error}</div>}
 
                     <div className="create-poi-actions">
-                        <button
-                            className="create-poi-btn create-poi-btn--primary"
-                            disabled={loading || geoLoading}
-                        >
-                            {loading ? "A criar…" : "Criar POI"}
+                        <button className="create-poi-btn create-poi-btn--primary" disabled={loading || geoLoading}>
+                            {loading ? "A criar…" : "Criar"}
                         </button>
 
                         <button

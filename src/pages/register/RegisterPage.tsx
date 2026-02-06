@@ -99,7 +99,7 @@ export default function RegisterPage() {
                                 onClick={() => setRole("USER")}
                                 disabled={loading}
                             >
-                                Utilizador
+                                Particular
                             </button>
 
                             <button

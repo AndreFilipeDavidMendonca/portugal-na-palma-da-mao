@@ -1,110 +1,185 @@
+@use "@/styles/base.scss" as *;
+
+/* =========================
+   Scoped: só afeta CreatePoiPage
+   ========================= */
 .create-poi-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 20px;
-}
+  padding-bottom: calc(20px + var(--safe-bottom));
+  overflow-x: hidden; /* ✅ evita corte lateral em mobile */
 
-.create-poi-card {
-  width: min(640px, 95vw);
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 30px 26px;
-  border-radius: 20px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-}
+  /* Card */
+  .create-poi-card {
+    width: min(640px, 95vw);
+    max-width: 100%;
+    max-height: min(90vh, calc(100dvh - 24px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 
-.create-poi-title {
-  text-align: center;
-  margin-bottom: 16px;
-  font-family: var(--font-title), serif;
-}
-
-.create-poi-form {
-  display: grid;
-  gap: 14px;
-}
-
-.create-poi-input,
-.create-poi-textarea,
-select {
-  width: 100%;
-  padding: 14px;
-  border-radius: 14px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--gold);
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-  }
-}
-
-.create-poi-textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-
-.create-poi-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr;
-
-  input, select {
-    padding: 12px;
-    border-radius: 12px;
+    padding: 30px 26px;
+    border-radius: 20px;
+    background: var(--bg-panel);
     border: 1px solid var(--border);
+
+    box-sizing: border-box;
+  }
+
+  .create-poi-title {
+    text-align: center;
+    margin-bottom: 16px;
+    font-family: var(--font-title), serif;
+  }
+
+  .create-poi-form {
+    display: grid;
+    gap: 14px;
+  }
+
+  .create-poi-input,
+  .create-poi-textarea,
+  select {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
     background: transparent;
+    border: 1px solid var(--border);
     color: var(--gold);
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: var(--border-2);
+      box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+    }
   }
 
+  .create-poi-textarea {
+    min-height: 110px;
+    resize: vertical;
+  }
+
+  /* ✅ Reposto: overrides específicos do grid (como tinhas) */
+  .create-poi-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+
+    input,
+    select {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--gold);
+      box-sizing: border-box;
+    }
+  }
+
+  .create-poi-geo {
+    font-size: 13px;
+    color: var(--gold-strong);
+    padding: 6px 8px;
+  }
+
+  .create-poi-error {
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--gold-strong);
+  }
+
+  /* Actions */
+  .create-poi-actions {
+    position: sticky;
+    bottom: 0;
+
+    background: var(--bg-panel);
+    padding-top: 10px;
+    padding-bottom: calc(10px + var(--safe-bottom));
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .create-poi-btn {
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-weight: 900;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+
+  .create-poi-btn--primary {
+    background: var(--gold);
+    color: var(--bg-deep);
+  }
+
+  .create-poi-btn--ghost {
+    background: var(--bg-panel-2);
+    color: var(--gold);
+    border: 1px solid var(--gold-dark);
+  }
+
+  /* =========================
+     Mobile adjustments
+  ========================= */
   @media (max-width: 520px) {
-    grid-template-columns: 1fr;
+    place-items: start center;
+    padding: 12px;
+    padding-top: calc(12px + var(--safe-top));
+    padding-bottom: calc(12px + var(--safe-bottom));
+
+    .create-poi-card {
+      width: 100%;
+      max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px);
+      padding: 14px 12px;
+      border-radius: 16px;
+    }
+
+    .create-poi-title {
+      font-size: 1.35rem;
+      margin-bottom: 12px;
+    }
+
+    .create-poi-form {
+      gap: 10px;
+    }
+
+    .create-poi-input,
+    select {
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+    }
+
+    .create-poi-textarea {
+      padding: 10px 12px;
+      min-height: 90px;
+      font-size: 0.95rem;
+    }
+
+    .create-poi-grid {
+      gap: 8px;
+      grid-template-columns: 1fr;
+    }
+
+    .create-poi-actions {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .create-poi-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+    }
+
+    .create-poi-geo {
+      font-size: 12px;
+    }
   }
-}
-
-.create-poi-geo {
-  font-size: 13px;
-  color: var(--gold-strong);
-  padding: 6px 8px;
-}
-
-.create-poi-error {
-  padding: 10px;
-  border-radius: 14px;
-  background: rgba(0,0,0,.25);
-  border: 1px solid rgba(255,255,255,.15);
-  color: var(--gold-strong);
-}
-
-.create-poi-actions {
-  position: sticky;
-  bottom: 0;
-  background: var(--bg-panel);
-  padding-top: 10px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.create-poi-btn {
-  border-radius: 999px;
-  padding: 10px 18px;
-  font-weight: 900;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.create-poi-btn--primary {
-  background: var(--gold);
-  color: var(--bg-deep);
-}
-
-.create-poi-btn--ghost {
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  border: 1px solid var(--gold-dark);
 }

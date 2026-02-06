@@ -2,18 +2,14 @@ import React from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
 
-import {POI_LABELS, PoiCategory} from "@/utils/constants";
-import { CATEGORY_COLORS } from "@/utils/constants";
+import { POI_LABELS, type PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
 import markerSvgRaw from "@/assets/icons/marker.svg?raw";
 
 type AnyGeo = any;
 
-/* =========================
-   Helpers genéricos
-   ========================= */
-function tag(p: any, key: string) {
-    return p?.[key] ?? p?.tags?.[key] ?? null;
+function isMobileViewport() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
 }
 
 function getName(p: any) {
@@ -30,14 +26,10 @@ function getName(p: any) {
     );
 }
 
-/* =========================
-   Categorias
-   ========================= */
 export function getPoiCategory(f: any): PoiCategory | null {
     const p = f?.properties || {};
     const tags = p.tags ?? {};
 
-    // 1) NOVO: categoria vinda do backend (.pt)
     const rawCat: string | undefined =
         (typeof p.category === "string" && p.category) ||
         (typeof tags.category === "string" && tags.category) ||
@@ -45,131 +37,89 @@ export function getPoiCategory(f: any): PoiCategory | null {
         (typeof tags.historic === "string" && tags.historic) ||
         undefined;
 
-    if (rawCat) {
-        const c = rawCat.toLowerCase();
+    if (!rawCat) return null;
 
-        switch (c) {
-            case "castle":
-                return "castle";
-            case "palace":
-                return "palace";
-            case "monument":
-                return "monument";
-            case "ruins":
-            case "ruin":
-                return "ruins";
-            case "church":
-            case "chapel":
-            case "igreja":
-                return "church";
-            case "viewpoint":
-            case "miradouro":
-                return "viewpoint";
-            case "park":
-            case "garden":
-            case "jardim":
-                return "park";
-            case "trail":
-            case "trilho":
-            case "hiking":
-                return "trail";
-            case "gastronomy":
-            case "restaurant":
-            case "food":
-                return "gastronomy";
-
-            case "crafts":
-            case "artisan":
-            case "artesanato":
-                return "crafts";
-
-            case "accommodation":
-            case "hotel":
-            case "hostel":
-            case "lodging":
-                return "accommodation";
-
-            case "event":
-            case "evento":
-            case "events":
-                return "event";
-        }
+    switch (rawCat.toLowerCase()) {
+        case "castle":
+            return "castle";
+        case "palace":
+            return "palace";
+        case "monument":
+            return "monument";
+        case "ruins":
+        case "ruin":
+            return "ruins";
+        case "church":
+        case "chapel":
+        case "igreja":
+            return "church";
+        case "viewpoint":
+        case "miradouro":
+            return "viewpoint";
+        case "park":
+        case "garden":
+        case "jardim":
+            return "park";
+        case "trail":
+        case "trilho":
+        case "hiking":
+            return "trail";
+        case "gastronomy":
+        case "restaurant":
+        case "food":
+            return "gastronomy";
+        case "crafts":
+        case "artisan":
+        case "artesanato":
+            return "crafts";
+        case "accommodation":
+        case "hotel":
+        case "hostel":
+        case "lodging":
+            return "accommodation";
+        case "event":
+        case "evento":
+        case "events":
+            return "event";
+        default:
+            return null;
     }
-
-    // 2) LEGADO: inferir a partir de tags tipo OSM (se alguma vez vierem)
-    const historic    = tag(p, "historic");
-    const building    = tag(p, "building");
-    const castle_type = tag(p, "castle_type");
-    const ruins       = tag(p, "ruins");
-    const amenity     = tag(p, "amenity");
-    const tourism     = tag(p, "tourism");
-    const leisure     = tag(p, "leisure");
-    const route       = tag(p, "route");
-
-    if (historic === "palace" || building === "palace" || castle_type === "palace")
-        return "palace";
-
-    if (
-        historic === "castle" ||
-        building === "castle" ||
-        castle_type === "castle" ||
-        castle_type === "fortress"
-    )
-        return "castle";
-
-    if (historic === "ruins" && ruins === "castle") return "ruins";
-
-    if (historic === "monument") return "monument";
-    if (historic === "ruins")    return "ruins";
-
-    if (historic === "church" || amenity === "place_of_worship" || building === "church")
-        return "church";
-
-    if (tourism === "viewpoint") return "viewpoint";
-
-    if (leisure === "park")            return "park";
-
-    if (route === "hiking" || route === "foot") return "trail";
-
-    return null;
 }
 
-/** Filtra um FeatureCollection pelos tipos selecionados. */
-export function filterFeaturesByTypes(
-    geo: AnyGeo | null,
-    selected: Set<PoiCategory>
-) {
+export function filterFeaturesByTypes(geo: AnyGeo | null, selected: Set<PoiCategory>) {
     if (!geo) return null;
     if (!geo.features) return geo;
-
-    if (!selected || selected.size === 0)
-        return { type: "FeatureCollection", features: [] };
+    if (!selected || selected.size === 0) return { type: "FeatureCollection", features: [] };
 
     const feats = geo.features.filter((f: any) => {
         const k = getPoiCategory(f);
         return k ? selected.has(k) : false;
     });
+
     return { type: "FeatureCollection", features: feats };
 }
 
 /* =========================
-   Escalas / zoom
-   ========================= */
+   Zoom helpers
+========================= */
 function getIconSizeForZoom(zoom: number): number {
-    const Z0 = 14, Z1 = 20;
-    const P0 = 20, P1 = 28;
+    const Z0 = 14,
+        Z1 = 20;
+    const P0 = 20,
+        P1 = 28;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
 
 function getPinSizeForZoom(zoom: number): number {
-    const Z0 = 7,  Z1 = 10;
-    const P0 = 6,  P1 = 12;
+    const Z0 = 7,
+        Z1 = 10;
+    const P0 = 6,
+        P1 = 12;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
 
-/** Zoom atual do mapa (cleanup seguro) */
 function useMapZoom(): number {
     const map = useMap();
     const [zoom, setZoom] = React.useState(() => map.getZoom());
@@ -186,20 +136,22 @@ function useMapZoom(): number {
 }
 
 /* =========================
-   Ícones com cache
-   ========================= */
+   Icon cache
+========================= */
 const iconCache = new Map<string, L.DivIcon>();
 
 function getCachedIcon(key: string, html: string, size: number, anchorY?: number) {
     const k = `${key}|${size}`;
     const cached = iconCache.get(k);
     if (cached) return cached;
+
     const div = L.divIcon({
         html,
         className: "poi-divicon",
         iconSize: [size, size],
         iconAnchor: [size / 2, anchorY ?? size],
     });
+
     iconCache.set(k, div);
     return div;
 }
@@ -240,8 +192,8 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
 }
 
 /* =========================
-   Camada de Pontos
-   ========================= */
+   PoiPointsLayer (tooltips auto em mobile)
+========================= */
 export function PoiPointsLayer({
                                    data,
                                    selectedTypes,
@@ -253,16 +205,105 @@ export function PoiPointsLayer({
     nonce?: number;
     onSelect?: (feature: any) => void;
 }) {
+    const map = useMap();
     const zoom = useMapZoom();
+
+    const mobile = React.useMemo(() => isMobileViewport(), []);
     const showSvg = zoom >= 13;
+
     const iconSize = getIconSizeForZoom(zoom);
-    const pinSize  = getPinSizeForZoom(zoom);
+    const pinSize = getPinSizeForZoom(zoom);
 
     const nothingSelected = !selectedTypes || selectedTypes.size === 0;
 
-    const key = `${Array.from(selectedTypes ?? [])
-        .sort()
-        .join(",")}|mode:${showSvg ? "svg" : "pin"}|z:${zoom}|n:${nonce}`;
+    const key = React.useMemo(() => {
+        const cats = Array.from(selectedTypes ?? []).sort().join(",");
+        return `${cats}|mode:${showSvg ? "svg" : "pin"}|z:${zoom}|n:${nonce}`;
+    }, [selectedTypes, showSvg, zoom, nonce]);
+
+    // --- AUTO TOOLTIP SETTINGS ---
+    const OPEN_ONLY_WHEN_SVG = true; // ✅ “quando passa a ícone”
+    const MIN_ZOOM_TO_OPEN = 13; // quando é svg (se OPEN_ONLY_WHEN_SVG=true)
+    const MAX_OPEN = 10; // abre só as 10 mais próximas do centro
+
+    // layers desta renderização
+    const layersRef = React.useRef<L.Layer[]>([]);
+    const rafRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        layersRef.current = [];
+    }, [key]);
+
+    const closeAll = React.useCallback(() => {
+        for (const l of layersRef.current) {
+            (l as any)?.closeTooltip?.();
+        }
+    }, []);
+
+    const openVisibleTooltips = React.useCallback(() => {
+        if (!mobile) return;
+
+        if (OPEN_ONLY_WHEN_SVG && !showSvg) {
+            closeAll();
+            return;
+        }
+        if (zoom < MIN_ZOOM_TO_OPEN) {
+            closeAll();
+            return;
+        }
+
+        const bounds = map.getBounds();
+        const center = bounds.getCenter();
+
+        // fecha tudo e abre só as “mais relevantes”
+        closeAll();
+
+        const candidates: { layer: any; dist: number }[] = [];
+
+        for (const l of layersRef.current) {
+            const anyL: any = l as any;
+
+            // markers têm getLatLng, circleMarkers também; se não tiver, ignora
+            const ll = anyL?.getLatLng?.();
+            if (!ll) continue;
+
+            if (!bounds.contains(ll)) continue;
+
+            candidates.push({ layer: anyL, dist: center.distanceTo(ll) });
+        }
+
+        candidates.sort((a, b) => a.dist - b.dist);
+
+        for (const c of candidates.slice(0, MAX_OPEN)) {
+            c.layer?.openTooltip?.();
+        }
+    }, [mobile, map, zoom, showSvg, closeAll]);
+
+    const scheduleOpenVisible = React.useCallback(() => {
+        if (!mobile) return;
+        if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+            openVisibleTooltips();
+        });
+    }, [mobile, openVisibleTooltips]);
+
+    React.useEffect(() => {
+        if (!mobile) return;
+
+        const onMoveZoom = () => scheduleOpenVisible();
+        map.on("zoomend", onMoveZoom);
+        map.on("moveend", onMoveZoom);
+
+        // primeira execução
+        scheduleOpenVisible();
+
+        return () => {
+            map.off("zoomend", onMoveZoom);
+            map.off("moveend", onMoveZoom);
+            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+            closeAll();
+        };
+    }, [mobile, map, scheduleOpenVisible, closeAll]);
 
     return (
         <GeoJSON
@@ -280,8 +321,6 @@ export function PoiPointsLayer({
                     const icon = createLowZoomMarker(cat, pinSize);
                     const m = L.marker(latlng, { icon });
                     if (onSelect) m.on("click", () => onSelect(feature));
-                    const el = (m as any)._icon as HTMLElement | undefined;
-                    if (el) el.style.cursor = "pointer";
                     return m;
                 }
 
@@ -289,8 +328,6 @@ export function PoiPointsLayer({
                     const icon = createPoiIcon(cat, iconSize);
                     const m = L.marker(latlng, { icon });
                     if (onSelect) m.on("click", () => onSelect(feature));
-                    const el = (m as any)._icon as HTMLElement | undefined;
-                    if (el) el.style.cursor = "pointer";
                     return m;
                 }
 
@@ -305,15 +342,26 @@ export function PoiPointsLayer({
                 return cm;
             }}
             onEachFeature={(feature: any, layer: L.Layer) => {
+                layersRef.current.push(layer);
+
                 const p = (feature as any).properties || {};
                 const name = getName(p) || "Sem nome";
-                const catKey = getPoiCategory(feature); // ex: "castle"
-                const catLabel = catKey ? POI_LABELS[catKey] : ""; // ex: "Castelo"
+                const catKey = getPoiCategory(feature);
+                const catLabel = catKey ? POI_LABELS[catKey] : "";
 
-                layer.bindTooltip(
-                    `<strong>${name}</strong>${catLabel ? `<div>${catLabel}</div>` : ""}`,
-                    { direction: "top", offset: L.point(0, -10), sticky: true }
-                );
+                const html = `<strong>${name}</strong>${catLabel ? `<div>${catLabel}</div>` : ""}`;
+
+                layer.bindTooltip(html, {
+                    className: "poi-tooltip",
+                    direction: "top",
+                    offset: L.point(0, -10),
+                    sticky: !mobile,
+                    opacity: 1,
+                });
+
+                // assim que a layer existe, reagenda a abertura (mobile)
+                scheduleOpenVisible();
+
                 const anyLayer: any = layer as any;
                 if (anyLayer._icon) anyLayer._icon.style.cursor = "pointer";
                 if (anyLayer._path) anyLayer._path.style.cursor = "pointer";
@@ -323,8 +371,8 @@ export function PoiPointsLayer({
 }
 
 /* =========================
-   Áreas/Polígonos
-   ========================= */
+   PoiAreasLayer
+========================= */
 export function PoiAreasLayer({ data }: { data: AnyGeo }) {
     return (
         <GeoJSON
