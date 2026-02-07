@@ -1,14 +1,17 @@
+/* ==========================
+   Register Page
+========================== */
+
 .register-page {
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 20px;
-
-  @media (max-width: 600px) {
-    display: block;
-    padding: 14px 12px calc(20px + env(safe-area-inset-bottom));
-  }
 }
+
+/* ==========================
+   Card
+========================== */
 
 .register-card {
   width: min(680px, 96vw);
@@ -21,15 +24,11 @@
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-sizing: border-box;
-
-  @media (max-width: 600px) {
-    width: 100%;
-    max-height: none;  /* ✅ tira scroll interno */
-    overflow: visible; /* ✅ scroll fica no page */
-    padding: 18px 14px;
-    border-radius: 18px;
-  }
 }
+
+/* ==========================
+   Header
+========================== */
 
 .register-logo {
   display: grid;
@@ -41,12 +40,6 @@
     height: auto;
     display: block;
   }
-
-  @media (max-width: 600px) {
-    img {
-      width: 64px;
-    }
-  }
 }
 
 .register-title {
@@ -55,18 +48,18 @@
   font-family: var(--font-title), serif;
 }
 
+/* ==========================
+   Form
+========================== */
+
 .register-form {
   display: grid;
   gap: 14px;
-
-  @media (max-width: 600px) {
-    gap: 12px;
-  }
 }
 
-/* ==========
-   Role selector
-========== */
+/* ==========================
+   Role Selector
+========================== */
 
 .register-role {
   display: grid;
@@ -82,10 +75,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-
-  @media (max-width: 360px) {
-    grid-template-columns: 1fr; /* ✅ telefones minúsculos */
-  }
 }
 
 .register-role-btn {
@@ -110,15 +99,11 @@
     opacity: 0.7;
     cursor: default;
   }
-
-  @media (max-width: 600px) {
-    padding: 12px 14px; /* ✅ thumb-friendly */
-  }
 }
 
-/* ==========
+/* ==========================
    Inputs
-========== */
+========================== */
 
 .register-input {
   width: 100%;
@@ -134,21 +119,12 @@
     border-color: var(--border-2);
     box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
   }
-
-  @media (max-width: 600px) {
-    padding: 12px;
-    border-radius: 12px;
-  }
 }
 
 .register-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: 1fr 1fr;
-
-  @media (max-width: 520px) {
-    grid-template-columns: 1fr; /* ✅ 1 coluna em mobile */
-  }
 }
 
 .register-error {
@@ -159,22 +135,15 @@
   color: var(--gold-strong);
 }
 
-/* ==========
+/* ==========================
    Actions
-========== */
+========================== */
 
 .register-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 6px;
-
-  @media (max-width: 600px) {
-    display: grid;
-    grid-template-columns: 1fr; /* ✅ stack buttons */
-    gap: 10px;
-    padding-bottom: calc(20px + env(safe-area-inset-bottom));
-  }
 }
 
 .register-btn {
@@ -188,10 +157,6 @@
     opacity: 0.7;
     cursor: default;
   }
-
-  @media (max-width: 600px) {
-    padding: 12px 18px;
-  }
 }
 
 .register-btn--primary {
@@ -203,4 +168,70 @@
   background: var(--bg-panel-2);
   color: var(--gold);
   border: 1px solid var(--gold-dark);
+}
+
+/* ======================================================
+   MOBILE (organizado no fim, sem repetição)
+====================================================== */
+
+@media (max-width: 600px) {
+
+  .register-page {
+    display: block;
+    padding: 14px 12px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .register-card {
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding: 18px 14px;
+    border-radius: 18px;
+  }
+
+  .register-logo img {
+    width: 64px;
+  }
+
+  .register-form {
+    gap: 12px;
+  }
+
+  .register-role-toggle {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .register-role-btn {
+    padding: 12px 14px;
+  }
+
+  .register-input {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .register-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .register-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .register-btn {
+    padding: 12px 18px;
+  }
+}
+
+/* Extra small devices */
+
+@media (max-width: 360px) {
+  .register-role-toggle {
+    grid-template-columns: 1fr;
+  }
 }
