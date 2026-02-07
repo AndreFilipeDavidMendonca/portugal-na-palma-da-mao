@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
         try {
             const newUser = await register({
-                role, // ✅ novo campo
+                role,
                 firstName: firstName.trim() || null,
                 lastName: lastName.trim() || null,
                 age: age.trim() ? Number(age) : null,
@@ -66,7 +66,6 @@ export default function RegisterPage() {
                 password,
             });
 
-            // 🔥 atualiza AuthContext (sem refresh)
             setUser(newUser);
 
             navigate(from, { replace: true });
@@ -108,7 +107,7 @@ export default function RegisterPage() {
                                 onClick={() => setRole("BUSINESS")}
                                 disabled={loading}
                             >
-                                Comercial
+                                Empresarial
                             </button>
                         </div>
                     </div>
