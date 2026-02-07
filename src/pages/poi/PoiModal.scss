@@ -93,6 +93,8 @@
   margin-top: 6px;
   padding-top: 14px;
   padding-bottom: 14px;
+
+  border-top: 1px solid var(--gold-sep);
 }
 
 /* iPad / laptop pequeno */
@@ -108,22 +110,17 @@
    Mobile (Chrome-safe)
 ========================= */
 @media (max-width: 900px) {
-  /* ✅ troca GRID por FLEX para eliminar a sobreposição no Chrome */
   .poi-body {
     display: flex;
     flex-direction: column;
     gap: 16px;
     padding: 14px;
+    margin-bottom: 30px;
 
-    /* limpa “restos” do grid */
     grid-template-columns: unset;
     grid-template-areas: unset;
   }
 
-  /* ✅ slideshow com altura dinâmica:
-     - aspect-ratio dá altura proporcional ao ecrã
-     - max-height impede que ocupe o modal todo
-  */
   .poi-media {
     overflow: hidden;
     position: relative;
@@ -152,7 +149,7 @@
     z-index: 0;
   }
 
-  /* ✅ separador mais evidente e mais “respiro” */
+  /* separador mais evidente e mais “respiro” */
   .poi-comments-wrap {
     margin-top: 10px;
     padding-top: 18px;
