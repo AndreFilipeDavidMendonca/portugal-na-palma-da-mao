@@ -1,22 +1,19 @@
 // src/App.tsx
-import { useCallback, useEffect, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import {useCallback, useEffect} from "react";
+import {Route, Routes} from "react-router-dom";
 
 import Home from "@/pages/Home";
 
-import { fetchCurrentUser, type CurrentUserDto } from "@/lib/api";
+import {fetchCurrentUser} from "@/lib/api";
 import RegisterPage from "@/pages/register/RegisterPage";
 import LoginPage from "@/pages/login/LoginPage";
 import CreatePoiPage from "@/pages/poi/CreatePoiPage";
 import ToastHost from "@/components/Toastr/ToastHost";
 
 export default function App() {
-    const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
 
     const refreshUser = useCallback(async () => {
-        const u = await fetchCurrentUser().catch(() => null);
-        setCurrentUser(u);
-        return u;
+        return await fetchCurrentUser().catch(() => null);
     }, []);
 
     // 1x no arranque

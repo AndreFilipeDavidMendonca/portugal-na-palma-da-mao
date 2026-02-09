@@ -103,7 +103,6 @@ export default function Home() {
 
     // POI modal (Home)
     const [homePoiOpen, setHomePoiOpen] = useState(false);
-    const [homePoiLoading, setHomePoiLoading] = useState(false);
     const [homePoiInfo, setHomePoiInfo] = useState<PoiInfo | null>(null);
     const [homePoiFeature, setHomePoiFeature] = useState<any | null>(null);
     const homePoiReqRef = useRef(0);
@@ -455,7 +454,6 @@ export default function Home() {
     const openPoiFromDto = useCallback(async (poiDto: PoiDto) => {
         const reqId = ++homePoiReqRef.current;
 
-        setHomePoiLoading(true);
         setHomePoiOpen(false);
         setHomePoiInfo(null);
 
@@ -486,7 +484,6 @@ export default function Home() {
             setHomePoiInfo(infoNow);
             setHomePoiOpen(true);
         } finally {
-            if (reqId === homePoiReqRef.current) setHomePoiLoading(false);
         }
     }, []);
 

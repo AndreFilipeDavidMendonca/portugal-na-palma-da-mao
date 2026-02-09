@@ -118,8 +118,6 @@ export default function DistrictModal({
     const [lakes, setLakes] = useState<any>(lakesProp);
     const [rails, setRails] = useState<any>(railsProp);
     const [roads, setRoads] = useState<any>(roadsProp);
-    const [peaks, setPeaks] = useState<any>(peaksProp);
-    const [places, setPlaces] = useState<any>(placesProp);
 
     /* ---------------- District info ---------------- */
     const [districtInfo, setDistrictInfo] = useState<DistrictInfo | null>(null);
@@ -550,8 +548,6 @@ export default function DistrictModal({
                             lakes={lakes}
                             rails={rails}
                             roads={roads}
-                            peaks={peaks}
-                            places={places}
                             poiAreas={poiAreas}
                             filteredPoints={filteredPoints}
                             selectedTypes={selectedTypes}

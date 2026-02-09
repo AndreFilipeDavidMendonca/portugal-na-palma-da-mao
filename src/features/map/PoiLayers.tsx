@@ -8,10 +8,6 @@ import markerSvgRaw from "@/assets/icons/marker.svg?raw";
 
 type AnyGeo = any;
 
-function isMobileViewport() {
-    return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
-}
-
 function getName(p: any) {
     const tags = p?.tags ?? {};
     return (
