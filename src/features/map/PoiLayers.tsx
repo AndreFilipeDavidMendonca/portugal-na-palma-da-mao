@@ -86,53 +86,36 @@ export function getPoiCategory(f: any): PoiCategory | null {
     }
 }
 
-export function filterFeaturesByTypes(geo: AnyGeo | null, selected: Set<PoiCategory>) {
-    if (!geo) return null;
-    if (!geo.features) return geo;
-    if (!selected || selected.size === 0) return { type: "FeatureCollection", features: [] };
-
-    const feats = geo.features.filter((f: any) => {
-        const k = getPoiCategory(f);
-        return k ? selected.has(k) : false;
-    });
-
-    return { type: "FeatureCollection", features: feats };
-}
-
 /* =========================
    Zoom helpers
 ========================= */
 function getIconSizeForZoom(zoom: number): number {
-    const Z0 = 14,
-        Z1 = 20;
-    const P0 = 20,
-        P1 = 28;
+    const Z0 = 14, Z1 = 20;
+    const P0 = 20, P1 = 28;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
 
 function getPinSizeForZoom(zoom: number): number {
-    const Z0 = 7,
-        Z1 = 10;
-    const P0 = 6,
-        P1 = 12;
+    const Z0 = 7, Z1 = 10;
+    const P0 = 6, P1 = 12;
     const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
     return Math.round(P0 + (P1 - P0) * t);
 }
 
-function useMapZoom(): number {
+function useMapZoom(): any {
     const map = useMap();
     const [zoom, setZoom] = React.useState(() => map.getZoom());
 
     React.useEffect(() => {
         const onZoom = () => setZoom(map.getZoom());
+
         map.on("zoomend", onZoom);
+
         return () => {
             map.off("zoomend", onZoom);
         };
     }, [map]);
-
-    return zoom;
 }
 
 /* =========================
@@ -192,7 +175,8 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
 }
 
 /* =========================
-   PoiPointsLayer (tooltips auto em mobile)
+   PoiPointsLayer
+   - Auto abre tooltips (desktop + mobile) quando está em modo SVG
 ========================= */
 export function PoiPointsLayer({
                                    data,
@@ -222,9 +206,9 @@ export function PoiPointsLayer({
     }, [selectedTypes, showSvg, zoom, nonce]);
 
     // --- AUTO TOOLTIP SETTINGS ---
-    const OPEN_ONLY_WHEN_SVG = true; // ✅ “quando passa a ícone”
-    const MIN_ZOOM_TO_OPEN = 13; // quando é svg (se OPEN_ONLY_WHEN_SVG=true)
-    const MAX_OPEN = 10; // abre só as 10 mais próximas do centro
+    const OPEN_ONLY_WHEN_SVG = true;    // abre apenas quando está em SVG
+    const MIN_ZOOM_TO_OPEN = 13;        // redundante mas explícito
+    const MAX_OPEN = mobile ? 10 : 18;  // desktop aguenta mais sem poluir tanto
 
     // layers desta renderização
     const layersRef = React.useRef<L.Layer[]>([]);
@@ -235,14 +219,11 @@ export function PoiPointsLayer({
     }, [key]);
 
     const closeAll = React.useCallback(() => {
-        for (const l of layersRef.current) {
-            (l as any)?.closeTooltip?.();
-        }
+        for (const l of layersRef.current) (l as any)?.closeTooltip?.();
     }, []);
 
     const openVisibleTooltips = React.useCallback(() => {
-        if (!mobile) return;
-
+        // regra “só abre quando está em SVG”
         if (OPEN_ONLY_WHEN_SVG && !showSvg) {
             closeAll();
             return;
@@ -252,21 +233,19 @@ export function PoiPointsLayer({
             return;
         }
 
+        map.invalidateSize();
+
         const bounds = map.getBounds();
         const center = bounds.getCenter();
 
-        // fecha tudo e abre só as “mais relevantes”
         closeAll();
 
         const candidates: { layer: any; dist: number }[] = [];
 
         for (const l of layersRef.current) {
             const anyL: any = l as any;
-
-            // markers têm getLatLng, circleMarkers também; se não tiver, ignora
             const ll = anyL?.getLatLng?.();
             if (!ll) continue;
-
             if (!bounds.contains(ll)) continue;
 
             candidates.push({ layer: anyL, dist: center.distanceTo(ll) });
@@ -277,24 +256,19 @@ export function PoiPointsLayer({
         for (const c of candidates.slice(0, MAX_OPEN)) {
             c.layer?.openTooltip?.();
         }
-    }, [mobile, map, zoom, showSvg, closeAll]);
+    }, [map, zoom, showSvg, closeAll]);
 
     const scheduleOpenVisible = React.useCallback(() => {
-        if (!mobile) return;
         if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(() => {
-            openVisibleTooltips();
-        });
-    }, [mobile, openVisibleTooltips]);
+        rafRef.current = requestAnimationFrame(() => openVisibleTooltips());
+    }, [openVisibleTooltips]);
 
     React.useEffect(() => {
-        if (!mobile) return;
-
         const onMoveZoom = () => scheduleOpenVisible();
         map.on("zoomend", onMoveZoom);
         map.on("moveend", onMoveZoom);
 
-        // primeira execução
+        // primeira execução (quando entra em svg, ou quando muda filtros)
         scheduleOpenVisible();
 
         return () => {
@@ -303,7 +277,7 @@ export function PoiPointsLayer({
             if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
             closeAll();
         };
-    }, [mobile, map, scheduleOpenVisible, closeAll]);
+    }, [map, scheduleOpenVisible, closeAll]);
 
     return (
         <GeoJSON
@@ -355,11 +329,16 @@ export function PoiPointsLayer({
                     className: "poi-tooltip",
                     direction: "top",
                     offset: L.point(0, -10),
-                    sticky: !mobile,
+                    sticky: false,
                     opacity: 1,
+
+                    // ✅ isto é o que tira o “só aparece em hover”
+                    permanent: showSvg,
+
+                    // opcional: evita que tooltips “roubem” eventos
+                    interactive: false,
                 });
 
-                // assim que a layer existe, reagenda a abertura (mobile)
                 scheduleOpenVisible();
 
                 const anyLayer: any = layer as any;

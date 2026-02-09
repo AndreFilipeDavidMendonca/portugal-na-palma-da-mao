@@ -549,7 +549,7 @@ export default function Home() {
 
     return (
         <>
-            {showOverlay && <LoadingOverlay message="A carregar o mapa de Portugal…" />}
+            {showOverlay && <LoadingOverlay message="A carregar o mapa de Portugal" />}
 
             {!isModalOpen && (
                 <div className="top-district-filter">

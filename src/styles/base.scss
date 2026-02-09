@@ -273,6 +273,37 @@ h6 {
   background: #0e3b2e;
 }
 
+.leaflet-tooltip.poi-tooltip{
+  background: var(--bg-panel-2);
+  color: var(--gold);
+  border: 1.6px solid var(--gold-dark);
+  border-radius: 12px;
+  padding: 6px 10px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.38);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.2;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 99999;
+}
+
+.leaflet-tooltip-top.poi-tooltip:before{
+  border-top-color: var(--bg-panel-2) !important;
+  border-width: 7px !important;
+}
+
+.leaflet-tooltip.poi-tooltip strong{
+  font-weight: 700;
+  color: var(--gold-strong);
+  display: block;
+}
+
+.leaflet-tooltip.poi-tooltip div{
+  opacity: .9;
+  margin-top: 2px;
+  font-size: 12px;
+}
 /* =========================
    Responsive foundation
 ========================= */
