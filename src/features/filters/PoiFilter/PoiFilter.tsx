@@ -7,23 +7,21 @@ import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 
 import "./poiFilter.scss";
 
+type NavMode = "home" | "back";
+
 type Props = {
     selected: ReadonlySet<PoiCategory>;
     onToggle: (k: PoiCategory) => void;
     onClear: () => void;
     countsByCat?: Readonly<Partial<Record<PoiCategory, number>>>;
     variant?: "top" | "panel";
-    showClose?: boolean;
-    onClose?: () => void;
+
+    navMode?: NavMode;
+    onNav?: () => void;
+
+    // opcional: se quiseres que ao filtrar também volte ao mapa/feche galeria
+    onAnySelection?: () => void;
 };
-
-const CULTURE_KEYS = ["castle", "palace", "monument", "ruins", "church"] as const satisfies readonly PoiCategory[];
-const NATURE_KEYS = ["viewpoint", "park", "trail"] as const satisfies readonly PoiCategory[];
-const COMMERCIAL_KEYS = ["gastronomy", "crafts", "accommodation", "event"] as const satisfies readonly PoiCategory[];
-
-const CULTURE_SET: ReadonlySet<PoiCategory> = new Set(CULTURE_KEYS);
-const NATURE_SET: ReadonlySet<PoiCategory> = new Set(NATURE_KEYS);
-const COMMERCIAL_SET: ReadonlySet<PoiCategory> = new Set(COMMERCIAL_KEYS);
 
 export type PoiDropdownItem = {
     key: PoiCategory;
@@ -33,26 +31,55 @@ export type PoiDropdownItem = {
     color?: string;
 };
 
+/* -----------------------------
+   Category groups
+------------------------------ */
+const CULTURE_SET: ReadonlySet<PoiCategory> = new Set(["castle", "palace", "monument", "ruins", "church"]);
+const NATURE_SET: ReadonlySet<PoiCategory> = new Set(["viewpoint", "park", "trail"]);
+const COMMERCIAL_SET: ReadonlySet<PoiCategory> = new Set(["gastronomy", "crafts", "accommodation", "event"]);
+
+/* -----------------------------
+   Icons
+------------------------------ */
+function HomeIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3.5 11.5L12 4.5L20.5 11.5" />
+            <path d="M8 11.5V20H16V11.5" />
+        </svg>
+    );
+}
+
+function BackIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+        </svg>
+    );
+}
+
 export default function PoiFilter({
                                       selected,
                                       onToggle,
                                       onClear,
                                       countsByCat = {},
                                       variant = "top",
-                                      showClose = false,
-                                      onClose,
+                                      navMode = "home",
+                                      onNav,
+                                      onAnySelection,
                                   }: Props) {
     const isTop = variant === "top";
-
     const wrapRef = useRef<HTMLDivElement | null>(null);
+
+    // “broadcast” para fechar dropdowns abertos (grupos)
     const [closeSignal, setCloseSignal] = useState(0);
 
     useEffect(() => {
-        function onClickOutside(e: MouseEvent) {
+        const onClickOutside = (e: MouseEvent) => {
             if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
                 setCloseSignal((n) => n + 1);
             }
-        }
+        };
         document.addEventListener("mousedown", onClickOutside);
         return () => document.removeEventListener("mousedown", onClickOutside);
     }, []);
@@ -65,6 +92,7 @@ export default function PoiFilter({
 
         for (const c of POI_CATEGORIES) {
             const key = c.key as PoiCategory;
+
             const item: PoiDropdownItem = {
                 key,
                 label: c.label,
@@ -84,26 +112,24 @@ export default function PoiFilter({
 
     const handleClear = () => {
         onClear();
+        onAnySelection?.();
         setCloseSignal((n) => n + 1);
     };
 
+    // ✅ toggle que fecha dropdowns e (opcionalmente) faz “voltar ao mapa/fechar galeria”
+    const handleToggle = (k: PoiCategory) => {
+        onToggle(k);
+        onAnySelection?.();
+        setCloseSignal((n) => n + 1);
+    };
+
+    /* -----------------------------
+       PANEL variant (chips list)
+    ------------------------------ */
     if (!isTop) {
         return (
             <div className="poi-filter poi-filter--panel" data-poi-filter="panel" ref={wrapRef}>
                 <div className="poi-filter__inner poi-filter__inner--panel">
-                    {showClose && <div className="poi-spacer" />}
-                    {showClose && (
-                        <button
-                            className="gold-close gold-close--left"
-                            onClick={onClose}
-                            aria-label="Voltar"
-                            title="Voltar"
-                            type="button"
-                        >
-                            ←
-                        </button>
-                    )}
-
                     {POI_CATEGORIES.map(({ key, label }) => {
                         const k = key as PoiCategory;
                         const checked = selected.has(k);
@@ -118,14 +144,14 @@ export default function PoiFilter({
                                 title={label}
                                 onMouseDown={(e) => e.preventDefault()}
                             >
-                                <input type="checkbox" checked={checked} onChange={() => onToggle(k)} style={{ accentColor: color }} />
-                                {svg && (
-                                    <span className="poi-chip__icon" style={{ color }} dangerouslySetInnerHTML={{ __html: svg }} />
-                                )}
+                                <input type="checkbox" checked={checked} onChange={() => handleToggle(k)} style={{ accentColor: color }} />
+
+                                {svg && <span className="poi-chip__icon" style={{ color }} dangerouslySetInnerHTML={{ __html: svg }} />}
+
                                 <span className="poi-chip__text">
-                                    <span className="poi-chip__label">{label}</span>
-                                    <em className="poi-chip__count">{count}</em>
-                                </span>
+                  <span className="poi-chip__label">{label}</span>
+                  <em className="poi-chip__count">{count}</em>
+                </span>
                             </label>
                         );
                     })}
@@ -138,39 +164,32 @@ export default function PoiFilter({
         );
     }
 
+    /* -----------------------------
+       TOP variant (groups dropdown)
+    ------------------------------ */
+    const navLabel = navMode === "home" ? "Voltar à Home" : "Voltar ao mapa";
+
     return (
         <div className="poi-filter poi-filter--top" data-poi-filter="top" ref={wrapRef}>
             <div className="poi-filter__inner">
-                {/* SETA À ESQUERDA (substitui o X) */}
-                {showClose && (
-                    <button
-                        className="gold-close gold-close--left"
-                        onClick={onClose}
-                        aria-label="Voltar à Home"
-                        title="Voltar à Home"
-                        type="button"
-                    >
-                        ←
-                    </button>
-                )}
+                <button className="gold-close gold-close--left" onClick={onNav} aria-label={navLabel} title={navLabel} type="button">
+                    {navMode === "home" ? <HomeIcon /> : <BackIcon />}
+                </button>
 
                 {grouped.culture.length > 0 && (
-                    <PoiGroup label="Cultura" items={grouped.culture} selected={selected} onToggle={onToggle} closeSignal={closeSignal} />
+                    <PoiGroup label="Cultura" items={grouped.culture} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                 )}
-
                 {grouped.nature.length > 0 && (
-                    <PoiGroup label="Natureza" items={grouped.nature} selected={selected} onToggle={onToggle} closeSignal={closeSignal} />
+                    <PoiGroup label="Natureza" items={grouped.nature} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                 )}
-
                 {grouped.commercial.length > 0 && (
-                    <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={onToggle} closeSignal={closeSignal} />
+                    <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                 )}
 
                 <button type="button" className="btn-clear" onClick={handleClear}>
                     Limpar
                 </button>
 
-                {/* ✅ empurra o user menu para a direita */}
                 <div className="poi-spacer" />
                 <TopRightUserMenu />
             </div>

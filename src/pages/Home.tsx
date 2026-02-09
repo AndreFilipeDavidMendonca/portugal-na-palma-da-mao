@@ -618,8 +618,7 @@ export default function Home() {
                 isAdmin={isAdmin}
             />
 
-            {loadingDistrictPois && <LoadingOverlay message="A carregar…" />}
-            {homePoiLoading && <SpinnerOverlay open={homePoiLoading} message="A carregar…" />}
+            {loadingDistrictPois && <SpinnerOverlay open={loadingDistrictPois} message="A carregar…" />}
 
             <PoiModal
                 open={homePoiOpen}

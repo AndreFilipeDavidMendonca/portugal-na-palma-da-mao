@@ -29,7 +29,7 @@ export default function PoiSide({
     return (
         <>
             <a className="btn-directions" href={href} target="_blank" rel="noreferrer">
-                Direções
+                Direcções
             </a>
 
             {errorMsg && <div className="poi-error">{errorMsg}</div>}
