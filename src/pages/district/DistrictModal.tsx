@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { loadGeo } from "@/lib/geo";
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
-import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
+import { type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
 
@@ -72,8 +72,7 @@ const pickPoiId = (feature: any): number | null => {
     return typeof id === "number" ? id : null;
 };
 
-const mergeMedia10 = (base: string[], extra: string[]) =>
-    uniqStrings([...base, ...extra]).slice(0, 10);
+const mergeMedia10 = (base: string[], extra: string[]) => uniqStrings([...base, ...extra]).slice(0, 10);
 
 async function safeLoadGeoParts(paths: string[]): Promise<any | null> {
     try {
@@ -98,19 +97,9 @@ export default function DistrictModal({
                                           lakes: lakesProp = null,
                                           rails: railsProp = null,
                                           roads: roadsProp = null,
-                                          peaks: peaksProp = null,
-                                          places: placesProp = null,
                                           onPoiUpdated,
                                           isAdmin = false,
                                       }: Props) {
-    const aliveRef = useRef(true);
-    useEffect(() => {
-        aliveRef.current = true;
-        return () => {
-            aliveRef.current = false;
-        };
-    }, []);
-
     /* ---------------- Map layers ---------------- */
     const [renderNonce, setRenderNonce] = useState(0);
 
@@ -122,7 +111,6 @@ export default function DistrictModal({
     /* ---------------- District info ---------------- */
     const [districtInfo, setDistrictInfo] = useState<DistrictInfo | null>(null);
     const [editingDistrict, setEditingDistrict] = useState(false);
-    const [savingDistrict, setSavingDistrict] = useState(false);
     const [districtError, setDistrictError] = useState<string | null>(null);
 
     const [distName, setDistName] = useState("");
@@ -137,8 +125,7 @@ export default function DistrictModal({
     const [showGallery, setShowGallery] = useState(false);
     const [loadingGallery, setLoadingGallery] = useState(false);
 
-    const districtNameFallback =
-        (districtFeature?.properties?.name as string | undefined) || "Distrito";
+    const districtNameFallback = (districtFeature?.properties?.name as string | undefined) || "Distrito";
 
     /* ---------------- POI modal ---------------- */
     const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
@@ -172,8 +159,6 @@ export default function DistrictModal({
         setEditingDistrict(false);
         setDistrictError(null);
         setLoadingGallery(false);
-
-        // ✅ Ajuda a re-montar layers e voltar a disparar o “auto-open tooltips” no PoiPointsLayer
         setRenderNonce((n) => n + 1);
     }, []);
 
@@ -192,8 +177,6 @@ export default function DistrictModal({
             resetPoiState();
             return;
         }
-
-        // ✅ Ao abrir o modal, força “fresh mount” no layer e tooltips (quando fizer zoom-in)
         setRenderNonce((n) => n + 1);
     }, [open, resetPoiState]);
 
@@ -210,8 +193,7 @@ export default function DistrictModal({
 
             try {
                 const info = await fetchDistrictInfo(name);
-                if (!alive) return;
-                setDistrictInfo(info);
+                if (alive) setDistrictInfo(info);
             } catch {
                 if (alive) setDistrictInfo(null);
             }
@@ -234,9 +216,7 @@ export default function DistrictModal({
 
         if (districtInfo) {
             setDistPopulation(districtInfo.population != null ? String(districtInfo.population) : "");
-            setDistMunicipalities(
-                districtInfo.municipalities != null ? String(districtInfo.municipalities) : ""
-            );
+            setDistMunicipalities(districtInfo.municipalities != null ? String(districtInfo.municipalities) : "");
             setDistParishes(districtInfo.parishes != null ? String(districtInfo.parishes) : "");
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
             setDistDescription(districtInfo.description ?? "");
@@ -258,10 +238,30 @@ export default function DistrictModal({
 
     /* ---------------- Lazy load geo layers (only if not provided) ---------------- */
     useEffect(() => {
-        if (!riversProp) safeLoadGeoParts(["/geo/rios_pt1.geojson", "/geo/rios_pt2.geojson"]).then((v) => aliveRef.current && setRivers(v));
-        if (!lakesProp) safeLoadGeoParts(["/geo/lagos_pt1.geojson", "/geo/lagos_pt2.geojson"]).then((v) => aliveRef.current && setLakes(v));
-        if (!railsProp) safeLoadGeoParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"]).then((v) => aliveRef.current && setRails(v));
-        if (!roadsProp) safeLoadGeoParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"]).then((v) => aliveRef.current && setRoads(v));
+        let alive = true;
+
+        (async () => {
+            if (!riversProp) {
+                const v = await safeLoadGeoParts(["/geo/rios_pt1.geojson", "/geo/rios_pt2.geojson"]);
+                if (alive) setRivers(v);
+            }
+            if (!lakesProp) {
+                const v = await safeLoadGeoParts(["/geo/lagos_pt1.geojson", "/geo/lagos_pt2.geojson"]);
+                if (alive) setLakes(v);
+            }
+            if (!railsProp) {
+                const v = await safeLoadGeoParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"]);
+                if (alive) setRails(v);
+            }
+            if (!roadsProp) {
+                const v = await safeLoadGeoParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"]);
+                if (alive) setRoads(v);
+            }
+        })();
+
+        return () => {
+            alive = false;
+        };
     }, [riversProp, lakesProp, railsProp, roadsProp]);
 
     /* ---------------- Normalize POIs ---------------- */
@@ -331,7 +331,7 @@ export default function DistrictModal({
         const approxLat = feature?.geometry?.coordinates?.[1];
         const approxLon = feature?.geometry?.coordinates?.[0];
 
-        const base = await fetchPoiInfo({
+        const base = await (await import("@/lib/poiInfo")).fetchPoiInfo({
             approx: {
                 name: label,
                 lat: typeof approxLat === "number" ? approxLat : null,
@@ -464,8 +464,7 @@ export default function DistrictModal({
                     );
                 }
 
-                const nameForSearch =
-                    distName || districtInfo?.namePt || districtInfo?.name || districtNameFallback;
+                const nameForSearch = distName || districtInfo?.namePt || districtInfo?.name || districtNameFallback;
 
                 const firstCommons = await getDistrictCommonsGallery(nameForSearch, 3);
                 let merged = uniqStrings([...dbFiles, ...firstCommons]).slice(0, 10);
@@ -510,8 +509,7 @@ export default function DistrictModal({
 
     if (!open) return null;
 
-    const rootClass =
-        "district-modal theme-dark" + (showGallery ? " district-modal--gallery-open" : "");
+    const rootClass = "district-modal theme-dark" + (showGallery ? " district-modal--gallery-open" : "");
 
     return (
         <div className={rootClass}>
@@ -572,7 +570,7 @@ export default function DistrictModal({
                     onToggleGallery={toggleGallery}
                     isAdmin={isAdmin}
                     editing={editingDistrict}
-                    saving={savingDistrict}
+                    saving={false}
                     error={districtError}
                     onEdit={() => isAdmin && setEditingDistrict(true)}
                     onCancel={() => {
@@ -616,10 +614,7 @@ export default function DistrictModal({
             />
 
             {(loadingPoi || loadingGallery) && (
-                <SpinnerOverlay
-                    open={loadingPoi || loadingGallery}
-                    message={loadingPoi ? "A carregar…" : "A carregar galeria…"}
-                />
+                <SpinnerOverlay open={loadingPoi || loadingGallery} message={loadingPoi ? "A carregar…" : "A carregar galeria…"} />
             )}
         </div>
     );

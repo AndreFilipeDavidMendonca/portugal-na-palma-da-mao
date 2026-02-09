@@ -8,6 +8,10 @@ import markerSvgRaw from "@/assets/icons/marker.svg?raw";
 
 type AnyGeo = any;
 
+function isMobileViewport() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
+}
+
 function getName(p: any) {
     const tags = p?.tags ?? {};
     return (
@@ -198,9 +202,9 @@ export function PoiPointsLayer({
     const zoom = useMapZoom();
 
     const MIN_ZOOM_ICONS = 13;
-    const MIN_ZOOM_TOOLTIPS = 18;
+    const MIN_ZOOM_TOOLTIPS = 17;
 
-    const MAX_OPEN = 5; // 👈 aqui (fixo em 5 como pediste)
+    const MAX_OPEN = 5;
 
     const showIcons = zoom >= MIN_ZOOM_ICONS;
     const showTooltips = zoom >= MIN_ZOOM_TOOLTIPS;
