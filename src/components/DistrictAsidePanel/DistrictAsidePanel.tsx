@@ -71,7 +71,7 @@ export default function DistrictAsidePanel({
         if (!error) return;
         if (lastErrRef.current === error) return;
         lastErrRef.current = error;
-        toast.error(error, { title: "Erro" });
+        toast.error(error);
     }, [error]);
 
     return (

@@ -105,7 +105,7 @@ export default function RegisterPage() {
 
     const showValidationToasts = (nextErrors: FieldErrors) => {
         for (const msg of Object.values(nextErrors)) {
-            if (msg) toast.error(msg, { title: "Registo", durationMs: 2600 });
+            if (msg) toast.error(msg);
         }
     };
 
@@ -137,10 +137,10 @@ export default function RegisterPage() {
             });
 
             setUser(newUser);
-            toast.success("Conta criada com sucesso.", { title: "Registo", durationMs: 2500 });
+            toast.success("Conta criada com sucesso.");
             navigate(from, { replace: true });
         } catch (err: any) {
-            toast.error(err?.message ?? "Falha no registo", { title: "Registo" });
+            toast.error(err?.message ?? "Falha no registo");
         } finally {
             setLoading(false);
         }

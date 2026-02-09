@@ -127,11 +127,11 @@ export default function PoiModal({
 
     const requireCanEdit = useCallback(() => {
         if (!poiId) {
-            toast.error("Não foi possível identificar o POI.", { title: "POI" });
+            toast.error("Não foi possível identificar o POI.");
             return false;
         }
         if (!canEdit) {
-            toast.error("Sem permissões para editar este POI.", { title: "POI" });
+            toast.error("Sem permissões para editar este POI.");
             return false;
         }
         return true;
@@ -180,9 +180,9 @@ export default function PoiModal({
                 images: updated.images,
             });
 
-            toast.success("Alterações guardadas.", { title: "POI", durationMs: 2500 });
+            toast.success("Alterações guardadas.");
         } catch (e: any) {
-            toast.error(e?.message || "Falha ao guardar alterações.", { title: "POI" });
+            toast.error(e?.message || "Falha ao guardar alterações.");
         } finally {
             setSaving(false);
         }

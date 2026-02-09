@@ -111,7 +111,7 @@ export default function CreatePoiPage() {
 
     const showValidationToasts = (nextErrors: FieldErrors) => {
         for (const msg of Object.values(nextErrors)) {
-            if (msg) toast.error(msg, { title: "Validação", durationMs: 2600 });
+            if (msg) toast.error(msg);
         }
     };
 
@@ -186,7 +186,7 @@ export default function CreatePoiPage() {
         const lonN = lon;
         if (latN == null || lonN == null) {
             setErrors((p) => ({ ...p, latlon: "Morada não localizada." }));
-            toast.error("Morada não localizada.", { title: "Validação", durationMs: 2600 });
+            toast.error("Morada não localizada.");
             return;
         }
 
@@ -205,11 +205,11 @@ export default function CreatePoiPage() {
                 images,
             });
 
-            toast.success("POI criado com sucesso.", { title: "Criar POI", durationMs: 1800 });
+            toast.success("POI criado com sucesso.");
             window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId: created.id } }));
             navigate("/");
         } catch (err: any) {
-            toast.error(err?.message ?? "Falha ao criar POI", { title: "Criar POI" });
+            toast.error(err?.message ?? "Falha ao criar POI");
         } finally {
             if (aliveRef.current) setLoading(false);
         }

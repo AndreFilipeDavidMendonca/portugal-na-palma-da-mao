@@ -68,12 +68,12 @@ export default function ImageDropField({
             const rejectedCount = all.length - filtered.length;
 
             if (filtered.length === 0) {
-                toast.error("Nenhum ficheiro compatível foi selecionado.", { title: "Upload" });
+                toast.error("Nenhum ficheiro compatível foi selecionado.");
                 return;
             }
 
             if (rejectedCount > 0) {
-                toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`, { title: "Upload" });
+                toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`);
             }
 
             setUploading(true);
@@ -98,8 +98,8 @@ export default function ImageDropField({
                         onChange(next);
                         setUploading(false);
 
-                        if (added > 0) toast.success(`${added} ficheiro(s) adicionado(s).`, { title: "Upload" });
-                        else toast.info("Nenhum ficheiro novo foi adicionado.", { title: "Upload" });
+                        if (added > 0) toast.success(`${added} ficheiro(s) adicionado(s).`);
+                        else toast.info("Nenhum ficheiro novo foi adicionado.");
                     }
                 };
 
@@ -108,7 +108,7 @@ export default function ImageDropField({
                     if (pending === 0) {
                         onChange(next);
                         setUploading(false);
-                        toast.error("Falha ao ler um ou mais ficheiros.", { title: "Upload" });
+                        toast.error("Falha ao ler um ou mais ficheiros.");
                     }
                 };
 
@@ -144,7 +144,7 @@ export default function ImageDropField({
         const next = images.slice();
         next.splice(i, 1);
         onChange(next);
-        toast.info("Item removido.", { title: "Galeria", durationMs: 2500 });
+        toast.info("Item removido.");
     };
 
     const extsLabel =

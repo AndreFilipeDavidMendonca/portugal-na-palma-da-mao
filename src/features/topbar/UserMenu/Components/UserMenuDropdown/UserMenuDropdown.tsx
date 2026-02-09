@@ -57,10 +57,7 @@ export default function UserMenuDropdown({
                         className="user-menu__item user-menu__item--danger"
                         onClick={() => {
                             onLogout();
-                            toast.success("Sessão terminada com sucesso.", {
-                                title: "Logout",
-                                durationMs: 3500,
-                            });
+                            toast.success("Sessão terminada com sucesso.");
                         }}
                         role="menuitem"
                     >
