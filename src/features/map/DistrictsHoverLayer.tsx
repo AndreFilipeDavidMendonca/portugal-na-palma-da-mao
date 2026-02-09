@@ -1,189 +1,161 @@
+// src/features/map/DistrictsHoverLayer.tsx
 import { GeoJSON, useMap } from "react-leaflet";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 
 type Props = {
     data: any;
     onClickDistrict?: (name: string | undefined, feature: any) => void;
+    capitalsByDistrictId?: Map<number, [number, number]>;
 };
 
-function isMobileViewport() {
-    return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
+const MIN_ZOOM_TOOLTIPS = 7;
+// 0.18 = ignora 18% de margem em cada lado (menos ruído nas bordas)
+const CENTER_MARGIN = 0.18;
+
+function getName(f: any): string | undefined {
+    return f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"] || undefined;
 }
 
-export default function DistrictsHoverLayer({ data, onClickDistrict }: Props) {
+function getDistrictId(f: any): number | null {
+    const id = f?.properties?.id;
+    return typeof id === "number" ? id : null;
+}
+
+export default function DistrictsHoverLayer({ data, onClickDistrict, capitalsByDistrictId }: Props) {
     const map = useMap();
+    const geoRef = useRef<L.GeoJSON | null>(null);
+    const hoveredRef = useRef<L.Path | null>(null);
+    const rafRef = useRef<number | null>(null);
 
-    const cs = getComputedStyle(document.documentElement);
+    const styles = useMemo(() => {
+        const cs = getComputedStyle(document.documentElement);
+        const borderColor = cs.getPropertyValue("--bg-panel").trim() || "#122b1a";
+        const fillColor = cs.getPropertyValue("--border").trim() || "#254b32";
+        const fillHover = cs.getPropertyValue("--border-2").trim() || "#2d593b";
+        const hoverBorder = cs.getPropertyValue("--gold-dark").trim() || "#b38f3b";
 
-    const borderColor = cs.getPropertyValue("--bg-panel").trim() || "#122b1a";
-    const fillColor = cs.getPropertyValue("--border").trim() || "#254b32";
-    const fillHover = cs.getPropertyValue("--border-2").trim() || "#2d593b";
-    const hoverBorder = cs.getPropertyValue("--gold-dark").trim() || "#b38f3b";
-
-    const baseStyle: L.PathOptions = useMemo(
-        () => ({
-            color: borderColor,
-            weight: 1.6,
-            fillColor,
-            fillOpacity: 1,
-        }),
-        [borderColor, fillColor]
-    );
-
-    const hoverStyle: L.PathOptions = useMemo(
-        () => ({
-            weight: 2.2,
-            color: hoverBorder,
-            fillColor: fillHover,
-            fillOpacity: 0.6, // ✅ a transparência do hover
-        }),
-        [hoverBorder, fillHover]
-    );
-
-    const getName = (f: any): string | undefined =>
-        f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"] || undefined;
-
-    // 🔒 “estado global” do hover em mobile
-    const activeKeyRef = useRef<string | number | null>(null);
-    const activeLayerRef = useRef<L.Path | null>(null);
-
-    // 👮 guard para não limpar no mesmo tap (map click logo a seguir)
-    const suppressMapClearUntilRef = useRef<number>(0);
-
-    const clearActive = () => {
-        const layer = activeLayerRef.current;
-        if (layer) {
-            (layer as any).setStyle?.(baseStyle);
-            const tt = (layer as any).getTooltip?.();
-            if (tt) (layer as any).closeTooltip?.();
-        }
-        activeLayerRef.current = null;
-        activeKeyRef.current = null;
-    };
-
-    // ✅ no mobile: tocar no mapa (fora) limpa
-    useEffect(() => {
-        const onMapClick = () => {
-            if (!isMobileViewport()) return;
-
-            // se acabámos de tocar num distrito, não limpar já
-            if (Date.now() < suppressMapClearUntilRef.current) return;
-
-            clearActive();
+        return {
+            base: { color: borderColor, weight: 1.6, fillColor, fillOpacity: 1 } as L.PathOptions,
+            hover: { color: hoverBorder, weight: 2.2, fillColor: fillHover, fillOpacity: 0.6 } as L.PathOptions,
         };
+    }, []);
 
-        map.on("click", onMapClick);
-        return () => {
-            map.off("click", onMapClick);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [map, baseStyle]);
+    const updateTooltips = useCallback(() => {
+        const g = geoRef.current;
+        if (!g) return;
 
-    function onEachFeature(feature: any, layer: L.Path) {
-        const name = getName(feature);
-
-        if (name) {
-            (layer as any).bindTooltip(name, {
-                className: "district-badge",
-                direction: "top",
-                sticky: !isMobileViewport(), // desktop segue cursor; mobile “fixo”
-                opacity: 1,
-                offset: [0, -10],
-            });
+        const z = map.getZoom();
+        if (z < MIN_ZOOM_TOOLTIPS) {
+            g.eachLayer((layer: any) => layer?.closeTooltip?.());
+            return;
         }
 
-        const key: string | number =
-            feature?.properties?.id ??
-            feature?.properties?.NAME ??
-            feature?.properties?.name ??
-            feature?.properties?.["name:pt"] ??
-            name ??
-            Math.random();
+        const mapBounds = map.getBounds();
+        const safeBounds = CENTER_MARGIN > 0 ? mapBounds.pad(-CENTER_MARGIN) : mapBounds;
 
-        const openDistrict = (e?: any) => {
-            const f = (e?.target as any)?.feature ?? feature;
-            onClickDistrict?.(getName(f), f);
-        };
+        g.eachLayer((layer: any) => {
+            const tt = layer?.getTooltip?.();
+            if (!tt) return;
 
-        const applyHover = (e?: any) => {
-            // fecha o anterior se for outro
-            if (activeKeyRef.current != null && activeKeyRef.current !== key) clearActive();
+            const feature = layer?.feature;
+            const districtId = getDistrictId(feature);
 
-            (layer as any).setStyle?.(hoverStyle);
-            (layer as any).bringToFront?.();
+            // 1) capital se existir  2) fallback: centro do bounds do distrito
+            const cap = districtId != null ? capitalsByDistrictId?.get(districtId) : null;
+            const bounds: L.LatLngBounds | null = layer?.getBounds?.() ?? null;
+            const fallbackCenter = bounds?.isValid?.() ? bounds.getCenter() : null;
 
-            const tt = (layer as any).getTooltip?.();
-            if (tt) (layer as any).openTooltip?.();
-
-            activeKeyRef.current = key;
-            activeLayerRef.current = layer;
-
-            // impede o map click de fechar no mesmo tap
-            suppressMapClearUntilRef.current = Date.now() + 250;
-
-            const domEv = e?.originalEvent;
-            if (domEv) {
-                L.DomEvent.preventDefault(domEv);
-                L.DomEvent.stopPropagation(domEv);
-            }
-        };
-
-        const removeHover = () => {
-            (layer as any).setStyle?.(baseStyle);
-            const tt = (layer as any).getTooltip?.();
-            if (tt) (layer as any).closeTooltip?.();
-        };
-
-        // -------------------
-        // Desktop hover
-        // -------------------
-        layer.on("mouseover", () => {
-            if (isMobileViewport()) return;
-            (layer as any).setStyle?.(hoverStyle);
-            (layer as any).bringToFront?.();
-            const tt = (layer as any).getTooltip?.();
-            if (tt) (layer as any).openTooltip?.();
-        });
-
-        layer.on("mouseout", () => {
-            if (isMobileViewport()) return;
-            removeHover();
-        });
-
-        // -------------------
-        // Desktop click abre
-        // -------------------
-        layer.on("click", (e: any) => {
-            if (isMobileViewport()) return;
-            openDistrict(e);
-        });
-
-        // -------------------
-        // Mobile: 1º toque = hover, 2º toque = abre
-        // -------------------
-        const onMobileTap = (e: any) => {
-            if (!isMobileViewport()) return;
-
-            // 1º toque: hover
-            if (activeKeyRef.current !== key) {
-                applyHover(e);
+            const anchor = cap ? L.latLng(cap[0], cap[1]) : fallbackCenter;
+            if (!anchor) {
+                layer.closeTooltip?.();
                 return;
             }
 
-            // 2º toque: abre
-            const domEv = e?.originalEvent;
-            if (domEv) {
-                L.DomEvent.preventDefault(domEv);
-                L.DomEvent.stopPropagation(domEv);
+            const forceOpen = hoveredRef.current === layer;
+            const shouldOpen = forceOpen || safeBounds.contains(anchor);
+
+            if (shouldOpen) {
+                tt.setLatLng(anchor); // ✅ move tooltip para capital/centro
+                layer.openTooltip?.();
+            } else {
+                layer.closeTooltip?.();
             }
-            openDistrict(e);
+        });
+    }, [map, capitalsByDistrictId]);
+
+    const scheduleUpdate = useCallback(() => {
+        if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(updateTooltips);
+    }, [updateTooltips]);
+
+    useEffect(() => {
+        const on = () => scheduleUpdate();
+        map.on("zoomend", on);
+        map.on("moveend", on);
+
+        scheduleUpdate();
+
+        return () => {
+            map.off("zoomend", on);
+            map.off("moveend", on);
+            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
         };
+    }, [map, scheduleUpdate]);
 
-        // iOS/Android mais fiável assim:
-        layer.on("touchstart", onMobileTap);
-        layer.on("mousedown", onMobileTap); // Android/Chrome às vezes prefere mousedown
-    }
+    const onEachFeature = useCallback(
+        (feature: any, layer: L.Path) => {
+            const name = getName(feature);
+            if (!name) return;
 
-    return <GeoJSON data={data} style={baseStyle} onEachFeature={onEachFeature} />;
+            (layer as any).bindTooltip(name, {
+                className: "district-badge",
+                direction: "top",
+                sticky: false,
+                permanent: false,
+                opacity: 1,
+                offset: [0, -10],
+            });
+            (layer as any).closeTooltip?.();
+
+            layer.on("click", (e: any) => {
+                const domEv = e?.originalEvent;
+                if (domEv) {
+                    L.DomEvent.preventDefault(domEv);
+                    L.DomEvent.stopPropagation(domEv);
+                }
+                onClickDistrict?.(name, feature);
+            });
+
+            layer.on("mouseover", () => {
+                (layer as any).setStyle?.(styles.hover);
+                (layer as any).bringToFront?.();
+                hoveredRef.current = layer;
+                scheduleUpdate();
+            });
+
+            layer.on("mouseout", () => {
+                (layer as any).setStyle?.(styles.base);
+                hoveredRef.current = null;
+                scheduleUpdate();
+            });
+
+            scheduleUpdate();
+        },
+        [onClickDistrict, styles.base, styles.hover, scheduleUpdate]
+    );
+
+    if (!data) return null;
+
+    return (
+        <GeoJSON
+            data={data}
+            style={styles.base}
+            onEachFeature={onEachFeature}
+            ref={(v: any) => {
+                geoRef.current = v ? ((v as any).leafletElement ?? v) : null;
+                scheduleUpdate();
+            }}
+        />
+    );
 }

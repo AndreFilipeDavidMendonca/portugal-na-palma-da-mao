@@ -141,6 +141,20 @@ export default function Home() {
     /* =========================
        Load Geo
     ========================= */
+
+    const capitalsByDistrictId = useMemo(() => {
+        const m = new Map<number, [number, number]>();
+        for (const d of districtDtos) {
+            const id = (d as any).id;
+            const lat = (d as any).lat;
+            const lon = (d as any).lon;
+            if (typeof id === "number" && typeof lat === "number" && typeof lon === "number") {
+                m.set(id, [lat, lon]);
+            }
+        }
+        return m;
+    }, [districtDtos]);
+
     useEffect(() => {
         let aborted = false;
 
@@ -169,15 +183,13 @@ export default function Home() {
             animate,
             paddingTopLeft: [10, topH + 50],
             paddingBottomRight: [10, 10],
-            maxZoom: 7,
+            maxZoom: 10,
         });
 
         // não prender maxBounds ao continente, mantém WORLD_BOUNDS para não “cortar” o mapa
         setTimeout(() => map.invalidateSize(), 0);
     }, []);
-    /* =========================
-       ensureAllPois (dedupe)
-    ========================= */
+
     const ensureAllPois = useCallback(async (): Promise<PoiDto[]> => {
         if (allPois.length > 0) return allPois;
 
@@ -602,7 +614,11 @@ export default function Home() {
                     </Pane>
 
                     {districtsGeo && (
-                        <DistrictsHoverLayer data={districtsGeo as any} onClickDistrict={handleClickDistrict} />
+                        <DistrictsHoverLayer
+                            data={districtsGeo as any}
+                            onClickDistrict={handleClickDistrict}
+                            capitalsByDistrictId={capitalsByDistrictId}
+                        />
                     )}
                 </MapContainer>
             </div>
