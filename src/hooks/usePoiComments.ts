@@ -34,7 +34,7 @@ export default function usePoiComments({ open, poiId, user }: Args) {
             } catch (e: any) {
                 if (!alive) return;
                 setComments([]);
-                toast.error(e?.message ?? "Falha ao carregar comentários.", { title: "Comentários" });
+                toast.error(e?.message ?? "Falha ao carregar comentários.");
             } finally {
                 if (alive) setLoading(false);
             }
@@ -53,7 +53,7 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         if (!trimmed) return;
 
         if (!user) {
-            toast.info("Faz login para comentar.", { title: "Comentários" });
+            toast.info("Faz login para comentar.");
             return;
         }
 
@@ -63,9 +63,9 @@ export default function usePoiComments({ open, poiId, user }: Args) {
             const created = await addPoiComment(poiId, trimmed);
             setComments((prev) => [created, ...prev]);
             setBody("");
-            toast.success("Comentário publicado.", { title: "Comentários", durationMs: 1400 });
+            toast.success("Comentário publicado.");
         } catch (e: any) {
-            toast.error(e?.message ?? "Falha ao enviar comentário.", { title: "Comentários" });
+            toast.error(e?.message ?? "Falha ao enviar comentário.");
         } finally {
             setSending(false);
         }
@@ -79,9 +79,9 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         try {
             await deletePoiComment(commentId);
             setComments((prev) => prev.filter((c) => c.id !== commentId));
-            toast.success("Comentário removido.", { title: "Comentários", durationMs: 1400 });
+            toast.success("Comentário removido.");
         } catch (e: any) {
-            toast.error(e?.message ?? "Falha ao remover comentário.", { title: "Comentários" });
+            toast.error(e?.message ?? "Falha ao remover comentário.");
         } finally {
             setSending(false);
         }

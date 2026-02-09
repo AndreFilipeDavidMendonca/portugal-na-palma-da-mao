@@ -1,12 +1,41 @@
+// src/pages/auth/LoginPage.tsx
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
+import { toast } from "@/components/Toastr/toast";
 import "./LoginPage.scss";
-import {toast} from "@/components/Toastr/toast";
 
-export default function Login() {
+type FieldKey = "email" | "password";
+type FieldErrors = Partial<Record<FieldKey, string>>;
+
+function getErrorMessage(e: any) {
+    const raw =
+        e?.message ||
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.statusText ||
+        "";
+
+    const status = e?.status ?? e?.response?.status;
+
+    // “funcional”
+    if (status === 401) return "Email ou password inválidos.";
+    if (status === 403) return "Sem permissões para entrar.";
+    if (status >= 500) return "Serviço indisponível. Tenta novamente em breve.";
+
+    // fallback amigável
+    if (typeof raw === "string" && raw.trim()) {
+        // evita leak de “401 Unauthorized”
+        if (/401|unauthorized/i.test(raw)) return "Email ou password inválidos.";
+        return raw;
+    }
+
+    return "Falha no login.";
+}
+
+export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const { setUser } = useAuth();
@@ -15,21 +44,76 @@ export default function Login() {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<FieldErrors>({});
+    const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
+
+    function touch(field: FieldKey) {
+        setTouched((p) => ({ ...p, [field]: true }));
+    }
+
+    function clearFieldError(field: FieldKey) {
+        setErrors((p) => {
+            if (!p[field]) return p;
+            const { [field]: _removed, ...rest } = p;
+            return rest;
+        });
+    }
+
+    function isInvalid(field: FieldKey) {
+        return Boolean(touched[field] && errors[field]);
+    }
+
+    function validate(): FieldErrors {
+        const next: FieldErrors = {};
+
+        if (!email.trim()) next.email = "Email é obrigatório.";
+        else if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = "Email inválido.";
+
+        if (!password) next.password = "Password é obrigatória.";
+
+        return next;
+    }
+
+    function showValidationToasts(nextErrors: FieldErrors) {
+        for (const msg of Object.values(nextErrors)) {
+            if (msg) toast.error(msg);
+        }
+    }
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (loading) return;
 
+        setTouched({ email: true, password: true });
+
+        const nextErrors = validate();
+        setErrors(nextErrors);
+
+        if (Object.keys(nextErrors).length > 0) {
+            showValidationToasts(nextErrors);
+            return;
+        }
+
         setLoading(true);
 
         try {
-            const u = await login(email, password);
+            const u = await login(email.trim(), password);
             setUser(u);
-            toast.success("Login efetuado.", { title: "Conta", durationMs: 1600 });
+
+            toast.success("Login efetuado.");
             navigate(from, { replace: true });
-        } catch (e: any) {
-            toast.error(e?.message ?? "Falha no login", { title: "Login" });
+        } catch (err: any) {
+            toast.error(getErrorMessage(err));
+
+            // UX: se falhou auth, marca ambos como inválidos
+            setErrors((p) => ({
+                ...p,
+                email: p.email ?? "Verifica o email.",
+                password: p.password ?? "Verifica a password.",
+            }));
+            setTouched((t) => ({ ...t, email: true, password: true }));
         } finally {
             setLoading(false);
         }
@@ -47,20 +131,28 @@ export default function Login() {
 
                 <form onSubmit={onSubmit} className="login-form">
                     <input
-                        className="login-input"
+                        className={`login-input ${isInvalid("email") ? "is-invalid" : ""}`}
                         placeholder="Email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onBlur={() => touch("email")}
+                        onChange={(e) => {
+                            setEmail(e.target.value);
+                            clearFieldError("email");
+                        }}
                         autoComplete="email"
                         disabled={loading}
                     />
 
                     <input
-                        className="login-input"
+                        className={`login-input ${isInvalid("password") ? "is-invalid" : ""}`}
                         placeholder="Password"
                         type="password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onBlur={() => touch("password")}
+                        onChange={(e) => {
+                            setPassword(e.target.value);
+                            clearFieldError("password");
+                        }}
                         autoComplete="current-password"
                         disabled={loading}
                     />

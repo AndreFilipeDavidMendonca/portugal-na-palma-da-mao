@@ -1,10 +1,8 @@
-// src/components/Toastr/toast.ts
 export type ToastType = "info" | "success" | "error";
 
 export type ToastItem = {
     id: string;
     type: ToastType;
-    title?: string;
     message: string;
     durationMs: number;
     createdAt: number;
@@ -26,11 +24,7 @@ function uid() {
 export function subscribeToToasts(listener: ToastListener) {
     listeners.add(listener);
     listener(items);
-
-    // ✅ IMPORTANT: return void, not boolean
-    return () => {
-        listeners.delete(listener);
-    };
+    return () => listeners.delete(listener);
 }
 
 export function dismissToast(id: string) {
@@ -45,7 +39,6 @@ export function clearToasts() {
 
 export type ShowToastOptions = {
     type?: ToastType;
-    title?: string;
     durationMs?: number;
 };
 
@@ -53,9 +46,8 @@ export function showToast(message: string, opts: ShowToastOptions = {}) {
     const toast: ToastItem = {
         id: uid(),
         type: opts.type ?? "info",
-        title: opts.title,
         message,
-        durationMs: opts.durationMs ?? 3500,
+        durationMs: opts.durationMs ?? 5000,
         createdAt: Date.now(),
     };
 
@@ -67,10 +59,13 @@ export function showToast(message: string, opts: ShowToastOptions = {}) {
 export const toast = {
     info: (message: string, opts: Omit<ShowToastOptions, "type"> = {}) =>
         showToast(message, { ...opts, type: "info" }),
+
     success: (message: string, opts: Omit<ShowToastOptions, "type"> = {}) =>
         showToast(message, { ...opts, type: "success" }),
+
     error: (message: string, opts: Omit<ShowToastOptions, "type"> = {}) =>
         showToast(message, { ...opts, type: "error" }),
+
     dismiss: dismissToast,
     clear: clearToasts,
 };

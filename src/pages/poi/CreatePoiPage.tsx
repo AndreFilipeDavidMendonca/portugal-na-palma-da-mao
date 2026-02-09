@@ -1,4 +1,3 @@
-// src/pages/pois/CreatePoiPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,17 +9,21 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import ImageDropField from "@/components/ImageDropField/ImageDropField";
+import { toast } from "@/components/Toastr/toast";
 import "./CreatePoiPage.scss";
 
 type Category = "Evento" | "Artesanato" | "Gastronomia" | "Alojamento";
+
+type FieldKey = "name" | "districtId" | "municipality" | "street" | "latlon" | "images";
+type FieldErrors = Partial<Record<FieldKey, string>>;
+
+const ALL_FIELDS: FieldKey[] = ["name", "districtId", "municipality", "street", "latlon", "images"];
 
 export default function CreatePoiPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
     const canCreate = user?.role === "BUSINESS" || user?.role === "ADMIN";
-
-    /* ---------------- Form state ---------------- */
 
     const [name, setName] = useState("");
     const [category, setCategory] = useState<Category>("Evento");
@@ -40,11 +43,10 @@ export default function CreatePoiPage() {
     const [geoLoading, setGeoLoading] = useState(false);
 
     const [images, setImages] = useState<string[]>([]);
-
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    /* ---------------- Lifecycle guards ---------------- */
+    const [errors, setErrors] = useState<FieldErrors>({});
+    const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
 
     const aliveRef = useRef(true);
     useEffect(() => {
@@ -54,14 +56,10 @@ export default function CreatePoiPage() {
         };
     }, []);
 
-    /* ---------------- Permissions ---------------- */
-
     useEffect(() => {
         if (user == null) return;
         if (!canCreate) navigate("/");
     }, [user, canCreate, navigate]);
-
-    /* ---------------- Districts ---------------- */
 
     useEffect(() => {
         if (!canCreate) return;
@@ -84,11 +82,41 @@ export default function CreatePoiPage() {
         return d?.namePt ?? d?.name ?? "";
     }, [districtId, districts]);
 
-    /* ---------------- Geocode (debounced) ---------------- */
+    const setFieldTouched = (field: FieldKey) => {
+        setTouched((p) => ({ ...p, [field]: true }));
+    };
+
+    const clearFieldError = (field: FieldKey) => {
+        setErrors((p) => {
+            if (!p[field]) return p;
+            const { [field]: _removed, ...rest } = p;
+            return rest;
+        });
+    };
+
+    const isInvalid = (field: FieldKey) => Boolean(touched[field] && errors[field]);
+
+    const validateForm = (): FieldErrors => {
+        const next: FieldErrors = {};
+
+        if (!name.trim()) next.name = "Nome é obrigatório.";
+        if (!districtId) next.districtId = "Seleciona o distrito.";
+        if (!municipality.trim()) next.municipality = "Concelho é obrigatório.";
+        if (!street.trim()) next.street = "Rua é obrigatória.";
+        if (lat == null || lon == null) next.latlon = "Morada não localizada.";
+        if (images.length === 0) next.images = "Adiciona pelo menos uma imagem.";
+
+        return next;
+    };
+
+    const showValidationToasts = (nextErrors: FieldErrors) => {
+        for (const msg of Object.values(nextErrors)) {
+            if (msg) toast.error(msg, { title: "Validação", durationMs: 2600 });
+        }
+    };
 
     const addressKey = useMemo(
-        () =>
-            `${street}|${houseNumber}|${postalCode}|${municipality}|${selectedDistrictName}`,
+        () => `${street}|${houseNumber}|${postalCode}|${municipality}|${selectedDistrictName}`,
         [street, houseNumber, postalCode, municipality, selectedDistrictName]
     );
 
@@ -117,11 +145,16 @@ export default function CreatePoiPage() {
                 setLat(res.lat);
                 setLon(res.lon);
                 setGeoStatus(`Localizado ✅ (${Math.round(res.confidence * 100)}%)`);
+
+                clearFieldError("latlon");
             } catch {
                 if (!aliveRef.current) return;
                 setLat(null);
                 setLon(null);
                 setGeoStatus("Não foi possível localizar a morada");
+
+                // só marca erro no campo se o user já tocou ou se já tentou submeter
+                setErrors((p) => ({ ...p, latlon: "Morada não localizada." }));
             } finally {
                 if (!aliveRef.current) return;
                 setGeoLoading(false);
@@ -129,22 +162,33 @@ export default function CreatePoiPage() {
         }, 900);
 
         return () => clearTimeout(timer);
-    }, [addressKey, loading, street, municipality, houseNumber, postalCode, selectedDistrictName]);
-
-    /* ---------------- Submit ---------------- */
+    }, [addressKey, loading, street, municipality, houseNumber, postalCode, selectedDistrictName]); // ok
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (loading) return;
 
-        setError(null);
+        const nextErrors = validateForm();
 
-        if (!name.trim()) return setError("Nome é obrigatório.");
-        if (!districtId) return setError("Seleciona o distrito.");
-        if (!municipality.trim()) return setError("Concelho é obrigatório.");
-        if (!street.trim()) return setError("Rua é obrigatória.");
-        if (lat == null || lon == null) return setError("Morada não localizada.");
-        if (images.length === 0) return setError("Adiciona pelo menos uma imagem.");
+        setTouched((t) => ({
+            ...t,
+            ...Object.fromEntries(ALL_FIELDS.map((k) => [k, true])),
+        }));
+        setErrors(nextErrors);
+
+        if (Object.keys(nextErrors).length > 0) {
+            showValidationToasts(nextErrors);
+            return;
+        }
+
+        // Aqui o TS já não “acredita”, então fechamos com guard tipado
+        const latN = lat;
+        const lonN = lon;
+        if (latN == null || lonN == null) {
+            setErrors((p) => ({ ...p, latlon: "Morada não localizada." }));
+            toast.error("Morada não localizada.", { title: "Validação", durationMs: 2600 });
+            return;
+        }
 
         setLoading(true);
 
@@ -155,25 +199,21 @@ export default function CreatePoiPage() {
                 description: description.trim() || null,
                 districtId: Number(districtId),
                 municipality: municipality.trim(),
-                lat,
-                lon,
+                lat: latN,
+                lon: lonN,
                 image: images[0],
                 images,
             });
 
-            window.dispatchEvent(
-                new CustomEvent("pt:open-poi", { detail: { poiId: created.id } })
-            );
-
+            toast.success("POI criado com sucesso.", { title: "Criar POI", durationMs: 1800 });
+            window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId: created.id } }));
             navigate("/");
-        } catch (e: any) {
-            setError(e?.message ?? "Falha ao criar POI");
+        } catch (err: any) {
+            toast.error(err?.message ?? "Falha ao criar POI", { title: "Criar POI" });
         } finally {
             if (aliveRef.current) setLoading(false);
         }
     }
-
-    /* ---------------- Render ---------------- */
 
     return (
         <div className="create-poi-page">
@@ -182,10 +222,14 @@ export default function CreatePoiPage() {
 
                 <form onSubmit={onSubmit} className="create-poi-form">
                     <input
-                        className="create-poi-input"
+                        className={`create-poi-input ${isInvalid("name") ? "is-invalid" : ""}`}
                         placeholder="Nome"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onBlur={() => setFieldTouched("name")}
+                        onChange={(e) => {
+                            setName(e.target.value);
+                            clearFieldError("name");
+                        }}
                         disabled={loading}
                         autoComplete="off"
                     />
@@ -211,9 +255,13 @@ export default function CreatePoiPage() {
                     />
 
                     <select
-                        className="create-poi-input"
+                        className={`create-poi-input ${isInvalid("districtId") ? "is-invalid" : ""}`}
                         value={districtId}
-                        onChange={(e) => setDistrictId(e.target.value ? Number(e.target.value) : "")}
+                        onBlur={() => setFieldTouched("districtId")}
+                        onChange={(e) => {
+                            setDistrictId(e.target.value ? Number(e.target.value) : "");
+                            clearFieldError("districtId");
+                        }}
                         disabled={loading}
                     >
                         <option value="">Seleciona o distrito…</option>
@@ -226,17 +274,27 @@ export default function CreatePoiPage() {
 
                     <div className="create-poi-grid">
                         <input
+                            className={isInvalid("municipality") ? "is-invalid" : ""}
                             placeholder="Concelho (obrigatório)"
                             value={municipality}
-                            onChange={(e) => setMunicipality(e.target.value)}
+                            onBlur={() => setFieldTouched("municipality")}
+                            onChange={(e) => {
+                                setMunicipality(e.target.value);
+                                clearFieldError("municipality");
+                            }}
                             disabled={loading}
                             autoComplete="address-level2"
                         />
 
                         <input
+                            className={isInvalid("street") ? "is-invalid" : ""}
                             placeholder="Rua (obrigatória)"
                             value={street}
-                            onChange={(e) => setStreet(e.target.value)}
+                            onBlur={() => setFieldTouched("street")}
+                            onChange={(e) => {
+                                setStreet(e.target.value);
+                                clearFieldError("street");
+                            }}
                             disabled={loading}
                             autoComplete="street-address"
                         />
@@ -260,16 +318,24 @@ export default function CreatePoiPage() {
                         />
                     </div>
 
-                    {geoStatus && <div className="create-poi-geo">{geoStatus}</div>}
+                    {geoStatus && (
+                        <div className={`create-poi-geo ${isInvalid("latlon") ? "is-invalid-text" : ""}`}>
+                            {geoStatus}
+                        </div>
+                    )}
 
-                    <ImageDropField
-                        label="Imagens do POI"
-                        images={images}
-                        onChange={(list) => setImages(list.slice(0, 6))}
-                        mode="image"
-                    />
-
-                    {error && <div className="create-poi-error">{error}</div>}
+                    <div className={isInvalid("images") ? "is-invalid-block" : ""}>
+                        <ImageDropField
+                            label="Imagens do POI"
+                            images={images}
+                            onChange={(list) => {
+                                setImages(list.slice(0, 6));
+                                clearFieldError("images");
+                                setFieldTouched("images");
+                            }}
+                            mode="image"
+                        />
+                    </div>
 
                     <div className="create-poi-actions">
                         <button className="create-poi-btn create-poi-btn--primary" disabled={loading || geoLoading}>

@@ -1,17 +1,9 @@
-/* ==========================
-   Register Page
-========================== */
-
 .register-page {
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 20px;
 }
-
-/* ==========================
-   Card
-========================== */
 
 .register-card {
   width: min(680px, 96vw);
@@ -25,10 +17,6 @@
   border: 1px solid var(--border);
   box-sizing: border-box;
 }
-
-/* ==========================
-   Header
-========================== */
 
 .register-logo {
   display: grid;
@@ -48,18 +36,10 @@
   font-family: var(--font-title), serif;
 }
 
-/* ==========================
-   Form
-========================== */
-
 .register-form {
   display: grid;
   gap: 14px;
 }
-
-/* ==========================
-   Role Selector
-========================== */
 
 .register-role {
   display: grid;
@@ -87,7 +67,7 @@
   color: var(--gold);
   cursor: pointer;
 
-  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 
   &.is-active {
     background: var(--gold);
@@ -100,10 +80,6 @@
     cursor: default;
   }
 }
-
-/* ==========================
-   Inputs
-========================== */
 
 .register-input {
   width: 100%;
@@ -127,17 +103,10 @@
   grid-template-columns: 1fr 1fr;
 }
 
-.register-error {
-  padding: 10px;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--gold-strong);
+.is-invalid {
+  border: 1.6px solid rgba(235, 85, 85, 0.9) !important;
+  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16) !important;
 }
-
-/* ==========================
-   Actions
-========================== */
 
 .register-actions {
   display: flex;
@@ -170,12 +139,7 @@
   border: 1px solid var(--gold-dark);
 }
 
-/* ======================================================
-   MOBILE (organizado no fim, sem repetição)
-====================================================== */
-
 @media (max-width: 600px) {
-
   .register-page {
     display: block;
     padding: 14px 12px calc(20px + env(safe-area-inset-bottom));
@@ -227,8 +191,6 @@
     padding: 12px 18px;
   }
 }
-
-/* Extra small devices */
 
 @media (max-width: 360px) {
   .register-role-toggle {

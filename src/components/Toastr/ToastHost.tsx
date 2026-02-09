@@ -1,4 +1,3 @@
-// src/components/Toastr/ToastHost.tsx
 import React from "react";
 import ReactDOM from "react-dom";
 import { dismissToast, subscribeToToasts, type ToastItem } from "./toast";
@@ -15,96 +14,35 @@ function Icon({ type }: { type: ToastItem["type"] }) {
 }
 
 function ToastCard({ t }: { t: ToastItem }) {
-    const [hover, setHover] = React.useState(false);
-    const [progress, setProgress] = React.useState(1);
-
-    const startRef = React.useRef<number>(t.createdAt);
-    const rafRef = React.useRef<number | null>(null);
-    const pausedAtRef = React.useRef<number | null>(null);
-
     React.useEffect(() => {
         if (t.durationMs <= 0) return;
 
-        const tick = () => {
-            const now = Date.now();
-            const elapsed = now - startRef.current;
-            const p = Math.max(0, 1 - elapsed / t.durationMs);
-            setProgress(p);
+        const timer = setTimeout(() => {
+            dismissToast(t.id);
+        }, t.durationMs);
 
-            if (p <= 0) {
-                dismissToast(t.id);
-                return;
-            }
-            rafRef.current = requestAnimationFrame(tick);
-        };
-
-        rafRef.current = requestAnimationFrame(tick);
-
-        return () => {
-            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-        };
+        return () => clearTimeout(timer);
     }, [t.id, t.durationMs]);
-
-    React.useEffect(() => {
-        if (t.durationMs <= 0) return;
-
-        if (hover) {
-            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-            rafRef.current = null;
-            pausedAtRef.current = Date.now();
-            return;
-        }
-
-        if (pausedAtRef.current != null) {
-            const pausedFor = Date.now() - pausedAtRef.current;
-            startRef.current += pausedFor;
-            pausedAtRef.current = null;
-        }
-
-        const tick = () => {
-            const now = Date.now();
-            const elapsed = now - startRef.current;
-            const p = Math.max(0, 1 - elapsed / t.durationMs);
-            setProgress(p);
-
-            if (p <= 0) {
-                dismissToast(t.id);
-                return;
-            }
-            rafRef.current = requestAnimationFrame(tick);
-        };
-
-        rafRef.current = requestAnimationFrame(tick);
-
-        return () => {
-            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-        };
-    }, [hover, t.durationMs, t.id]);
 
     return (
         <div
             className={`toast toast--${t.type}`}
             role="status"
             aria-live={t.type === "error" ? "assertive" : "polite"}
-            onMouseEnter={() => setHover(true)}
-            onMouseLeave={() => setHover(false)}
         >
             <div className="toast__left">
                 <Icon type={t.type} />
             </div>
 
-            <div className="toast__main">
-                {t.title && <div className="toast__title">{t.title}</div>}
-                <div className="toast__msg">{t.message}</div>
-
-                {t.durationMs > 0 && (
-                    <div className="toast__bar">
-                        <div className="toast__barFill" style={{ transform: `scaleX(${progress})` }} />
-                    </div>
-                )}
+            <div className="toast__msg">
+                {t.message}
             </div>
 
-            <button className="toast__close" onClick={() => dismissToast(t.id)} aria-label="Fechar">
+            <button
+                className="toast__close"
+                onClick={() => dismissToast(t.id)}
+                aria-label="Fechar"
+            >
                 ×
             </button>
         </div>
@@ -116,7 +54,9 @@ export default function ToastHost({ position = "top-right" }: Props) {
 
     React.useEffect(() => {
         const unsub = subscribeToToasts(setToasts);
-        return unsub;
+        return () => {
+            unsub();
+        };
     }, []);
 
     return ReactDOM.createPortal(

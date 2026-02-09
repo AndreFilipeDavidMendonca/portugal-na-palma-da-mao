@@ -44,7 +44,7 @@ export default function usePoiFavorite({ open, poiId, user }: Args) {
         if (!poiId || favLoading) return;
 
         if (!user) {
-            toast.info("Para adicionares aos favoritos, tens de te registar / fazer login.", { title: "Favoritos" });
+            toast.info("Para adicionares aos favoritos, tens de te registar / fazer login.");
             return;
         }
 
@@ -53,14 +53,14 @@ export default function usePoiFavorite({ open, poiId, user }: Args) {
             if (isFav) {
                 await removeFavorite(poiId);
                 setIsFav(false);
-                toast.info("Removido dos favoritos.", { title: "Favoritos", durationMs: 1600 });
+                toast.info("Removido dos favoritos.");
             } else {
                 await addFavorite(poiId);
                 setIsFav(true);
-                toast.success("Adicionado aos favoritos.", { title: "Favoritos", durationMs: 1600 });
+                toast.success("Adicionado aos favoritos.");
             }
         } catch (e: any) {
-            toast.error(e?.message ?? "Falha ao atualizar favoritos.", { title: "Favoritos" });
+            toast.error(e?.message ?? "Falha ao atualizar favoritos.");
         } finally {
             setFavLoading(false);
         }
