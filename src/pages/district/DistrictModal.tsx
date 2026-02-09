@@ -1,44 +1,29 @@
 // src/pages/district/DistrictModal.tsx
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { loadGeo } from "@/lib/geo";
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
-
-import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
 
-import { type DistrictUpdatePayload, fetchDistrictById, updateDistrict } from "@/lib/api";
+import { fetchDistrictById, updateDistrict } from "@/lib/api";
 import { type DistrictInfo, fetchDistrictInfo } from "@/lib/districtInfo";
 
 import { getDistrictCommonsGallery } from "@/lib/wikimedia";
 import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
-
 import { normalizeCat } from "@/utils/poiCategory";
 
-import "./DistrictModal.scss";
+import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
+import PoiFiltersMobileDropdown from "@/features/filters/PoiFilter/PoiFiltersMobileDropdown";
+
 import DistrictAsidePanel from "@/components/DistrictAsidePanel/DistrictAsidePanel";
 import DistrictGalleryPane from "@/components/DistrictGalleryPane/DistrictGalleryPane";
 import DistrictMapPane from "@/components/DistrictMapPane/DistrictMapPane";
-import PoiFiltersMobileDropdown from "@/features/filters/PoiFilter/PoiFiltersMobileDropdown";
+
+import "./DistrictModal.scss";
 
 type AnyGeo = any;
-
-const uniqStrings = (arr: string[]): string[] => Array.from(new Set((arr ?? []).filter(Boolean)));
-
-const pickPoiLabel = (feature: any): string | null => {
-    const p = feature?.properties ?? {};
-    const label = p.namePt ?? p["name:pt"] ?? p.name ?? p["name:en"] ?? p.label ?? null;
-    return typeof label === "string" && label.trim().length >= 3 ? label.trim() : null;
-};
-
-const pickPoiId = (feature: any): number | null => {
-    const id = feature?.properties?.id;
-    return typeof id === "number" ? id : null;
-};
-
-const mergeMedia10 = (base: string[], extra: string[]) => uniqStrings([...base, ...extra]).slice(0, 10);
 
 type Props = {
     open: boolean;
@@ -74,37 +59,59 @@ type Props = {
 
 type PoiCacheEntry = { info: PoiInfo; updatedAt: number };
 
-export default function DistrictModal(props: Props) {
-    const {
-        open,
-        onClose,
-        districtFeature,
-        selectedTypes,
-        onToggleType,
-        onClearTypes,
-        poiPoints,
-        poiAreas = null,
-        rivers: riversProp = null,
-        lakes: lakesProp = null,
-        rails: railsProp = null,
-        roads: roadsProp = null,
-        peaks: peaksProp = null,
-        places: placesProp = null,
-        onPoiUpdated,
-        isAdmin = false,
-    } = props;
+const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
-    /* ---------------- POI selection ---------------- */
-    const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
-    const [poiInfo, setPoiInfo] = useState<PoiInfo | null>(null);
-    const [showPoiModal, setShowPoiModal] = useState(false);
-    const [loadingPoi, setLoadingPoi] = useState(false);
+const pickPoiLabel = (feature: any): string | null => {
+    const p = feature?.properties ?? {};
+    const label = p.namePt ?? p["name:pt"] ?? p.name ?? p["name:en"] ?? p.label ?? null;
+    return typeof label === "string" && label.trim().length >= 3 ? label.trim() : null;
+};
 
-    const reqRef = useRef(0);
-    const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
-    const poiInflightRef = useRef<Map<number, Promise<PoiInfo | null>>>(new Map());
+const pickPoiId = (feature: any): number | null => {
+    const id = feature?.properties?.id;
+    return typeof id === "number" ? id : null;
+};
 
-    /* ---------------- Layers / filtros ---------------- */
+const mergeMedia10 = (base: string[], extra: string[]) =>
+    uniqStrings([...base, ...extra]).slice(0, 10);
+
+async function safeLoadGeoParts(paths: string[]): Promise<any | null> {
+    try {
+        const parts = await Promise.all(paths.map((p) => loadGeo(p)));
+        const features = parts.flatMap((p: any) => p?.features ?? []);
+        return features.length ? { type: "FeatureCollection", features } : null;
+    } catch {
+        return null;
+    }
+}
+
+export default function DistrictModal({
+                                          open,
+                                          onClose,
+                                          districtFeature,
+                                          selectedTypes,
+                                          onToggleType,
+                                          onClearTypes,
+                                          poiPoints,
+                                          poiAreas = null,
+                                          rivers: riversProp = null,
+                                          lakes: lakesProp = null,
+                                          rails: railsProp = null,
+                                          roads: roadsProp = null,
+                                          peaks: peaksProp = null,
+                                          places: placesProp = null,
+                                          onPoiUpdated,
+                                          isAdmin = false,
+                                      }: Props) {
+    const aliveRef = useRef(true);
+    useEffect(() => {
+        aliveRef.current = true;
+        return () => {
+            aliveRef.current = false;
+        };
+    }, []);
+
+    /* ---------------- Map layers ---------------- */
     const [renderNonce, setRenderNonce] = useState(0);
 
     const [rivers, setRivers] = useState<any>(riversProp);
@@ -120,37 +127,56 @@ export default function DistrictModal(props: Props) {
     const [savingDistrict, setSavingDistrict] = useState(false);
     const [districtError, setDistrictError] = useState<string | null>(null);
 
-    const [distName, setDistName] = useState<string>("");
-    const [distPopulation, setDistPopulation] = useState<string>("");
-    const [distMunicipalities, setDistMunicipalities] = useState<string>("");
-    const [distParishes, setDistParishes] = useState<string>("");
-    const [distInhabitedSince, setDistInhabitedSince] = useState<string>("");
-    const [distDescription, setDistDescription] = useState<string>("");
-    const [distHistory, setDistHistory] = useState<string>("");
+    const [distName, setDistName] = useState("");
+    const [distPopulation, setDistPopulation] = useState("");
+    const [distMunicipalities, setDistMunicipalities] = useState("");
+    const [distParishes, setDistParishes] = useState("");
+    const [distInhabitedSince, setDistInhabitedSince] = useState("");
+    const [distDescription, setDistDescription] = useState("");
+    const [distHistory, setDistHistory] = useState("");
     const [distMedia, setDistMedia] = useState<string[]>([]);
 
     const [showGallery, setShowGallery] = useState(false);
     const [loadingGallery, setLoadingGallery] = useState(false);
 
-    const districtNameFallback = (districtFeature?.properties?.name as string | undefined) || "Distrito";
+    const districtNameFallback =
+        (districtFeature?.properties?.name as string | undefined) || "Distrito";
 
-    /* ---------------- Topbar nav mode ---------------- */
-    type NavMode = "home" | "back";
-    const navMode: NavMode = showGallery ? "back" : "home";
+    /* ---------------- POI modal ---------------- */
+    const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
+    const [poiInfo, setPoiInfo] = useState<PoiInfo | null>(null);
+    const [showPoiModal, setShowPoiModal] = useState(false);
+    const [loadingPoi, setLoadingPoi] = useState(false);
+
+    const reqRef = useRef(0);
+    const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
+    const poiInflightRef = useRef<Map<number, Promise<PoiInfo | null>>>(new Map());
+
+    const navMode = showGallery ? "back" : "home";
+
+    const resetPoiState = useCallback(() => {
+        setSelectedPoi(null);
+        setPoiInfo(null);
+        setShowPoiModal(false);
+        setLoadingPoi(false);
+    }, []);
 
     const goHome = useCallback(() => {
-        // fechar tudo e sair do modal
         setShowGallery(false);
         setEditingDistrict(false);
         setDistrictError(null);
+        resetPoiState();
         onClose();
-    }, [onClose]);
+    }, [onClose, resetPoiState]);
 
     const goBackToMap = useCallback(() => {
         setShowGallery(false);
         setEditingDistrict(false);
         setDistrictError(null);
         setLoadingGallery(false);
+
+        // ✅ Ajuda a re-montar layers e voltar a disparar o “auto-open tooltips” no PoiPointsLayer
+        setRenderNonce((n) => n + 1);
     }, []);
 
     const onNavPress = useCallback(() => {
@@ -158,21 +184,22 @@ export default function DistrictModal(props: Props) {
         else goHome();
     }, [navMode, goBackToMap, goHome]);
 
-    /* ---------------- Reset ao fechar ---------------- */
+    /* ---------------- Reset when closed ---------------- */
     useEffect(() => {
         if (!open) {
             setShowGallery(false);
             setEditingDistrict(false);
             setDistrictError(null);
-
-            setSelectedPoi(null);
-            setPoiInfo(null);
-            setShowPoiModal(false);
-            setLoadingPoi(false);
+            setLoadingGallery(false);
+            resetPoiState();
+            return;
         }
-    }, [open]);
 
-    /* ---------------- Load districtInfo ---------------- */
+        // ✅ Ao abrir o modal, força “fresh mount” no layer e tooltips (quando fizer zoom-in)
+        setRenderNonce((n) => n + 1);
+    }, [open, resetPoiState]);
+
+    /* ---------------- Load district info ---------------- */
     useEffect(() => {
         let alive = true;
 
@@ -197,6 +224,7 @@ export default function DistrictModal(props: Props) {
         };
     }, [districtFeature]);
 
+    /* ---------------- Sync districtInfo -> local editable fields ---------------- */
     useEffect(() => {
         const baseName =
             (districtFeature?.properties?.name as string | undefined) ||
@@ -208,7 +236,9 @@ export default function DistrictModal(props: Props) {
 
         if (districtInfo) {
             setDistPopulation(districtInfo.population != null ? String(districtInfo.population) : "");
-            setDistMunicipalities(districtInfo.municipalities != null ? String(districtInfo.municipalities) : "");
+            setDistMunicipalities(
+                districtInfo.municipalities != null ? String(districtInfo.municipalities) : ""
+            );
             setDistParishes(districtInfo.parishes != null ? String(districtInfo.parishes) : "");
             setDistInhabitedSince(districtInfo.inhabited_since ?? "");
             setDistDescription(districtInfo.description ?? "");
@@ -228,26 +258,15 @@ export default function DistrictModal(props: Props) {
         setDistrictError(null);
     }, [districtInfo, districtFeature]);
 
-    /* ---------------- Lazy load geo layers ---------------- */
+    /* ---------------- Lazy load geo layers (only if not provided) ---------------- */
     useEffect(() => {
-        const safeLoadParts = async (paths: string[], set: (v: any) => void, already: any) => {
-            if (already) return;
-            try {
-                const parts = await Promise.all(paths.map((p) => loadGeo(p)));
-                const features = parts.flatMap((p: any) => p?.features ?? []);
-                set(features.length > 0 ? { type: "FeatureCollection", features } : null);
-            } catch {
-                set(null);
-            }
-        };
+        if (!riversProp) safeLoadGeoParts(["/geo/rios_pt1.geojson", "/geo/rios_pt2.geojson"]).then((v) => aliveRef.current && setRivers(v));
+        if (!lakesProp) safeLoadGeoParts(["/geo/lagos_pt1.geojson", "/geo/lagos_pt2.geojson"]).then((v) => aliveRef.current && setLakes(v));
+        if (!railsProp) safeLoadGeoParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"]).then((v) => aliveRef.current && setRails(v));
+        if (!roadsProp) safeLoadGeoParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"]).then((v) => aliveRef.current && setRoads(v));
+    }, [riversProp, lakesProp, railsProp, roadsProp]);
 
-        safeLoadParts(["/geo/rios_pt1.geojson", "/geo/rios_pt2.geojson"], setRivers, riversProp);
-        safeLoadParts(["/geo/lagos_pt1.geojson", "/geo/lagos_pt2.geojson"], setLakes, lakesProp);
-        safeLoadParts(["/geo/ferrovias_pt1.geojson", "/geo/ferrovias_pt2.geojson"], setRails, railsProp);
-        safeLoadParts(["/geo/estradas_pt1.geojson", "/geo/estradas_pt2.geojson"], setRoads, roadsProp);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    /* ---------------- POIs normalization (+ counts + filter) ---------------- */
+    /* ---------------- Normalize POIs ---------------- */
     const normalizedPoints = useMemo(() => {
         if (!poiPoints) return null;
 
@@ -291,10 +310,8 @@ export default function DistrictModal(props: Props) {
         return { countsByCat: counts, filteredPoints: { ...normalizedPoints, features: feats } };
     }, [normalizedPoints, selectedTypes]);
 
-    /* ---------------- Unified filter actions (IMPORTANT) ---------------- */
     const handleToggleType = useCallback(
         (k: PoiCategory) => {
-            // sempre: fecha dropdown (lá dentro) + fecha galeria (aqui) + vai para mapa
             if (showGallery) goBackToMap();
             onToggleType(k);
             setRenderNonce((n) => n + 1);
@@ -354,12 +371,10 @@ export default function DistrictModal(props: Props) {
 
             if (poiId != null) {
                 const cached = poiCacheRef.current.get(poiId);
-                if (cached) {
-                    if (alive && reqRef.current === reqId) {
-                        setPoiInfo(cached.info);
-                        setShowPoiModal(true);
-                        setLoadingPoi(false);
-                    }
+                if (cached && alive && reqRef.current === reqId) {
+                    setPoiInfo(cached.info);
+                    setShowPoiModal(true);
+                    setLoadingPoi(false);
                     return;
                 }
 
@@ -367,7 +382,7 @@ export default function DistrictModal(props: Props) {
                 if (inflight) {
                     const info = await inflight;
                     if (!alive || reqRef.current !== reqId) return;
-                    if (info) setPoiInfo(info);
+                    setPoiInfo(info);
                     setShowPoiModal(Boolean(info));
                     setLoadingPoi(false);
                     return;
@@ -377,8 +392,7 @@ export default function DistrictModal(props: Props) {
             const task = (async () => {
                 try {
                     return await buildPoiInfo(selectedPoi);
-                } catch (e) {
-                    console.warn("[POI] Falha a carregar info:", e);
+                } catch {
                     return null;
                 }
             })();
@@ -390,12 +404,11 @@ export default function DistrictModal(props: Props) {
             if (poiId != null) poiInflightRef.current.delete(poiId);
             if (!alive || reqRef.current !== reqId) return;
 
-            if (info) {
-                setPoiInfo(info);
-                setShowPoiModal(true);
-                if (poiId != null) poiCacheRef.current.set(poiId, { info, updatedAt: Date.now() });
-            } else {
-                setShowPoiModal(false);
+            setPoiInfo(info);
+            setShowPoiModal(Boolean(info));
+
+            if (info && poiId != null) {
+                poiCacheRef.current.set(poiId, { info, updatedAt: Date.now() });
             }
 
             setLoadingPoi(false);
@@ -406,15 +419,11 @@ export default function DistrictModal(props: Props) {
         };
     }, [selectedPoi, buildPoiInfo]);
 
-    const onPoiClick = (feature: any) => setSelectedPoi(feature);
+    const onPoiClick = useCallback((feature: any) => setSelectedPoi(feature), []);
 
     /* ---------------- District gallery ---------------- */
     const mediaUrls = useMemo(() => {
-        const uniq: string[] = [];
-        for (const u of distMedia ?? []) {
-            if (!u) continue;
-            if (!uniq.includes(u)) uniq.push(u);
-        }
+        const uniq = uniqStrings(distMedia ?? []);
 
         const isVideoUrlLocal = (url: string) => {
             const namePart = url.split("#name=")[1] ?? url;
@@ -426,9 +435,7 @@ export default function DistrictModal(props: Props) {
         return [...videos, ...images].slice(0, 10);
     }, [distMedia]);
 
-    const rootClass = "district-modal theme-dark" + (showGallery ? " district-modal--gallery-open" : "");
-
-    const toggleGallery = () => {
+    const toggleGallery = useCallback(() => {
         if (showGallery) {
             goBackToMap();
             return;
@@ -459,7 +466,8 @@ export default function DistrictModal(props: Props) {
                     );
                 }
 
-                const nameForSearch = distName || districtInfo?.namePt || districtInfo?.name || districtNameFallback;
+                const nameForSearch =
+                    distName || districtInfo?.namePt || districtInfo?.name || districtNameFallback;
 
                 const firstCommons = await getDistrictCommonsGallery(nameForSearch, 3);
                 let merged = uniqStrings([...dbFiles, ...firstCommons]).slice(0, 10);
@@ -467,6 +475,16 @@ export default function DistrictModal(props: Props) {
                 setDistMedia(merged);
                 setShowGallery(true);
                 setLoadingGallery(false);
+
+                const persist = async (files: string[]) => {
+                    if (!districtInfo?.id) return;
+                    try {
+                        const updated = await updateDistrict(districtInfo.id, { files });
+                        setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? files } : prev));
+                    } catch {
+                        /* noop */
+                    }
+                };
 
                 if (merged.length < 10) {
                     try {
@@ -477,36 +495,25 @@ export default function DistrictModal(props: Props) {
                             merged = mergedFull;
                             setDistMedia(mergedFull);
                         }
-
-                        if (districtInfo?.id) {
-                            try {
-                                const updated = await updateDistrict(districtInfo.id, { files: merged });
-                                setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? merged } : prev));
-                            } catch (e) {
-                                console.warn("[DistrictModal] Falha ao atualizar ficheiros do distrito (galeria)", e);
-                            }
-                        }
-                    } catch (e) {
-                        console.warn("[DistrictModal] Falha batch completo da galeria", e);
+                        await persist(merged);
+                    } catch {
+                        await persist(merged);
                     }
-                } else if (districtInfo?.id) {
-                    try {
-                        const updated = await updateDistrict(districtInfo.id, { files: merged });
-                        setDistrictInfo((prev) => (prev ? { ...prev, files: updated.files ?? merged } : prev));
-                    } catch (e) {
-                        console.warn("[DistrictModal] Falha ao atualizar ficheiros do distrito (batch inicial)", e);
-                    }
+                } else {
+                    await persist(merged);
                 }
-            } catch (e) {
-                console.warn("[DistrictModal] Falha a preparar galeria", e);
+            } catch {
                 setDistMedia([]);
                 setShowGallery(true);
                 setLoadingGallery(false);
             }
         })();
-    };
+    }, [showGallery, goBackToMap, districtInfo?.id, distName, districtNameFallback]);
 
     if (!open) return null;
+
+    const rootClass =
+        "district-modal theme-dark" + (showGallery ? " district-modal--gallery-open" : "");
 
     return (
         <div className={rootClass}>
@@ -518,7 +525,6 @@ export default function DistrictModal(props: Props) {
                     onToggle={handleToggleType}
                     onClear={handleClearTypes}
                     countsByCat={countsByCat}
-                    // quando escolhe um filtro: garante fechar dropdown + fechar galeria
                     onAnySelection={() => {
                         if (showGallery) goBackToMap();
                     }}
@@ -579,7 +585,7 @@ export default function DistrictModal(props: Props) {
                         setShowGallery(false);
                     }}
                     onSave={async () => {
-                        /* ... mantém o teu save igual ... */
+                        /* mantém o teu save igual */
                     }}
                     districtNameFallback={districtNameFallback}
                     distName={distName}
@@ -614,7 +620,10 @@ export default function DistrictModal(props: Props) {
             />
 
             {(loadingPoi || loadingGallery) && (
-                <SpinnerOverlay open={loadingPoi || loadingGallery} message={loadingPoi ? "A carregar…" : "A carregar galeria…"} />
+                <SpinnerOverlay
+                    open={loadingPoi || loadingGallery}
+                    message={loadingPoi ? "A carregar…" : "A carregar galeria…"}
+                />
             )}
         </div>
     );
