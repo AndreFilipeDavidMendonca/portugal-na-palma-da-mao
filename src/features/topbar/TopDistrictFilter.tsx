@@ -1,4 +1,3 @@
-// src/features/topbar/TopDistrictFilter.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 import "./TopDistrictFilter.scss";
@@ -33,17 +32,17 @@ function norm(s?: string | null) {
 }
 
 const STOPWORDS = new Set([
-    "o","a","os","as","um","uma","uns","umas",
-    "de","do","da","dos","das","d","e",
-    "no","na","nos","nas",
-    "ao","aos","à","às",
-    "para","por","em",
-    "the","of","and",
+    "o", "a", "os", "as", "um", "uma", "uns", "umas",
+    "de", "do", "da", "dos", "das", "d", "e",
+    "no", "na", "nos", "nas",
+    "ao", "aos", "à", "às",
+    "para", "por", "em",
+    "the", "of", "and",
     "nacional",
 ]);
 
 function tokenize(s: string): string[] {
-    return norm(s).split(" ").filter(t => t && !STOPWORDS.has(t));
+    return norm(s).split(" ").filter((t) => t && !STOPWORDS.has(t));
 }
 
 function isSubsequenceChars(query: string, target: string): boolean {
@@ -69,7 +68,7 @@ function scoreNameFlexible(name: string, query: string): number {
     let prefixHits = 0;
 
     for (const tq of queryTokens) {
-        const hit = nameTokens.find(nt => nt.includes(tq));
+        const hit = nameTokens.find((nt) => nt.includes(tq));
         if (hit) {
             hits++;
             if (hit.startsWith(tq)) prefixHits++;
@@ -91,10 +90,14 @@ function scoreNameFlexible(name: string, query: string): number {
 
     score += hits * 25 + prefixHits * 10;
 
-    let inOrder = 0, idx = 0;
+    let inOrder = 0,
+        idx = 0;
     for (const tq of queryTokens) {
         const pos = nameTokens.findIndex((nt, i) => i >= idx && nt.includes(tq));
-        if (pos >= idx && pos !== -1) { inOrder++; idx = pos + 1; }
+        if (pos >= idx && pos !== -1) {
+            inOrder++;
+            idx = pos + 1;
+        }
     }
     score += inOrder * 6;
 
@@ -117,6 +120,7 @@ export default function TopDistrictFilter({
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const listRef = useRef<HTMLUListElement | null>(null);
+    const inputRef = useRef<HTMLInputElement | null>(null);
 
     const searchIndex = useMemo<SearchItem[]>(() => {
         const ds: SearchItem[] = (districts ?? []).map((name) => ({ kind: "district", name }));
@@ -162,11 +166,27 @@ export default function TopDistrictFilter({
         onPick(item);
     }
 
+    function clearQuery() {
+        setTypedQuery("");
+        setPreviewQuery(null);
+        setOpen(false);
+        setActiveIdx(0);
+        // manter foco no input
+        requestAnimationFrame(() => inputRef.current?.focus());
+    }
+
     function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
         if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
             setOpen(true);
             return;
         }
+
+        if (e.key === "Escape") {
+            setOpen(false);
+            setPreviewQuery(null);
+            return;
+        }
+
         if (!filtered.length) return;
 
         if (e.key === "ArrowDown") {
@@ -187,11 +207,10 @@ export default function TopDistrictFilter({
             e.preventDefault();
             const pickItem = filtered[activeIdx] || filtered[0];
             if (pickItem) handlePick(pickItem);
-        } else if (e.key === "Escape") {
-            setOpen(false);
-            setPreviewQuery(null);
         }
     }
+
+    const hasValue = Boolean(inputValue);
 
     return (
         <div className="tdf-wrap" ref={wrapRef}>
@@ -199,6 +218,7 @@ export default function TopDistrictFilter({
 
             <div className="tdf-inputbox">
                 <input
+                    ref={inputRef}
                     className="tdf-input"
                     value={inputValue}
                     placeholder={loadingPois ? "A preparar pesquisa…" : placeholder}
@@ -211,6 +231,19 @@ export default function TopDistrictFilter({
                     onFocus={() => setOpen(true)}
                     onKeyDown={onKeyDown}
                 />
+
+                {/* ✅ X dentro do input (desktop + mobile) */}
+                {hasValue && (
+                    <button
+                        type="button"
+                        className="tdf-clear"
+                        aria-label="Limpar pesquisa"
+                        onMouseDown={(e) => e.preventDefault()} // evita perder foco antes do click
+                        onClick={clearQuery}
+                    >
+                        ×
+                    </button>
+                )}
 
                 {open && filtered.length > 0 && (
                     <ul className="tdf-list gold-scroll" ref={listRef}>
@@ -234,21 +267,6 @@ export default function TopDistrictFilter({
                 )}
             </div>
 
-            {inputValue && (
-                <button
-                    className="btn-clear"
-                    onClick={() => {
-                        setTypedQuery("");
-                        setPreviewQuery(null);
-                        setOpen(false);
-                        setActiveIdx(0);
-                    }}
-                >
-                    Limpar
-                </button>
-            )}
-
-            {/* ✅ UserMenu/Logo à direita */}
             <div className="tdf-spacer" />
             <TopRightUserMenu />
         </div>

@@ -23,19 +23,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         let alive = true;
 
-        fetchCurrentUser()
-            .then((u) => {
+        (async () => {
+            try {
+                const u = await fetchCurrentUser();
                 if (!alive) return;
                 setUser(u);
-            })
-            .catch(() => {
+            } catch {
                 if (!alive) return;
                 setUser(null);
-            })
-            .finally(() => {
+            } finally {
                 if (!alive) return;
                 setBootstrapped(true);
-            });
+            }
+        })();
 
         return () => {
             alive = false;
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const value = useMemo(
         () => ({ user, setUser, refreshUser, bootstrapped }),
-        [user, bootstrapped]
+        [user, bootstrapped] // refreshUser é estável o suficiente aqui
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

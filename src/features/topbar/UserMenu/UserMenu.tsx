@@ -29,14 +29,13 @@ async function deletePoiById(poiId: number): Promise<void> {
     });
 
     if (res.status === 204) return;
-    if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `Falha ao eliminar POI (status ${res.status})`);
-    }
+
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `Falha ao eliminar POI (status ${res.status})`);
 }
 
 export default function UserMenu() {
-    const { user, setUser } = useAuth();
+    const { user, setUser, refreshUser } = useAuth();
 
     const [open, setOpen] = useState(false);
     const [favOpen, setFavOpen] = useState(false);
@@ -55,8 +54,8 @@ export default function UserMenu() {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
-    const from = useMemo(() => location.pathname ?? "/", [location.pathname]);
 
+    const from = useMemo(() => location.pathname ?? "/", [location.pathname]);
     const isBusiness = user?.role === "BUSINESS" || user?.role === "ADMIN";
 
     const closeAll = useCallback(() => {
@@ -125,8 +124,10 @@ export default function UserMenu() {
 
     const doLogout = async () => {
         closeAll();
-        await logout();
+        await logout().catch(() => null);
         setUser(null);
+        // opcional, mas bom para “garantir” que cookie/session limpou mesmo
+        await refreshUser().catch(() => null);
     };
 
     const openPoi = (poiId: number) => {
@@ -171,7 +172,9 @@ export default function UserMenu() {
         if (!user) return;
         if (busyDeletePoiIds.has(poiId)) return;
 
-        const ok = window.confirm(`Tens a certeza que queres eliminar este POI${poiName ? ` (“${poiName}”)` : ""}?`);
+        const ok = window.confirm(
+            `Tens a certeza que queres eliminar este POI${poiName ? ` (“${poiName}”)` : ""}?`
+        );
         if (!ok) return;
 
         setMyPoisError(null);
@@ -193,7 +196,11 @@ export default function UserMenu() {
 
     return (
         <div className="user-menu" ref={wrapRef}>
-            <UserMenuButton email={user?.email ?? null} isOpen={open} onToggle={() => setOpen((v) => !v)} />
+            <UserMenuButton
+                email={user?.email ?? null}
+                isOpen={open}
+                onToggle={() => setOpen((v) => !v)}
+            />
 
             {open && (
                 <>
