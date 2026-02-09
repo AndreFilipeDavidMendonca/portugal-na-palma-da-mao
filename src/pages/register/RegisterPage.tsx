@@ -4,6 +4,7 @@ import { register } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
 import "./RegisterPage.scss";
+import {toast} from "@/components/Toastr/toast";
 
 type RegisterRole = "USER" | "BUSINESS";
 
@@ -26,7 +27,6 @@ export default function RegisterPage() {
     const [confirm, setConfirm] = useState("");
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     function validate(): string | null {
         if (!email.trim()) return "Email é obrigatório.";
@@ -47,11 +47,10 @@ export default function RegisterPage() {
 
         const msg = validate();
         if (msg) {
-            setError(msg);
+            toast.error(msg, { title: "Registo" });
             return;
         }
 
-        setError(null);
         setLoading(true);
 
         try {
@@ -67,10 +66,10 @@ export default function RegisterPage() {
             });
 
             setUser(newUser);
-
+            toast.success("Conta criada com sucesso.", { title: "Registo", durationMs: 2500 });
             navigate(from, { replace: true });
         } catch (e: any) {
-            setError(e?.message ?? "Falha no registo");
+            toast.error(e?.message ?? "Falha no registo", { title: "Registo" });
         } finally {
             setLoading(false);
         }
@@ -86,8 +85,6 @@ export default function RegisterPage() {
                 <h2 className="register-title">Criar conta</h2>
 
                 <form onSubmit={onSubmit} className="register-form">
-
-                    {/* Role selector */}
                     <div className="register-role">
                         <div className="register-role-label">Tipo de conta</div>
 
@@ -186,8 +183,6 @@ export default function RegisterPage() {
                         autoComplete="new-password"
                         disabled={loading}
                     />
-
-                    {error && <div className="register-error">{error}</div>}
 
                     <div className="register-actions">
                         <button className="register-btn register-btn--primary" type="submit" disabled={loading}>

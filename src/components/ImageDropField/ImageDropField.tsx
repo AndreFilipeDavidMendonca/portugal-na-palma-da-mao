@@ -1,14 +1,14 @@
-// src/components/ImageDropField.tsx
 import React, { useCallback, useRef, useState } from "react";
 import "./ImageDropField.scss";
+import {toast} from "@/components/Toastr/toast";
 
 type Mode = "image" | "video" | "media";
 
 type Props = {
     label?: string;
-    images: string[];                   // URLs (http, data:, blob, etc.)
+    images: string[];
     onChange: (items: string[]) => void;
-    mode?: Mode;                        // "image" | "video" | "media"
+    mode?: Mode;
 };
 
 const IMAGE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -20,17 +20,13 @@ function extListForMode(mode: Mode): string[] {
     return [...IMAGE_EXT, ...VIDEO_EXT];
 }
 
-// extrai algo que pareça nome de ficheiro, incluindo hash #name=
 function prettyName(s: string): string {
     try {
         const u = new URL(s);
-        if (u.hash && u.hash.startsWith("#name=")) {
-            return decodeURIComponent(u.hash.slice("#name=".length));
-        }
+        if (u.hash && u.hash.startsWith("#name=")) return decodeURIComponent(u.hash.slice("#name=".length));
         const last = u.pathname.split("/").filter(Boolean).pop();
         return decodeURIComponent(last || s);
     } catch {
-        // se for data:... fica grande, mas pelo menos mostra algo
         if (s.startsWith("data:")) {
             const comma = s.indexOf(",");
             return comma > 0 ? s.slice(5, comma) : "data-url";
@@ -40,32 +36,22 @@ function prettyName(s: string): string {
 }
 
 export default function ImageDropField({
-   label = "Imagens / vídeos",
-   images,
-   onChange,
-   mode = "image",
-}: Props) {
+                                           label = "Imagens / vídeos",
+                                           images,
+                                           onChange,
+                                           mode = "image",
+                                       }: Props) {
     const [hovering, setHovering] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const acceptAttr =
-        mode === "image"
-            ? "image/*"
-            : mode === "video"
-                ? "video/*"
-                : "image/*,video/*";
+        mode === "image" ? "image/*" : mode === "video" ? "video/*" : "image/*,video/*";
 
     const labelText =
-        mode === "image"
-            ? label
-            : mode === "video"
-                ? label.replace(/Imagens/i, "Vídeos")
-                : label;
+        mode === "image" ? label : mode === "video" ? label.replace(/Imagens/i, "Vídeos") : label;
 
-    const onOpenPicker = () => {
-        fileInputRef.current?.click();
-    };
+    const onOpenPicker = () => fileInputRef.current?.click();
 
     const handleFiles = useCallback(
         async (files: FileList | null) => {
@@ -74,42 +60,58 @@ export default function ImageDropField({
             const exts = extListForMode(mode);
             const all = Array.from(files);
 
-            // filtra por extensão
             const filtered = all.filter((file) => {
                 const lowerName = file.name.toLowerCase();
                 return exts.some((ext) => lowerName.endsWith(ext));
             });
 
-            if (filtered.length === 0) return;
+            const rejectedCount = all.length - filtered.length;
+
+            if (filtered.length === 0) {
+                toast.error("Nenhum ficheiro compatível foi selecionado.", { title: "Upload" });
+                return;
+            }
+
+            if (rejectedCount > 0) {
+                toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`, { title: "Upload" });
+            }
 
             setUploading(true);
 
             const next = [...images];
             let pending = filtered.length;
+            let added = 0;
 
             filtered.forEach((file) => {
                 const reader = new FileReader();
+
                 reader.onload = () => {
                     const result = reader.result;
                     if (typeof result === "string") {
-                        // result é "data:<mime>;base64,...."
                         if (!next.includes(result)) {
                             next.push(result);
+                            added += 1;
                         }
                     }
                     pending -= 1;
                     if (pending === 0) {
                         onChange(next);
                         setUploading(false);
+
+                        if (added > 0) toast.success(`${added} ficheiro(s) adicionado(s).`, { title: "Upload" });
+                        else toast.info("Nenhum ficheiro novo foi adicionado.", { title: "Upload" });
                     }
                 };
+
                 reader.onerror = () => {
                     pending -= 1;
                     if (pending === 0) {
                         onChange(next);
                         setUploading(false);
+                        toast.error("Falha ao ler um ou mais ficheiros.", { title: "Upload" });
                     }
                 };
+
                 reader.readAsDataURL(file);
             });
         },
@@ -137,13 +139,12 @@ export default function ImageDropField({
 
     const removeItem = (i: number) => {
         const url = images[i];
-        // se fosse blob: podíamos libertar URL, mas agora usamos data:
-        if (url.startsWith("blob:")) {
-            URL.revokeObjectURL(url.split("#")[0]);
-        }
+        if (url?.startsWith("blob:")) URL.revokeObjectURL(url.split("#")[0]);
+
         const next = images.slice();
         next.splice(i, 1);
         onChange(next);
+        toast.info("Item removido.", { title: "Galeria", durationMs: 2500 });
     };
 
     const extsLabel =
@@ -169,20 +170,10 @@ export default function ImageDropField({
                 onDragLeave={onDragLeave}
             >
                 <div className="imgdrop__content">
-                    <div className="imgdrop__icon">
-                        {uploading ? "⏳" : "⬆️"}
-                    </div>
+                    <div className="imgdrop__icon">{uploading ? "⏳" : "⬆️"}</div>
                     <div>
-                        <div className="imgdrop__text">
-                            {uploading
-                                ? "A enviar ficheiros…"
-                                : "Arrasta ficheiros para aqui"}
-                        </div>
-                        {!uploading && (
-                            <div className="imgdrop__hint">
-                                …ou clica para escolher ficheiros
-                            </div>
-                        )}
+                        <div className="imgdrop__text">{uploading ? "A enviar ficheiros…" : "Arrasta ficheiros para aqui"}</div>
+                        {!uploading && <div className="imgdrop__hint">…ou clica para escolher ficheiros</div>}
                     </div>
                     <div className="imgdrop__exts">{extsLabel}</div>
                 </div>
@@ -202,11 +193,7 @@ export default function ImageDropField({
                     {images.map((it, idx) => (
                         <li key={idx} className="imgdrop__item">
                             <span className="imgdrop__name">{prettyName(it)}</span>
-                            <button
-                                type="button"
-                                className="imgdrop__remove"
-                                onClick={() => removeItem(idx)}
-                            >
+                            <button type="button" className="imgdrop__remove" onClick={() => removeItem(idx)}>
                                 ×
                             </button>
                         </li>

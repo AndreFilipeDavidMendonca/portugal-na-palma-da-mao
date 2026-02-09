@@ -1,5 +1,7 @@
+// src/hooks/usePoiComments.ts
 import { useEffect, useState } from "react";
 import { addPoiComment, deletePoiComment, fetchPoiComments, type PoiCommentDto } from "@/lib/api";
+import { toast } from "@/components/Toastr/toast";
 
 type Args = {
     open: boolean;
@@ -10,24 +12,20 @@ type Args = {
 export default function usePoiComments({ open, poiId, user }: Args) {
     const [comments, setComments] = useState<PoiCommentDto[]>([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const [body, setBody] = useState("");
     const [sending, setSending] = useState(false);
 
-    // load
     useEffect(() => {
         let alive = true;
 
         async function run() {
             if (!open || !poiId) {
                 setComments([]);
-                setError(null);
                 return;
             }
 
             setLoading(true);
-            setError(null);
 
             try {
                 const list = await fetchPoiComments(poiId);
@@ -35,8 +33,8 @@ export default function usePoiComments({ open, poiId, user }: Args) {
                 setComments(list ?? []);
             } catch (e: any) {
                 if (!alive) return;
-                setError(e?.message ?? "Falha ao carregar comentários.");
                 setComments([]);
+                toast.error(e?.message ?? "Falha ao carregar comentários.", { title: "Comentários" });
             } finally {
                 if (alive) setLoading(false);
             }
@@ -54,17 +52,20 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         const trimmed = body.trim();
         if (!trimmed) return;
 
-        if (!user) return;
+        if (!user) {
+            toast.info("Faz login para comentar.", { title: "Comentários" });
+            return;
+        }
 
         setSending(true);
-        setError(null);
 
         try {
             const created = await addPoiComment(poiId, trimmed);
             setComments((prev) => [created, ...prev]);
             setBody("");
+            toast.success("Comentário publicado.", { title: "Comentários", durationMs: 1400 });
         } catch (e: any) {
-            setError(e?.message ?? "Falha ao enviar comentário.");
+            toast.error(e?.message ?? "Falha ao enviar comentário.", { title: "Comentários" });
         } finally {
             setSending(false);
         }
@@ -74,13 +75,13 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         if (sending) return;
 
         setSending(true);
-        setError(null);
 
         try {
             await deletePoiComment(commentId);
             setComments((prev) => prev.filter((c) => c.id !== commentId));
+            toast.success("Comentário removido.", { title: "Comentários", durationMs: 1400 });
         } catch (e: any) {
-            setError(e?.message ?? "Falha ao remover comentário.");
+            toast.error(e?.message ?? "Falha ao remover comentário.", { title: "Comentários" });
         } finally {
             setSending(false);
         }
@@ -90,7 +91,6 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         user,
         comments,
         loading,
-        error,
         body,
         setBody,
         sending,

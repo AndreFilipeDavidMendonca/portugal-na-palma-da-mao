@@ -1,6 +1,7 @@
 import type { CurrentUserDto } from "@/lib/api";
 import UserMenuHeader from "../UserMenuHeader/UserMenuHeader";
 import "./UserMenuDropdown.scss";
+import {toast} from "@/components/Toastr/toast";
 
 type Props = {
     user: CurrentUserDto | null;
@@ -54,7 +55,13 @@ export default function UserMenuDropdown({
                     <button
                         type="button"
                         className="user-menu__item user-menu__item--danger"
-                        onClick={onLogout}
+                        onClick={() => {
+                            onLogout();
+                            toast.success("Sessão terminada com sucesso.", {
+                                title: "Logout",
+                                durationMs: 3500,
+                            });
+                        }}
                         role="menuitem"
                     >
                         Logout

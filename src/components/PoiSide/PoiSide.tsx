@@ -10,7 +10,6 @@ type Props = {
     setDescInput: (v: string) => void;
     description: string;
 
-    errorMsg: string | null;
 };
 
 export default function PoiSide({
@@ -20,7 +19,6 @@ export default function PoiSide({
                                     descInput,
                                     setDescInput,
                                     description,
-                                    errorMsg,
                                 }: Props) {
     const href = coords
         ? `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lon}`
@@ -31,8 +29,6 @@ export default function PoiSide({
             <a className="btn-directions" href={href} target="_blank" rel="noreferrer">
                 Direcções
             </a>
-
-            {errorMsg && <div className="poi-error">{errorMsg}</div>}
 
             {editing && canEdit ? (
                 <>

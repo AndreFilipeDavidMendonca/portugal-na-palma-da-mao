@@ -1,5 +1,6 @@
 import React from "react";
 import "./DistrictAsidePanel.scss";
+import {toast} from "@/components/Toastr/toast";
 
 type Props = {
     showGallery: boolean;
@@ -64,6 +65,15 @@ export default function DistrictAsidePanel({
                                                distHistory,
                                                setDistHistory,
                                            }: Props) {
+    // ✅ erro via toast (em vez de bloco na UI)
+    const lastErrRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        if (!error) return;
+        if (lastErrRef.current === error) return;
+        lastErrRef.current = error;
+        toast.error(error, { title: "Erro" });
+    }, [error]);
+
     return (
         <aside className="right-panel gold-scroll">
             <div className="right-inner">
@@ -122,8 +132,6 @@ export default function DistrictAsidePanel({
                     </button>
                 </div>
 
-                {error && <div className="district-error">{error}</div>}
-
                 <div className="district-info">
                     <div className="district-meta">
                         <div>
@@ -138,6 +146,7 @@ export default function DistrictAsidePanel({
                                 distPopulation || "—"
                             )}
                         </div>
+
                         <div>
                             <strong>Concelhos:</strong>{" "}
                             {editing && isAdmin ? (
@@ -150,6 +159,7 @@ export default function DistrictAsidePanel({
                                 distMunicipalities || "—"
                             )}
                         </div>
+
                         <div>
                             <strong>Freguesias:</strong>{" "}
                             {editing && isAdmin ? (
@@ -162,6 +172,7 @@ export default function DistrictAsidePanel({
                                 distParishes || "—"
                             )}
                         </div>
+
                         <div>
                             <strong>Habitado desde:</strong>{" "}
                             {editing && isAdmin ? (

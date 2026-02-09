@@ -14,6 +14,8 @@ import PoiMedia from "@/components/PoiMedia/PoiMedia";
 import PoiSide from "@/components/PoiSide/PoiSide";
 import PoiComments from "@/components/PoiComment/PoiComments";
 
+import { toast } from "@/components/Toastr/toast";
+
 type Props = {
     open: boolean;
     onClose: () => void;
@@ -68,7 +70,6 @@ export default function PoiModal({
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     const [titleInput, setTitleInput] = useState("");
     const [descInput, setDescInput] = useState("");
@@ -82,7 +83,6 @@ export default function PoiModal({
         setLocalInfo(info);
         setEditing(false);
         setSaving(false);
-        setErrorMsg(null);
 
         if (!info) {
             setTitleInput("");
@@ -117,7 +117,6 @@ export default function PoiModal({
         open,
         poiId,
         user,
-        onError: setErrorMsg,
     });
 
     const commentsState = usePoiComments({ open, poiId, user });
@@ -128,11 +127,11 @@ export default function PoiModal({
 
     const requireCanEdit = useCallback(() => {
         if (!poiId) {
-            setErrorMsg("Não foi possível identificar o POI.");
+            toast.error("Não foi possível identificar o POI.", { title: "POI" });
             return false;
         }
         if (!canEdit) {
-            setErrorMsg("Sem permissões para editar este POI.");
+            toast.error("Sem permissões para editar este POI.", { title: "POI" });
             return false;
         }
         return true;
@@ -148,7 +147,6 @@ export default function PoiModal({
         const primaryImage = imagesList[0] ?? null;
 
         setSaving(true);
-        setErrorMsg(null);
 
         try {
             const updated = await updatePoi(poiId!, {
@@ -181,8 +179,10 @@ export default function PoiModal({
                 image: updated.image,
                 images: updated.images,
             });
+
+            toast.success("Alterações guardadas.", { title: "POI", durationMs: 2500 });
         } catch (e: any) {
-            setErrorMsg(e?.message || "Falha ao guardar alterações.");
+            toast.error(e?.message || "Falha ao guardar alterações.", { title: "POI" });
         } finally {
             setSaving(false);
         }
@@ -215,13 +215,11 @@ export default function PoiModal({
                     onToggleEdit={() => {
                         if (!requireCanEdit()) return;
                         setEditing((v) => !v);
-                        setErrorMsg(null);
                     }}
                     onSave={handleSave}
                     onClose={onClose}
                 />
 
-                {/* ✅ Ordem: media (esq) + side (dir); comentários por baixo do media */}
                 <div className="poi-body">
                     <section className="poi-media" aria-label="Galeria">
                         <PoiMedia
@@ -242,7 +240,6 @@ export default function PoiModal({
                             descInput={descInput}
                             setDescInput={setDescInput}
                             description={localInfo?.description ?? ""}
-                            errorMsg={errorMsg}
                         />
                     </aside>
 

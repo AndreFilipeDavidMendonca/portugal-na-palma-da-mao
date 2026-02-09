@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { addFavorite, fetchFavoriteStatus, removeFavorite } from "@/lib/api";
+import {toast} from "@/components/Toastr/toast";
 
 type Args = {
     open: boolean;
     poiId: number | null;
     user: any;
-    onError?: (msg: string | null) => void;
 };
 
-export default function usePoiFavorite({ open, poiId, user, onError }: Args) {
+export default function usePoiFavorite({ open, poiId, user }: Args) {
     const [favLoading, setFavLoading] = useState(false);
     const [isFav, setIsFav] = useState(false);
 
@@ -43,10 +43,8 @@ export default function usePoiFavorite({ open, poiId, user, onError }: Args) {
     const toggleFavorite = async () => {
         if (!poiId || favLoading) return;
 
-        onError?.(null);
-
         if (!user) {
-            onError?.("Para adicionares aos favoritos, tens de te registar / fazer login.");
+            toast.info("Para adicionares aos favoritos, tens de te registar / fazer login.", { title: "Favoritos" });
             return;
         }
 
@@ -55,12 +53,14 @@ export default function usePoiFavorite({ open, poiId, user, onError }: Args) {
             if (isFav) {
                 await removeFavorite(poiId);
                 setIsFav(false);
+                toast.info("Removido dos favoritos.", { title: "Favoritos", durationMs: 1600 });
             } else {
                 await addFavorite(poiId);
                 setIsFav(true);
+                toast.success("Adicionado aos favoritos.", { title: "Favoritos", durationMs: 1600 });
             }
         } catch (e: any) {
-            onError?.(e?.message ?? "Falha ao atualizar favoritos.");
+            toast.error(e?.message ?? "Falha ao atualizar favoritos.", { title: "Favoritos" });
         } finally {
             setFavLoading(false);
         }

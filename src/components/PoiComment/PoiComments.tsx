@@ -1,3 +1,4 @@
+// src/components/PoiComment/PoiComments.tsx
 import React from "react";
 import type { PoiCommentDto } from "@/lib/api";
 import "./PoiComments.scss";
@@ -7,7 +8,6 @@ type Props = {
 
     comments: PoiCommentDto[];
     loading: boolean;
-    error: string | null;
 
     body: string;
     setBody: (v: string) => void;
@@ -18,16 +18,15 @@ type Props = {
 };
 
 export default function PoiComments({
-    user,
-    comments,
-    loading,
-    error,
-    body,
-    setBody,
-    sending,
-    onAdd,
-    onDelete,
-}: Props) {
+                                        user,
+                                        comments,
+                                        loading,
+                                        body,
+                                        setBody,
+                                        sending,
+                                        onAdd,
+                                        onDelete,
+                                    }: Props) {
     return (
         <div className="poi-comments">
             <div className="poi-comments__head">
@@ -35,18 +34,16 @@ export default function PoiComments({
                 {loading && <span className="poi-comments__mini">a carregar…</span>}
             </div>
 
-            {error && <div className="poi-comments__error">{error}</div>}
-
             {/* composer só com login */}
             {user ? (
                 <div className="poi-comments__composer">
-                  <textarea
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      placeholder="Escreve um comentário…"
-                      disabled={sending}
-                      rows={2}
-                  />
+          <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Escreve um comentário…"
+              disabled={sending}
+              rows={2}
+          />
                     <button type="button" onClick={onAdd} disabled={sending || !body.trim()}>
                         {sending ? "A enviar…" : "Publicar"}
                     </button>

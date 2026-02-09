@@ -4,6 +4,7 @@ import { login } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
 import "./LoginPage.scss";
+import {toast} from "@/components/Toastr/toast";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -15,21 +16,20 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (loading) return;
 
-        setError(null);
         setLoading(true);
 
         try {
             const u = await login(email, password);
-            setUser(u); // ✅ atualiza UI imediatamente
+            setUser(u);
+            toast.success("Login efetuado.", { title: "Conta", durationMs: 1600 });
             navigate(from, { replace: true });
         } catch (e: any) {
-            setError(e?.message ?? "Falha no login");
+            toast.error(e?.message ?? "Falha no login", { title: "Login" });
         } finally {
             setLoading(false);
         }
@@ -64,8 +64,6 @@ export default function Login() {
                         autoComplete="current-password"
                         disabled={loading}
                     />
-
-                    {error && <div className="login-error">{error}</div>}
 
                     <div className="login-actions">
                         <button className="login-btn login-btn--primary" type="submit" disabled={loading}>
