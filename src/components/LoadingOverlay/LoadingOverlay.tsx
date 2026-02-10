@@ -32,12 +32,6 @@ export default function LoadingOverlay({
 
                 <div className="loading-spinner" aria-hidden="true" />
 
-                {!compact && (
-                    <h1 className="loading-tagline">
-                        {tagline}
-                    </h1>
-                )}
-
                 <p className="loading-message">
                     {message}
                     <span className="ellipsis" aria-hidden="true">
