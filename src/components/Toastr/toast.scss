@@ -83,63 +83,25 @@
 
 /* SUCCESS */
 
-.toast--success {
-  border-color: #3ea96f;
-  color: #1f7a4d;
-}
 
 .toast--success .toast__icon {
   color: #1f7a4d;
 }
 
-.toast--success .toast__left {
-  border-color: #1f7a4d;   /* mesma cor do ícone */
-}
-
-.toast--success .toast__close {
-  border-color: #1f7a4d;   /* mesma cor da mensagem */
-  color: #1f7a4d;
-}
 
 
 /* ERROR */
-
-.toast--error {
-  border-color: #d13c3c;
-  color: #b42323;
-}
 
 .toast--error .toast__icon {
   color: #b42323;
 }
 
-.toast--error .toast__left {
-  border-color: #b42323;
-}
-
-.toast--error .toast__close {
-  border-color: #b42323;
-  color: #b42323;
-}
 
 
 /* INFO */
 
-.toast--info {
-  border-color: var(--gold-dark);
-  color: var(--bg-deep);
-}
 
 .toast--info .toast__icon {
-  color: var(--bg-deep);
-}
-
-.toast--info .toast__left {
-  border-color: var(--bg-deep);
-}
-
-.toast--info .toast__close {
-  border-color: var(--bg-deep);
   color: var(--bg-deep);
 }
 

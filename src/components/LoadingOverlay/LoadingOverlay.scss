@@ -31,7 +31,7 @@
 
 /* LOGO */
 .loading-logo-img {
-  width: clamp(240px, 45vw, 420px);
+  width: clamp(240px, 40vw, 420px);
   height: auto;
   display: block;
   object-fit: contain;
@@ -60,8 +60,8 @@
 
 /* MENSAGEM */
 .loading-message {
-  font-size: clamp(16px, 2.3vw, 18px);
-  font-weight: 500;
+  font-size: clamp(14px, 2.0vw, 16px);
+  font-weight: 300;
   color: #e8e6dc;
   opacity: 0.96;
   letter-spacing: 0.3px;
@@ -88,4 +88,36 @@
   0%, 20%   { opacity: 0; }
   30%, 70%  { opacity: 1; }
   80%, 100% { opacity: 0; }
+}
+
+/* =========================
+   Mobile ajuste compacto
+========================= */
+@media (max-width: 900px) {
+
+  .loading-card {
+    padding: 18px;
+    border-radius: 16px;
+    gap: 18px;
+  }
+
+  .loading-logo-img {
+    width: clamp(100px, 40vw, 200px);
+    border-radius: 12px;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border-width: 2.5px;
+  }
+
+  .loading-message {
+    font-size: 11px;
+    letter-spacing: 0.2px;
+  }
+
+  .ellipsis {
+    width: 18px;
+  }
 }

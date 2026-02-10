@@ -156,4 +156,36 @@
     padding-bottom: 14px;
     border-top: 1px solid rgba(215, 178, 90, 0.34);
   }
+
+  /* iOS/Safari: impedir overflow horizontal do slideshow */
+  .poi-card {
+    overflow: hidden; /* já tens, mas garante mesmo */
+  }
+
+  .poi-body {
+    overflow-x: hidden; /* evita “fuga” para a direita */
+  }
+
+  .poi-media {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* força tudo dentro da media a respeitar o container */
+  .poi-media > *,
+  .poi-media * {
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  /* se o teu slideshow usar flex/track interno */
+  .poi-media .track,
+  .poi-media .slides,
+  .poi-media .swiper,
+  .poi-media .swiper-wrapper {
+    width: 100%;
+    max-width: 100%;
+  }
 }
