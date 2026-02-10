@@ -35,10 +35,10 @@ export default function LoadingOverlay({
                 <p className="loading-message">
                     {message}
                     <span className="ellipsis" aria-hidden="true">
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
-          </span>
+                        <span>.</span>
+                        <span>.</span>
+                        <span>.</span>
+                    </span>
                 </p>
             </div>
         </div>
