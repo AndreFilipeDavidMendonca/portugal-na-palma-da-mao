@@ -232,7 +232,6 @@ export default function TopDistrictFilter({
                     onKeyDown={onKeyDown}
                 />
 
-                {/* ✅ X dentro do input (desktop + mobile) */}
                 {hasValue && (
                     <button
                         type="button"
