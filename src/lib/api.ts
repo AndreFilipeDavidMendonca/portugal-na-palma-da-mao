@@ -1,4 +1,6 @@
 // src/lib/api.ts
+import { clearAuthToken, getAuthToken, setAuthToken } from "@/lib/authToken";
+
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085";
 
 /* =========================
@@ -23,19 +25,61 @@ function extractErrorMessage(data: any, status: number) {
     );
 }
 
+function withAuthHeaders(init?: RequestInit): RequestInit {
+    const token = getAuthToken();
+    const headers = new Headers(init?.headers ?? {});
+    console.log("withAuthHeaders:", token), headers;
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    return {
+        ...(init ?? {}),
+        headers,
+        // token auth => não usar cookies
+        credentials: "omit",
+    };
+}
+
+/** Fetch base com Bearer token. Limpa token se 401. */
+type ApiFetchOptions = {
+    autoClearOn401?: boolean; // default false
+};
+
+async function apiFetch(input: RequestInfo, init: RequestInit = {}, opts: ApiFetchOptions = {}) {
+    const token = getAuthToken();
+
+    const headers = new Headers(init.headers ?? {});
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    const res = await fetch(input, {
+        ...init,
+        headers,
+        credentials: "omit",
+    });
+
+    return res;
+}
+
 /** Fetch JSON (ou texto) e lança erro se !ok */
 async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-    const res = await fetch(input, init);
+    const res = await apiFetch(input, init);
 
     if (res.status === 204) return null as unknown as T;
 
     const data = await parseJsonSafe(res);
-
-    if (!res.ok) {
-        throw new Error(extractErrorMessage(data, res.status));
-    }
+    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
 
     return data as T;
+}
+
+/** Quando precisas do status + payload */
+async function jsonFetchRaw<T>(
+    input: RequestInfo,
+    init?: RequestInit
+): Promise<{ res: Response; data: T | null }> {
+    const res = await apiFetch(input, init);
+    if (res.status === 204) return { res, data: null };
+    const data = (await parseJsonSafe(res)) as T;
+    return { res, data };
 }
 
 /* =========================
@@ -46,7 +90,6 @@ export type RegisterRole = "USER" | "BUSINESS";
 
 export type RegisterPayload = {
     role: RegisterRole;
-
     firstName?: string | null;
     lastName?: string | null;
     age?: number | null;
@@ -62,7 +105,6 @@ export type CurrentUserDto = {
     displayName: string | null;
     avatarUrl: string | null;
     role: string;
-
     firstName?: string | null;
     lastName?: string | null;
     age?: number | null;
@@ -70,14 +112,17 @@ export type CurrentUserDto = {
     phone?: string | null;
 };
 
+export type AuthResponse = {
+    token: string;
+    user: CurrentUserDto;
+};
+
 export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
-    const res = await fetch(`${API_BASE}/api/register`, {
+    const { res, data } = await jsonFetchRaw<AuthResponse>(`${API_BASE}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
             role: body.role,
-
             firstName: body.firstName ?? null,
             lastName: body.lastName ?? null,
             age: body.age ?? null,
@@ -89,34 +134,37 @@ export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
     });
 
     if (res.status === 409) throw new Error("Já existe uma conta com esse email.");
-    if (!res.ok) throw new Error(`Registo falhou (status ${res.status})`);
+    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
 
-    return res.json();
+    const payload = data as AuthResponse;
+    setAuthToken(payload.token);
+    return payload.user;
 }
 
-/** Guest => null */
-export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
-    const res = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
-    if (res.status === 401) return null;
-    if (!res.ok)
-        throw new Error(`Falha a carregar utilizador atual (status ${res.status})`);
-    return res.json();
-}
-
-export async function login(
-    email: string,
-    password: string
-): Promise<CurrentUserDto> {
-    return jsonFetch<CurrentUserDto>(`${API_BASE}/api/login`, {
+export async function login(email: string, password: string): Promise<CurrentUserDto> {
+    const payload = await jsonFetch<AuthResponse>(`${API_BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ email: email.trim(), password }),
     });
+
+    setAuthToken(payload.token);
+    return payload.user;
+}
+
+export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
+    const res = await apiFetch(`${API_BASE}/api/me`);
+    if (res.status === 401) return null;
+    if (res.status === 204) return null;
+
+    const data = await parseJsonSafe(res);
+    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
+
+    return data as CurrentUserDto;
 }
 
 export async function logout(): Promise<void> {
-    await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
+    clearAuthToken();
 }
 
 /* =========================
@@ -125,28 +173,32 @@ export async function logout(): Promise<void> {
 
 export type PoiDto = {
     id: number;
-
     districtId: number | null;
     ownerId: string | null;
-
     name: string;
     namePt: string | null;
-
     category: string | null;
     subcategory: string | null;
     description: string | null;
-
     lat: number;
     lon: number;
-
     wikipediaUrl: string | null;
     sipaId: string | null;
     externalOsmId: string | null;
-
     source: string | null;
-
     image: string | null;
     images: string[] | null;
+};
+
+export type PoiUpdatePayload = {
+    name?: string | null;
+    namePt?: string | null;
+    description?: string | null;
+    image?: string | null;
+    images?: string[] | null;
+    category?: string | null;
+    lat?: number | null;
+    lon?: number | null;
 };
 
 export async function fetchPois(): Promise<PoiDto[]> {
@@ -157,49 +209,27 @@ export async function fetchPoiById(id: number): Promise<PoiDto> {
     return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`);
 }
 
-export type PoiUpdatePayload = {
-    name?: string | null;
-    namePt?: string | null;
-    description?: string | null;
-
-    image?: string | null;
-    images?: string[] | null;
-
-    // opcional: se fores permitir no BE
-    category?: string | null;
-    lat?: number | null;
-    lon?: number | null;
-};
-
 export async function updatePoi(id: number, body: PoiUpdatePayload): Promise<PoiDto> {
     return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(body),
     });
+}
+
+export async function deletePoiById(poiId: number): Promise<void> {
+    await jsonFetch<void>(`${API_BASE}/api/pois/${poiId}`, { method: "DELETE" });
 }
 
 /* =========================
    My POIs
 ========================= */
 
-export type MyPoiDto = {
-    id: number;
-    name: string;
-    image: string | null;
-};
+export type MyPoiDto = { id: number; name: string; image: string | null };
 
 export async function fetchMyPois(): Promise<MyPoiDto[]> {
-    const list = await jsonFetch<PoiDto[]>(`${API_BASE}/api/pois/mine`, {
-        credentials: "include",
-    });
-
-    return (list ?? []).map((p) => ({
-        id: p.id,
-        name: p.name,
-        image: p.image ?? null,
-    }));
+    const list = await jsonFetch<PoiDto[]>(`${API_BASE}/api/pois/mine`);
+    return (list ?? []).map((p) => ({ id: p.id, name: p.name, image: p.image ?? null }));
 }
 
 /* =========================
@@ -223,14 +253,6 @@ export type DistrictDto = {
     files: string[];
 };
 
-export async function fetchDistricts(): Promise<DistrictDto[]> {
-    return jsonFetch<DistrictDto[]>(`${API_BASE}/api/districts`);
-}
-
-export async function fetchDistrictById(id: number): Promise<DistrictDto> {
-    return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`);
-}
-
 export type DistrictUpdatePayload = {
     name?: string | null;
     namePt?: string | null;
@@ -243,14 +265,18 @@ export type DistrictUpdatePayload = {
     files?: string[] | null;
 };
 
-export async function updateDistrict(
-    id: number,
-    body: DistrictUpdatePayload
-): Promise<DistrictDto> {
+export async function fetchDistricts(): Promise<DistrictDto[]> {
+    return jsonFetch<DistrictDto[]>(`${API_BASE}/api/districts`);
+}
+
+export async function fetchDistrictById(id: number): Promise<DistrictDto> {
+    return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`);
+}
+
+export async function updateDistrict(id: number, body: DistrictUpdatePayload): Promise<DistrictDto> {
     return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(body),
     });
 }
@@ -259,37 +285,27 @@ export async function updateDistrict(
    Favorites
 ========================= */
 
-export type FavoriteDto = {
-    poiId: number;
-    name: string;
-    image: string | null;
-    createdAt: string;
-};
+export type FavoriteDto = { poiId: number; name: string; image: string | null; createdAt: string };
 
 export async function fetchFavorites(): Promise<FavoriteDto[]> {
-    return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`, {
-        credentials: "include",
-    });
+    return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`);
 }
 
 export async function fetchFavoriteStatus(
     poiId: number
 ): Promise<{ favorited: boolean } | null> {
-    const res = await fetch(`${API_BASE}/api/favorites/${poiId}`, {
-        credentials: "include",
-    });
+    // importante: usar apiFetch para conseguir ler status 204/404
+    const res = await apiFetch(`${API_BASE}/api/favorites/${poiId}`);
 
     if (res.status === 401) return null;
     if (res.status === 204) return { favorited: true };
     if (res.status === 404) return { favorited: false };
 
     const data = await parseJsonSafe(res);
-
     if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
 
     if (data && typeof data.favorite === "boolean") return { favorited: data.favorite };
     if (data && typeof data.favorited === "boolean") return { favorited: data.favorited };
-
     return { favorited: false };
 }
 
@@ -297,19 +313,16 @@ export async function addFavorite(
     poiId: number,
     payload?: { name?: string | null; image?: string | null }
 ): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
+    const data = await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
         method: "POST",
-        credentials: "include",
         headers: payload ? { "Content-Type": "application/json" } : undefined,
         body: payload ? JSON.stringify(payload) : undefined,
     });
+    console.log("addFavorite:", data);
 }
 
 export async function removeFavorite(poiId: number): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
-        method: "DELETE",
-        credentials: "include",
-    });
+    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, { method: "DELETE" });
 }
 
 /* =========================
@@ -327,25 +340,19 @@ export type PoiCommentDto = {
 };
 
 export async function fetchPoiComments(poiId: number): Promise<PoiCommentDto[]> {
-    return jsonFetch<PoiCommentDto[]>(`${API_BASE}/api/pois/${poiId}/comments`, {
-        credentials: "include",
-    });
+    return jsonFetch<PoiCommentDto[]>(`${API_BASE}/api/pois/${poiId}/comments`);
 }
 
 export async function addPoiComment(poiId: number, body: string): Promise<PoiCommentDto> {
     return jsonFetch<PoiCommentDto>(`${API_BASE}/api/pois/${poiId}/comments`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body }),
     });
 }
 
 export async function deletePoiComment(commentId: number): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/comments/${commentId}`, {
-        method: "DELETE",
-        credentials: "include",
-    });
+    await jsonFetch<void>(`${API_BASE}/api/comments/${commentId}`, { method: "DELETE" });
 }
 
 /* =========================
@@ -356,8 +363,7 @@ export type GeocodeRequestDto = {
     street: string;
     houseNumber?: string;
     postalCode?: string;
-
-    city: string; // aqui é concelho
+    city: string;
     district?: string;
     country?: string;
 };
@@ -374,7 +380,6 @@ export async function geocodeAddress(req: GeocodeRequestDto): Promise<GeocodeRes
     return jsonFetch<GeocodeResponseDto>(`${API_BASE}/api/geocode`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(req),
     });
 }
@@ -387,34 +392,26 @@ export type CreatePoiPayload = {
     name: string;
     description?: string | null;
     category: string;
-
-    districtId: number; // ✅ novo
-    municipality: string; // ✅ novo
-
+    districtId: number;
+    municipality: string;
     lat: number;
     lon: number;
-
     image?: string | null;
     images?: string[] | null;
 };
 
-// ✅ agora devolve só { id } (para navegar para detalhe)
 export async function createPoi(body: CreatePoiPayload): Promise<{ id: number }> {
     return jsonFetch<{ id: number }>(`${API_BASE}/api/pois`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
             name: body.name,
             description: body.description ?? null,
             category: body.category,
-
             districtId: body.districtId,
             municipality: body.municipality,
-
             lat: body.lat,
             lon: body.lon,
-
             image: body.image ?? null,
             images: body.images ?? [],
         }),

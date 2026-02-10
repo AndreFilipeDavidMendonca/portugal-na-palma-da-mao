@@ -1,9 +1,11 @@
+// src/components/UserMenu/UserMenu.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext";
 import {
     addFavorite,
+    deletePoiById,
     fetchFavorites,
     fetchMyPois,
     logout,
@@ -19,20 +21,6 @@ import MyPoisFlyout from "./Components/MyPoisFlyout/MyPoisFlyout";
 import "./UserMenu.scss";
 
 type MyPoiDto = { id: number; name: string; image: string | null };
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085";
-
-async function deletePoiById(poiId: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/api/pois/${poiId}`, {
-        method: "DELETE",
-        credentials: "include",
-    });
-
-    if (res.status === 204) return;
-
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `Falha ao eliminar POI (status ${res.status})`);
-}
 
 export default function UserMenu() {
     const { user, setUser, refreshUser } = useAuth();
@@ -126,7 +114,6 @@ export default function UserMenu() {
         closeAll();
         await logout().catch(() => null);
         setUser(null);
-        // opcional, mas bom para “garantir” que cookie/session limpou mesmo
         await refreshUser().catch(() => null);
     };
 
@@ -196,11 +183,7 @@ export default function UserMenu() {
 
     return (
         <div className="user-menu" ref={wrapRef}>
-            <UserMenuButton
-                email={user?.email ?? null}
-                isOpen={open}
-                onToggle={() => setOpen((v) => !v)}
-            />
+            <UserMenuButton email={user?.email ?? null} isOpen={open} onToggle={() => setOpen((v) => !v)} />
 
             {open && (
                 <>
