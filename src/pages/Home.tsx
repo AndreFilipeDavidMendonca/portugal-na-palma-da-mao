@@ -8,8 +8,6 @@ import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay/LoadingOverlay";
 import TopDistrictFilter, { type SearchItem } from "@/features/topbar/TopDistrictFilter";
-import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
-import PoiModal from "@/pages/poi/PoiModal";
 
 import {
     type CurrentUserDto,
@@ -20,26 +18,17 @@ import {
     fetchPoiById,
     type PoiDto,
 } from "@/lib/api";
-import {
-    loadPoisLiteFromCache,
-    savePoisLiteToCache,
-    loadPoiInfoFromCache,
-    savePoiInfoToCache,
-} from "@/lib/poisCache";
-import { filterPointsInsideDistrict } from "@/lib/spatial";
-import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
 
+import { filterPointsInsideDistrict } from "@/lib/spatial";
+
+import PoiModal from "@/pages/poi/PoiModal";
+import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
+import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
+import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
 
 type AnyGeo = any;
 
 const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
-
-const CONTINENTAL_PT_BOUNDS = L.latLngBounds(
-    [36.9, -7.5],
-    [42.15, -5.9]
-);
-
 const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 function pickPoiLabelFromDto(p: PoiDto): string {
@@ -83,44 +72,12 @@ function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
     return { type: "FeatureCollection", features: (pois ?? []).map(poiDtoToFeature) };
 }
 
-/* =========================
-   Hook: media query (fora do componente)
-========================= */
-function useMediaQuery(query: string) {
-    const [matches, setMatches] = useState(() =>
-        typeof window !== "undefined" ? window.matchMedia(query).matches : false
-    );
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-
-        const mql = window.matchMedia(query);
-        const onChange = () => setMatches(mql.matches);
-
-        if ("addEventListener" in mql) mql.addEventListener("change", onChange);
-        else (mql as any).addListener(onChange);
-
-        setMatches(mql.matches);
-
-        return () => {
-            if ("removeEventListener" in mql) mql.removeEventListener("change", onChange);
-            else (mql as any).removeListener(onChange);
-        };
-    }, [query]);
-
-    return matches;
-}
-
 export default function Home() {
-    /* =========================
-       Geo
-    ========================= */
+    // Geo
     const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
     const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
-    /* =========================
-       API data
-    ========================= */
+    // API
     const [districtDtos, setDistrictDtos] = useState<DistrictDto[]>([]);
     const [allPois, setAllPois] = useState<PoiDto[]>([]);
     const [loadingDistricts, setLoadingDistricts] = useState(false);
@@ -129,28 +86,11 @@ export default function Home() {
     // Dedupe fetchPois
     const poisPromiseRef = useRef<Promise<PoiDto[]> | null>(null);
 
-    /* =========================
-       User
-    ========================= */
+    // User
     const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
     const isAdmin = useMemo(() => currentUser?.role?.toLowerCase() === "admin", [currentUser]);
 
-    /* =========================
-       UI / map state
-    ========================= */
-    const isMobile = useMediaQuery("(max-width: 900px)");
-    const mapRef = useRef<L.Map | null>(null);
-
-    const initialCenter = useMemo<[number, number]>(() => {
-        // Mobile: mais “apertado” no continente
-        if (isMobile) return [37.5, -8.0];
-        // Desktop: mais “wide”
-        return [37.0, -15.0];
-    }, [isMobile]);
-
-    /* =========================
-       District modal
-    ========================= */
+    // District modal state
     const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(new Set());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeDistrictFeature, setActiveDistrictFeature] = useState<any | null>(null);
@@ -158,13 +98,31 @@ export default function Home() {
     const [loadingDistrictPois, setLoadingDistrictPois] = useState(false);
     const districtPoisReqRef = useRef(0);
 
-    /* =========================
-       POI modal (Home)
-    ========================= */
+    // Map ref
+    const mapRef = useRef<L.Map | null>(null);
+
+    // POI modal (Home)
     const [homePoiOpen, setHomePoiOpen] = useState(false);
     const [homePoiInfo, setHomePoiInfo] = useState<PoiInfo | null>(null);
     const [homePoiFeature, setHomePoiFeature] = useState<any | null>(null);
     const homePoiReqRef = useRef(0);
+    const CONTINENTAL_PT_BOUNDS = L.latLngBounds(
+        [36.90, -7.50], // SW (um pouco mais a Este do que -9.55)
+        [42.15, -5.90]  // NE (mais realista; -100 estava errado)
+    );
+
+    const isMobile = useMediaQuery("(max-width: 900px)");
+
+    const initialCenter = useMemo<[number, number]>(() => {
+        // Mobile: mais “apertado” no continente
+        if (isMobile) return [37.5, -8.0];
+        // Desktop: um pouco mais “wide”
+        return [37.0, -15.0];
+    }, [isMobile]);
+
+    function isMobileViewport() {
+        return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
+    }
 
     /* =========================
        Current user
@@ -182,6 +140,20 @@ export default function Home() {
     /* =========================
        Load Geo
     ========================= */
+
+    const capitalsByDistrictId = useMemo(() => {
+        const m = new Map<number, [number, number]>();
+        for (const d of districtDtos) {
+            const id = (d as any).id;
+            const lat = (d as any).lat;
+            const lon = (d as any).lon;
+            if (typeof id === "number" && typeof lat === "number" && typeof lon === "number") {
+                m.set(id, [lat, lon]);
+            }
+        }
+        return m;
+    }, [districtDtos]);
+
     useEffect(() => {
         let aborted = false;
 
@@ -201,25 +173,7 @@ export default function Home() {
         };
     }, []);
 
-    /* =========================
-       Capitals index
-    ========================= */
-    const capitalsByDistrictId = useMemo(() => {
-        const m = new Map<number, [number, number]>();
-        for (const d of districtDtos) {
-            const id = (d as any).id;
-            const lat = (d as any).lat;
-            const lon = (d as any).lon;
-            if (typeof id === "number" && typeof lat === "number" && typeof lon === "number") {
-                m.set(id, [lat, lon]);
-            }
-        }
-        return m;
-    }, [districtDtos]);
 
-    /* =========================
-       Map utils
-    ========================= */
     const fitContinentalPT = useCallback((map: L.Map, animate = false) => {
         const topbar = document.querySelector<HTMLElement>(".top-district-filter");
         const topH = topbar?.offsetHeight ?? 0;
@@ -231,9 +185,135 @@ export default function Home() {
             maxZoom: 10,
         });
 
+        // não prender maxBounds ao continente, mantém WORLD_BOUNDS para não “cortar” o mapa
         setTimeout(() => map.invalidateSize(), 0);
     }, []);
 
+    const ensureAllPois = useCallback(async (): Promise<PoiDto[]> => {
+        if (allPois.length > 0) return allPois;
+
+        if (poisPromiseRef.current) return await poisPromiseRef.current;
+
+        setLoadingAllPois(true);
+
+        const p = fetchPois()
+            .then((ps) => {
+                const next = ps ?? [];
+                setAllPois(next);
+                return next;
+            })
+            .catch((e) => {
+                console.error("[api] Falha a carregar POIs:", e);
+                setAllPois([]);
+                return [];
+            })
+            .finally(() => {
+                setLoadingAllPois(false);
+                poisPromiseRef.current = null;
+            });
+
+        poisPromiseRef.current = p;
+        return await p;
+    }, [allPois]);
+
+    /* =========================
+       Load API data
+    ========================= */
+    useEffect(() => {
+        let alive = true;
+
+        setLoadingDistricts(true);
+
+        Promise.all([
+            fetchDistricts().catch((e) => {
+                console.error("[api] Falha a carregar distritos:", e);
+                return [];
+            }),
+            ensureAllPois(),
+        ])
+            .then(([ds]) => {
+                if (!alive) return;
+                setDistrictDtos(ds ?? []);
+            })
+            .finally(() => {
+                if (!alive) return;
+                setLoadingDistricts(false);
+            });
+
+        return () => {
+            alive = false;
+        };
+    }, [ensureAllPois]);
+
+    /* =========================
+       Indexes
+    ========================= */
+    const districtDtoByName = useMemo(() => {
+        const m = new Map<string, DistrictDto>();
+        for (const d of districtDtos) {
+            if (d.namePt) m.set(d.namePt, d);
+            if (d.name) m.set(d.name, d);
+        }
+        return m;
+    }, [districtDtos]);
+
+    const districtDtoById = useMemo(() => {
+        const m = new Map<number, DistrictDto>();
+        for (const d of districtDtos) {
+            const id = (d as any).id;
+            if (typeof id === "number") m.set(id, d);
+        }
+        return m;
+    }, [districtDtos]);
+
+    const featureByName = useMemo(() => {
+        const m = new Map<string, any>();
+        for (const f of districtsGeo?.features ?? []) {
+            const name = f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"];
+            if (name) m.set(name, f);
+        }
+        return m;
+    }, [districtsGeo]);
+
+    const districtFeatureById = useMemo(() => {
+        const m = new Map<number, any>();
+
+        for (const f of districtsGeo?.features ?? []) {
+            const id = f?.properties?.id;
+            if (typeof id === "number") m.set(id, f);
+        }
+
+        if (m.size === 0 && districtDtos.length > 0) {
+            for (const d of districtDtos) {
+                const id = (d as any).id;
+                const name = d.namePt ?? d.name;
+                if (typeof id === "number" && name) {
+                    const f = featureByName.get(name);
+                    if (f) m.set(id, f);
+                }
+            }
+        }
+
+        return m;
+    }, [districtsGeo, districtDtos, featureByName]);
+
+    const districtNames = useMemo(
+        () =>
+            Array.from(featureByName.keys()).sort((a, b) =>
+                a.localeCompare(b, "pt-PT", { sensitivity: "base" })
+            ),
+        [featureByName]
+    );
+
+    const poiSearchItems = useMemo(() => {
+        return (allPois ?? [])
+            .map((p) => ({ id: p.id, districtId: p.districtId ?? null, name: pickPoiLabelFromDto(p) }))
+            .filter((p) => p.name && p.name.length >= 3);
+    }, [allPois]);
+
+    /* =========================
+       Map utils
+    ========================= */
     const fitGeoJSONBoundsTight = useCallback((map: L.Map, geo: any, animate = true) => {
         if (!map || !geo) return;
         try {
@@ -266,144 +346,34 @@ export default function Home() {
         if (b.isValid()) map.fitBounds(b.pad(0.08), { animate: true });
     }, []);
 
-    /* =========================
-       POIs cache: ensureAllPois (IndexedDB)
-       - usa cache primeiro
-       - revalida em background
-       - dedupe com poisPromiseRef
-    ========================= */
-    const ensureAllPois = useCallback(async (): Promise<PoiDto[]> => {
-        if (allPois.length > 0) return allPois;
-        if (poisPromiseRef.current) return await poisPromiseRef.current;
+    function useMediaQuery(query: string) {
+        const [matches, setMatches] = useState(() =>
+            typeof window !== "undefined" ? window.matchMedia(query).matches : false
+        );
 
-        setLoadingAllPois(true);
+        useEffect(() => {
+            if (typeof window === "undefined") return;
 
-        const p = (async () => {
-            // 1) tenta cache (lite)
-            const cachedLite = await loadPoisLiteFromCache();
-            if (cachedLite?.length) {
-                // cachedLite é subset de PoiDto, dá para a Home/pesquisa
-                const cached = cachedLite as unknown as PoiDto[];
-                setAllPois(cached);
+            const mql = window.matchMedia(query);
+            const onChange = () => setMatches(mql.matches);
 
-                // 2) revalidação em background
-                fetchPois()
-                    .then((fresh) => {
-                        if (!fresh?.length) return;
-                        setAllPois(fresh);
-                        savePoisLiteToCache(fresh).catch(() => {});
-                    })
-                    .catch(() => {});
+            // Safari/old: addListener
+            if ("addEventListener" in mql) mql.addEventListener("change", onChange);
+            else (mql as any).addListener(onChange);
 
-                return cached;
-            }
+            setMatches(mql.matches);
 
-            // 3) sem cache => fetch normal
-            const fresh = await fetchPois();
-            const next = fresh ?? [];
-            setAllPois(next);
-            savePoisLiteToCache(next).catch(() => {});
-            return next;
-        })()
-            .catch((e) => {
-                console.error("[api] Falha a carregar POIs:", e);
-                setAllPois([]);
-                return [];
-            })
-            .finally(() => {
-                setLoadingAllPois(false);
-                poisPromiseRef.current = null;
-            });
+            return () => {
+                if ("removeEventListener" in mql) mql.removeEventListener("change", onChange);
+                else (mql as any).removeListener(onChange);
+            };
+        }, [query]);
 
-        poisPromiseRef.current = p;
-        return await p;
-    }, [allPois]);
+        return matches;
+    }
 
     /* =========================
-       Load districts (+ warm POIs)
-    ========================= */
-    useEffect(() => {
-        let alive = true;
-
-        setLoadingDistricts(true);
-
-        Promise.all([
-            fetchDistricts().catch((e) => {
-                console.error("[api] Falha a carregar distritos:", e);
-                return [];
-            }),
-            ensureAllPois(),
-        ])
-            .then(([ds]) => {
-                if (!alive) return;
-                setDistrictDtos(ds ?? []);
-            })
-            .finally(() => {
-                if (!alive) return;
-                setLoadingDistricts(false);
-            });
-
-        return () => {
-            alive = false;
-        };
-    }, [ensureAllPois]);
-
-    /* =========================
-       Indexes
-    ========================= */
-    const featureByName = useMemo(() => {
-        const m = new Map<string, any>();
-        for (const f of districtsGeo?.features ?? []) {
-            const name = f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"];
-            if (name) m.set(name, f);
-        }
-        return m;
-    }, [districtsGeo]);
-
-    const districtDtoById = useMemo(() => {
-        const m = new Map<number, DistrictDto>();
-        for (const d of districtDtos) {
-            const id = (d as any).id;
-            if (typeof id === "number") m.set(id, d);
-        }
-        return m;
-    }, [districtDtos]);
-
-    const districtFeatureById = useMemo(() => {
-        const m = new Map<number, any>();
-        for (const f of districtsGeo?.features ?? []) {
-            const id = f?.properties?.id;
-            if (typeof id === "number") m.set(id, f);
-        }
-
-        // fallback: tentar casar por name
-        if (m.size === 0 && districtDtos.length > 0) {
-            for (const d of districtDtos) {
-                const id = (d as any).id;
-                const name = d.namePt ?? d.name;
-                if (typeof id === "number" && name) {
-                    const f = featureByName.get(name);
-                    if (f) m.set(id, f);
-                }
-            }
-        }
-
-        return m;
-    }, [districtsGeo, districtDtos, featureByName]);
-
-    const districtNames = useMemo(
-        () => Array.from(featureByName.keys()).sort((a, b) => a.localeCompare(b, "pt-PT", { sensitivity: "base" })),
-        [featureByName]
-    );
-
-    const poiSearchItems = useMemo(() => {
-        return (allPois ?? [])
-            .map((p) => ({ id: p.id, districtId: p.districtId ?? null, name: pickPoiLabelFromDto(p) }))
-            .filter((p) => p.name && p.name.length >= 3);
-    }, [allPois]);
-
-    /* =========================
-       District modal logic
+       District modal
     ========================= */
     const togglePoiType = useCallback((k: PoiCategory) => {
         setSelectedPoiTypes((prev) => {
@@ -417,7 +387,8 @@ export default function Home() {
 
     const loadPoisForDistrictFeature = useCallback(
         async (feature: any) => {
-            const name = feature?.properties?.name || feature?.properties?.NAME || feature?.properties?.["name:pt"];
+            const name =
+                feature?.properties?.name || feature?.properties?.NAME || feature?.properties?.["name:pt"];
             if (!name) {
                 setActiveDistrictPois(null);
                 return;
@@ -432,7 +403,8 @@ export default function Home() {
                 if (reqId !== districtPoisReqRef.current) return;
 
                 const allGeo = poiDtosToGeoJSON(pois);
-                const clipped = filterPointsInsideDistrict(allGeo, feature) ?? { type: "FeatureCollection", features: [] };
+                const clipped =
+                    filterPointsInsideDistrict(allGeo, feature) ?? { type: "FeatureCollection", features: [] };
 
                 setActiveDistrictPois(clipped);
             } catch (e) {
@@ -442,7 +414,7 @@ export default function Home() {
                 if (reqId === districtPoisReqRef.current) setLoadingDistrictPois(false);
             }
         },
-        [ensureAllPois]
+        [districtDtoByName, ensureAllPois]
     );
 
     const openDistrictModal = useCallback(
@@ -462,12 +434,12 @@ export default function Home() {
         const map = mapRef.current;
         if (!map) return;
 
-        if (isMobile) {
+        if (isMobileViewport()) {
             fitContinentalPT(map, true);
         } else if (ptGeo) {
             fitGeoJSONBoundsTight(map, ptGeo, true);
         }
-    }, [fitContinentalPT, fitGeoJSONBoundsTight, isMobile, ptGeo]);
+    }, [fitContinentalPT, fitGeoJSONBoundsTight, ptGeo]);
 
     const handleClickDistrict = useCallback(
         (_name: string | undefined, feature: any) => {
@@ -481,43 +453,38 @@ export default function Home() {
     ========================= */
     const openPoiFromDto = useCallback(async (poiDto: PoiDto) => {
         const reqId = ++homePoiReqRef.current;
-        const poiId = poiDto.id;
 
-        const cachedInfo = await loadPoiInfoFromCache(poiId);
-        if (cachedInfo && reqId === homePoiReqRef.current) {
-            setHomePoiInfo(cachedInfo);
-            setHomePoiOpen(true);
-            return;
-        }
         setHomePoiOpen(false);
         setHomePoiInfo(null);
 
         const feature = poiDtoToFeature(poiDto);
         setHomePoiFeature(feature);
 
-        const label = pickPoiLabelFromDto(poiDto);
-        if (!label) return;
+        try {
+            const label = pickPoiLabelFromDto(poiDto);
+            if (!label) return;
 
-        const base = await fetchPoiInfo({
-            approx: { name: label, lat: poiDto.lat, lon: poiDto.lon },
-            sourceFeature: feature,
-        });
+            const base = await fetchPoiInfo({
+                approx: { name: label, lat: poiDto.lat, lon: poiDto.lon },
+                sourceFeature: feature,
+            });
 
-        if (reqId !== homePoiReqRef.current) return;
-        if (!base) return;
-
-        let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
-
-        if (merged.length < 10) {
-            const wiki10 = await searchWikimediaIfAllowed(label, 10, base.category);
             if (reqId !== homePoiReqRef.current) return;
-            merged = uniqStrings([...merged, ...(wiki10 ?? [])]).slice(0, 10);
-        }
+            if (!base) return;
 
-        const infoNow: PoiInfo = { ...base, image: merged[0] ?? base.image ?? null, images: merged };
-        savePoiInfoToCache(poiId, infoNow).catch(() => {});
-        setHomePoiInfo(infoNow);
-        setHomePoiOpen(true);
+            let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+
+            if (merged.length < 10) {
+                const wiki10 = await searchWikimediaIfAllowed(label, 10, base.category);
+                if (reqId !== homePoiReqRef.current) return;
+                merged = uniqStrings([...merged, ...(wiki10 ?? [])]).slice(0, 10);
+            }
+
+            const infoNow: PoiInfo = { ...base, image: merged[0] ?? base.image ?? null, images: merged };
+            setHomePoiInfo(infoNow);
+            setHomePoiOpen(true);
+        } finally {
+        }
     }, []);
 
     useEffect(() => {
@@ -539,10 +506,10 @@ export default function Home() {
     }, [openPoiFromDto]);
 
     /* =========================
-       Top search pick (evita allPois.find)
+       Top search pick
     ========================= */
     const handlePickFromTop = useCallback(
-        async (item: SearchItem) => {
+        (item: SearchItem) => {
             if (item.kind === "district") {
                 const f = featureByName.get(item.name);
                 if (!f) return;
@@ -551,15 +518,9 @@ export default function Home() {
                 return;
             }
 
-            // POI: vai buscar por id (evita depender do array completo)
-            try {
-                const dto = await fetchPoiById(item.id);
-                if (dto) await openPoiFromDto(dto);
-            } catch (e) {
-                console.error("[TopPick] Falha ao abrir POI:", e);
-            }
+            const poiDto = allPois.find((p) => p.id === item.id);
+            if (poiDto) openPoiFromDto(poiDto);
 
-            // se tiver districtId, também podes abrir o distrito relacionado
             const districtId = item.districtId ?? null;
             const districtFeature = districtId != null ? districtFeatureById.get(districtId) : null;
 
@@ -578,7 +539,15 @@ export default function Home() {
                 }
             }
         },
-        [districtDtoById, districtFeatureById, featureByName, openDistrictModal, openPoiFromDto, zoomToFeatureBounds]
+        [
+            allPois,
+            districtDtoById,
+            districtFeatureById,
+            featureByName,
+            openDistrictModal,
+            openPoiFromDto,
+            zoomToFeatureBounds,
+        ]
     );
 
     /* =========================
@@ -634,7 +603,11 @@ export default function Home() {
                     </Pane>
 
                     <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                        <TileLayer url={WORLD_LABELS} attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>' noWrap />
+                        <TileLayer
+                            url={WORLD_LABELS}
+                            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            noWrap
+                        />
                     </Pane>
 
                     {districtsGeo && (
@@ -671,20 +644,20 @@ export default function Home() {
                 poi={homePoiFeature}
                 isAdmin={isAdmin}
                 onSaved={(patch) => {
-                    setAllPois((prev) => {
-                        const next = prev.map((p) =>
+                    setAllPois((prev) =>
+                        prev.map((p) =>
                             p.id === patch.id
-                                ? { ...p, name: patch.name ?? p.name, namePt: patch.namePt ?? p.namePt,
+                                ? {
+                                    ...p,
+                                    name: patch.name ?? p.name,
+                                    namePt: patch.namePt ?? p.namePt,
                                     description: patch.description ?? p.description,
                                     image: patch.image ?? p.image,
                                     images: patch.images ?? p.images,
                                 }
                                 : p
-                        );
-
-                        savePoisLiteToCache(next).catch(() => {});
-                        return next;
-                    });
+                        )
+                    );
 
                     setHomePoiFeature((prev: any) => {
                         if (!prev?.properties || prev.properties.id !== patch.id) return prev;

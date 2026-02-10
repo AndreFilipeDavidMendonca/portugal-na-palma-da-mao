@@ -45,10 +45,10 @@
 
   .poi-filters-mobile__panel {
     position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
+    top: calc(100%);
+    left: 5%;
     z-index: 9999;
-    width: min(92vw, 420px);
+    width: min(50vw, 420px);
     padding: 10px;
     border-radius: 16px;
     background: var(--bg-panel);

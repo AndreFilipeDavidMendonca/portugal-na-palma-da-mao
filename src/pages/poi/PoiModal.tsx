@@ -194,6 +194,7 @@ export default function PoiModal({
        Render
     ===================== */
 
+    console.log("Rendering POI modal", localInfo, poiId, poiOwnerId, isOwner, canEdit, isAdmin, user?.id, "open:", open);
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
             <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
