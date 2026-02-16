@@ -1,3 +1,4 @@
+// src/pages/Home.tsx
 import { MapContainer, Pane, TileLayer } from "react-leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
@@ -8,7 +9,7 @@ import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay/LoadingOverlay";
 
-import {fetchPoiById, fetchPoisLiteBbox, type PoiDto, type SearchItem} from "@/lib/api";
+import { fetchPoiById, fetchPoisLiteBbox, type PoiDto, type SearchItem } from "@/lib/api";
 
 import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
@@ -66,7 +67,7 @@ export default function Home() {
     const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
     const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
-    // District modal state (sem POIs por enquanto)
+    // District modal state
     const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(new Set());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeDistrictFeature, setActiveDistrictFeature] = useState<any | null>(null);
@@ -90,8 +91,7 @@ export default function Home() {
     }, [isMobile]);
 
     const [activeBbox, setActiveBbox] = useState<string | null>(null);
-    const [countsByCat, setCountsByCat] =
-        useState<Partial<Record<PoiCategory, number>>>({});
+    const [countsByCat, setCountsByCat] = useState<Partial<Record<PoiCategory, number>>>({});
 
     function isMobileViewport() {
         return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
@@ -133,10 +133,7 @@ export default function Home() {
                         type: "FeatureCollection",
                         features: res.pois.map((p) => ({
                             type: "Feature",
-                            geometry: {
-                                type: "Point",
-                                coordinates: [p.lon, p.lat],
-                            },
+                            geometry: { type: "Point", coordinates: [p.lon, p.lat] },
                             properties: {
                                 id: p.id,
                                 name: p.name,
@@ -159,17 +156,10 @@ export default function Home() {
                     setActiveDistrictPois({
                         type: "FeatureCollection",
                         features: res.pois
-                            .filter(
-                                (p) =>
-                                    p.category &&
-                                    sel.has(p.category as PoiCategory)
-                            )
+                            .filter((p) => p.category && sel.has(p.category as PoiCategory))
                             .map((p) => ({
                                 type: "Feature",
-                                geometry: {
-                                    type: "Point",
-                                    coordinates: [p.lon, p.lat],
-                                },
+                                geometry: { type: "Point", coordinates: [p.lon, p.lat] },
                                 properties: {
                                     id: p.id,
                                     name: p.name,
@@ -181,9 +171,7 @@ export default function Home() {
                     });
                 }
             } catch (e: any) {
-                if (e.name !== "AbortError") {
-                    console.error("Erro ao buscar POIs:", e);
-                }
+                if (e.name !== "AbortError") console.error("Erro ao buscar POIs:", e);
             }
         })();
 
@@ -193,10 +181,7 @@ export default function Home() {
     useEffect(() => {
         let aborted = false;
 
-        Promise.all([
-            loadGeo("/geo/portugal.geojson"),
-            loadGeo("/geo/distritos.geojson").catch(() => null),
-        ])
+        Promise.all([loadGeo("/geo/portugal.geojson"), loadGeo("/geo/distritos.geojson").catch(() => null)])
             .then(([ptData, distData]) => {
                 if (aborted) return;
                 setPtGeo(ptData);
@@ -305,7 +290,7 @@ export default function Home() {
     }
 
     /* =========================
-       District modal (SEM POIs por agora)
+       District modal
     ========================= */
     const togglePoiType = useCallback((k: PoiCategory) => {
         setSelectedPoiTypes((prev) => {
@@ -316,6 +301,17 @@ export default function Home() {
     }, []);
 
     const clearPoiTypes = useCallback(() => setSelectedPoiTypes(new Set()), []);
+
+    function bboxFromFeature(feature: any): string | null {
+        try {
+            const gj = L.geoJSON(feature);
+            const b = gj.getBounds();
+            if (!b.isValid()) return null;
+            return `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+        } catch {
+            return null;
+        }
+    }
 
     const openDistrictModal = useCallback(async (feature: any) => {
         setActiveDistrictFeature(feature);
@@ -435,17 +431,7 @@ export default function Home() {
     ========================= */
     const dataReady = Boolean(ptGeo && districtsGeo);
     const showOverlay = !dataReady;
-    function bboxFromFeature(feature: any): string | null {
-        try {
-            const gj = L.geoJSON(feature);
-            const b = gj.getBounds();
-            if (!b.isValid()) return null;
 
-            return `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-        } catch {
-            return null;
-        }
-    }
     return (
         <>
             {showOverlay && <LoadingOverlay message="A carregar o mapa de Portugal" />}
@@ -488,18 +474,13 @@ export default function Home() {
                     </Pane>
 
                     <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                        <TileLayer
-                            url={WORLD_LABELS}
-                            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            noWrap
-                        />
+                        <TileLayer url={WORLD_LABELS} attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>' noWrap />
                     </Pane>
 
                     {districtsGeo && (
                         <DistrictsHoverLayer
                             data={districtsGeo as any}
                             onClickDistrict={handleClickDistrict}
-                            // sem capitais do BE, sem stress
                             capitalsByDistrictId={new Map()}
                         />
                     )}

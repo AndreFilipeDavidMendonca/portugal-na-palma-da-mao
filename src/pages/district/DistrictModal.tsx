@@ -1,23 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
 import { type PoiInfo } from "@/lib/poiInfo";
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
-
-import { fetchDistrictById, updateDistrict } from "@/lib/api";
 import { type DistrictInfo, fetchDistrictInfo } from "@/lib/districtInfo";
-
-import { getDistrictCommonsGallery } from "@/lib/wikimedia";
-import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
 import { normalizeCat } from "@/utils/poiCategory";
 
 import PoiFilter from "@/features/filters/PoiFilter/PoiFilter";
 import PoiFiltersMobileDropdown from "@/features/filters/PoiFilter/PoiFiltersMobileDropdown";
 
 import DistrictAsidePanel from "@/components/DistrictAsidePanel/DistrictAsidePanel";
-import DistrictGalleryPane from "@/components/DistrictGalleryPane/DistrictGalleryPane";
 import DistrictMapPane from "@/components/DistrictMapPane/DistrictMapPane";
+import { fetchPoiById, type PoiDto } from "@/lib/api";
+import { fetchPoiInfo } from "@/lib/poiInfo";
 
 import "./DistrictModal.scss";
 
@@ -242,41 +238,64 @@ export default function DistrictModal({
 
             const poiId = pickPoiId(selectedPoi);
 
-            if (poiId != null) {
-                const cached = poiCacheRef.current.get(poiId);
-                if (cached && alive && reqRef.current === reqId) {
-                    setPoiInfo(cached.info);
-                    setShowPoiModal(true);
-                    setLoadingPoi(false);
-                    return;
-                }
+            if (!poiId) {
+                setLoadingPoi(false);
+                return;
             }
 
-            const label = pickPoiLabel(selectedPoi);
-            if (!label) return;
+            // 🔁 Cache first
+            const cached = poiCacheRef.current.get(poiId);
+            if (cached && alive && reqRef.current === reqId) {
+                setPoiInfo(cached.info);
+                setShowPoiModal(true);
+                setLoadingPoi(false);
+                return;
+            }
 
-            const base = await (await import("@/lib/poiInfo")).fetchPoiInfo({
-                approx: {
-                    name: label,
-                    lat: selectedPoi.geometry?.coordinates?.[1],
-                    lon: selectedPoi.geometry?.coordinates?.[0],
-                },
-                sourceFeature: selectedPoi,
-            });
+            try {
+                // 🔥 1️⃣ Buscar DTO completo
+                const dto: PoiDto | null = await fetchPoiById(poiId);
+                if (!dto) return;
 
-            if (!alive || reqRef.current !== reqId) return;
+                // 🔥 2️⃣ Converter DTO → Feature rica
+                const featureFull = {
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [dto.lon, dto.lat],
+                    },
+                    properties: {
+                        ...dto,
+                        id: dto.id,
+                        poiId: dto.id,
+                        namePt: dto.namePt ?? dto.name,
+                        tags: {
+                            category: dto.category,
+                            subcategory: dto.subcategory ?? null,
+                        },
+                    },
+                };
 
-            setPoiInfo(base);
-            setShowPoiModal(Boolean(base));
+                // 🔥 3️⃣ Normalizar via fetchPoiInfo
+                const base = await fetchPoiInfo({
+                    sourceFeature: featureFull,
+                });
 
-            if (base && poiId != null) {
+                if (!alive || reqRef.current !== reqId) return;
+                if (!base) return;
+
+                setPoiInfo(base);
+                setShowPoiModal(true);
+
                 poiCacheRef.current.set(poiId, {
                     info: base,
                     updatedAt: Date.now(),
                 });
+            } catch (err) {
+                console.error("Erro ao buscar POI full:", err);
+            } finally {
+                if (alive) setLoadingPoi(false);
             }
-
-            setLoadingPoi(false);
         })();
 
         return () => {
@@ -285,7 +304,9 @@ export default function DistrictModal({
     }, [selectedPoi]);
 
     if (!open) return null;
-
+    console.log("Selected POI:", selectedPoi);
+    console.log("Wiki URL:", selectedPoi?.properties?.wikipediaUrl);
+    console.log("SIPA:", selectedPoi?.properties?.sipaId);
     return (
         <div className="district-modal theme-dark">
             <div className="poi-top">
