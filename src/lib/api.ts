@@ -201,6 +201,40 @@ export async function deletePoiById(poiId: number): Promise<void> {
 }
 
 /* =========================
+   POIs LITE (BBOX)
+========================= */
+
+export type PoiLiteDto = {
+    id: number;
+    districtId: number | null; // futuro
+    ownerId: string | null;
+    name: string;
+    namePt: string | null;
+    category: string | null;
+    lat: number;
+    lon: number;
+};
+
+export type PoiLiteResponseDto = {
+    pois: PoiLiteDto[];
+    countsByCategory: Record<string, number>;
+};
+
+export async function fetchPoisLiteBbox(
+    bbox: string,
+    opts?: { category?: string | null; limit?: number; signal?: AbortSignal }
+): Promise<PoiLiteResponseDto> {
+    const qs = new URLSearchParams();
+    qs.set("bbox", bbox);
+    qs.set("limit", String(opts?.limit ?? 2000));
+    if (opts?.category) qs.set("category", opts.category);
+
+    return jsonFetch<PoiLiteResponseDto>(`${API_BASE}/api/pois/lite?${qs.toString()}`, {
+        signal: opts?.signal,
+    });
+}
+
+/* =========================
    My POIs
 ========================= */
 
@@ -270,10 +304,7 @@ export async function fetchFavorites(): Promise<FavoriteDto[]> {
     return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`);
 }
 
-export async function fetchFavoriteStatus(
-    poiId: number
-): Promise<{ favorited: boolean } | null> {
-    // importante: usar apiFetch para conseguir ler status 204/404
+export async function fetchFavoriteStatus(poiId: number): Promise<{ favorited: boolean } | null> {
     const res = await apiFetch(`${API_BASE}/api/favorites/${poiId}`);
 
     if (res.status === 401) return null;
@@ -292,12 +323,11 @@ export async function addFavorite(
     poiId: number,
     payload?: { name?: string | null; image?: string | null }
 ): Promise<void> {
-    const data = await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
+    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
         method: "POST",
         headers: payload ? { "Content-Type": "application/json" } : undefined,
         body: payload ? JSON.stringify(payload) : undefined,
     });
-    console.log("addFavorite:", data);
 }
 
 export async function removeFavorite(poiId: number): Promise<void> {
@@ -397,61 +427,18 @@ export async function createPoi(body: CreatePoiPayload): Promise<{ id: number }>
     });
 }
 
+/* =========================
+   Search
+========================= */
+
 export type SearchItem =
     | { kind: "district"; id: number; name: string }
     | { kind: "poi"; id: number; name: string; districtId?: number | null };
 
-export async function fetchSearch(
-    q: string,
-    limit = 10,
-    signal?: AbortSignal
-): Promise<SearchItem[]> {
+export async function fetchSearch(q: string, limit = 10, signal?: AbortSignal): Promise<SearchItem[]> {
     const qs = new URLSearchParams();
     qs.set("q", q);
     qs.set("limit", String(limit));
 
-    // jsonFetch aceita init, portanto podes passar signal
-   const data = jsonFetch<SearchItem[]>(`${API_BASE}/api/search?${qs.toString()}`, { signal });
-   console.log("fetchSearch:", data);
-   return data;
-}
-
-/* =========================
-   POIS LITE (BBOX)
-========================= */
-
-export type PoiLiteDto = {
-    id: number;
-    districtId: number | null;
-    ownerId: string | null;
-    name: string;
-    namePt: string | null;
-    category: string | null;
-    lat: number;
-    lon: number;
-};
-
-export type PoiLiteResponseDto = {
-    pois: PoiLiteDto[];
-    countsByCategory: Record<string, number>;
-};
-
-export async function fetchPoisLiteBbox(
-    bbox: string,
-    opts?: {
-        category?: string | null;
-        limit?: number;
-        signal?: AbortSignal;
-    }
-): Promise<PoiLiteResponseDto> {
-    const qs = new URLSearchParams();
-    qs.set("bbox", bbox);
-    qs.set("limit", String(opts?.limit ?? 2000));
-
-    if (opts?.category) qs.set("category", opts.category);
-
-    return jsonFetch<PoiLiteResponseDto>(
-        `${API_BASE}/api/pois/lite?${qs.toString()}`,
-        { signal: opts?.signal }
-    );
+    return jsonFetch<SearchItem[]>(`${API_BASE}/api/search?${qs.toString()}`, { signal });
 }
