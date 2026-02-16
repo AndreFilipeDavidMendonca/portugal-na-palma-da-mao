@@ -415,3 +415,43 @@ export async function fetchSearch(
    console.log("fetchSearch:", data);
    return data;
 }
+
+/* =========================
+   POIS LITE (BBOX)
+========================= */
+
+export type PoiLiteDto = {
+    id: number;
+    districtId: number | null;
+    ownerId: string | null;
+    name: string;
+    namePt: string | null;
+    category: string | null;
+    lat: number;
+    lon: number;
+};
+
+export type PoiLiteResponseDto = {
+    pois: PoiLiteDto[];
+    countsByCategory: Record<string, number>;
+};
+
+export async function fetchPoisLiteBbox(
+    bbox: string,
+    opts?: {
+        category?: string | null;
+        limit?: number;
+        signal?: AbortSignal;
+    }
+): Promise<PoiLiteResponseDto> {
+    const qs = new URLSearchParams();
+    qs.set("bbox", bbox);
+    qs.set("limit", String(opts?.limit ?? 2000));
+
+    if (opts?.category) qs.set("category", opts.category);
+
+    return jsonFetch<PoiLiteResponseDto>(
+        `${API_BASE}/api/pois/lite?${qs.toString()}`,
+        { signal: opts?.signal }
+    );
+}

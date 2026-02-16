@@ -8,7 +8,7 @@ import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay/LoadingOverlay";
 
-import { fetchPoiById, type PoiDto, type SearchItem } from "@/lib/api";
+import {fetchPoiById, fetchPoisLiteBbox, type PoiDto, type SearchItem} from "@/lib/api";
 
 import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
@@ -89,6 +89,10 @@ export default function Home() {
         return [37.0, -15.0];
     }, [isMobile]);
 
+    const [activeBbox, setActiveBbox] = useState<string | null>(null);
+    const [countsByCat, setCountsByCat] =
+        useState<Partial<Record<PoiCategory, number>>>({});
+
     function isMobileViewport() {
         return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
     }
@@ -96,6 +100,96 @@ export default function Home() {
     /* =========================
        Geo
     ========================= */
+
+    const reqRef = useRef(0);
+
+    useEffect(() => {
+        if (!isModalOpen || !activeBbox) return;
+
+        const selected = Array.from(selectedPoiTypes);
+
+        if (selected.length === 0) {
+            setActiveDistrictPois({ type: "FeatureCollection", features: [] });
+            return;
+        }
+
+        const reqId = ++reqRef.current;
+        const controller = new AbortController();
+
+        (async () => {
+            try {
+                const limit = 5000;
+
+                if (selected.length === 1) {
+                    const res = await fetchPoisLiteBbox(activeBbox, {
+                        category: selected[0],
+                        limit,
+                        signal: controller.signal,
+                    });
+
+                    if (reqRef.current !== reqId) return;
+
+                    setActiveDistrictPois({
+                        type: "FeatureCollection",
+                        features: res.pois.map((p) => ({
+                            type: "Feature",
+                            geometry: {
+                                type: "Point",
+                                coordinates: [p.lon, p.lat],
+                            },
+                            properties: {
+                                id: p.id,
+                                name: p.name,
+                                namePt: p.namePt ?? p.name,
+                                category: p.category,
+                                ownerId: p.ownerId,
+                            },
+                        })),
+                    });
+                } else {
+                    const res = await fetchPoisLiteBbox(activeBbox, {
+                        limit,
+                        signal: controller.signal,
+                    });
+
+                    if (reqRef.current !== reqId) return;
+
+                    const sel = new Set(selected);
+
+                    setActiveDistrictPois({
+                        type: "FeatureCollection",
+                        features: res.pois
+                            .filter(
+                                (p) =>
+                                    p.category &&
+                                    sel.has(p.category as PoiCategory)
+                            )
+                            .map((p) => ({
+                                type: "Feature",
+                                geometry: {
+                                    type: "Point",
+                                    coordinates: [p.lon, p.lat],
+                                },
+                                properties: {
+                                    id: p.id,
+                                    name: p.name,
+                                    namePt: p.namePt ?? p.name,
+                                    category: p.category,
+                                    ownerId: p.ownerId,
+                                },
+                            })),
+                    });
+                }
+            } catch (e: any) {
+                if (e.name !== "AbortError") {
+                    console.error("Erro ao buscar POIs:", e);
+                }
+            }
+        })();
+
+        return () => controller.abort();
+    }, [selectedPoiTypes, activeBbox, isModalOpen]);
+
     useEffect(() => {
         let aborted = false;
 
@@ -223,12 +317,30 @@ export default function Home() {
 
     const clearPoiTypes = useCallback(() => setSelectedPoiTypes(new Set()), []);
 
-    const openDistrictModal = useCallback((feature: any) => {
+    const openDistrictModal = useCallback(async (feature: any) => {
         setActiveDistrictFeature(feature);
         setIsModalOpen(true);
-
-        // até termos /pois/lite?bbox=...: devolve vazio
+        setSelectedPoiTypes(new Set());
         setActiveDistrictPois({ type: "FeatureCollection", features: [] });
+        setCountsByCat({});
+
+        const bbox = bboxFromFeature(feature);
+        setActiveBbox(bbox);
+
+        if (!bbox) return;
+
+        try {
+            const res = await fetchPoisLiteBbox(bbox, { limit: 1 });
+
+            const next: Partial<Record<PoiCategory, number>> = {};
+            for (const [k, v] of Object.entries(res.countsByCategory ?? {})) {
+                next[k as PoiCategory] = Number(v ?? 0);
+            }
+
+            setCountsByCat(next);
+        } catch (e) {
+            console.error("Erro ao carregar counts:", e);
+        }
     }, []);
 
     const handleCloseModal = useCallback(() => {
@@ -323,7 +435,17 @@ export default function Home() {
     ========================= */
     const dataReady = Boolean(ptGeo && districtsGeo);
     const showOverlay = !dataReady;
+    function bboxFromFeature(feature: any): string | null {
+        try {
+            const gj = L.geoJSON(feature);
+            const b = gj.getBounds();
+            if (!b.isValid()) return null;
 
+            return `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+        } catch {
+            return null;
+        }
+    }
     return (
         <>
             {showOverlay && <LoadingOverlay message="A carregar o mapa de Portugal" />}
@@ -392,6 +514,7 @@ export default function Home() {
                 onToggleType={togglePoiType}
                 onClearTypes={clearPoiTypes}
                 poiPoints={activeDistrictPois}
+                countsByCat={countsByCat}
                 isAdmin={isAdmin}
             />
 

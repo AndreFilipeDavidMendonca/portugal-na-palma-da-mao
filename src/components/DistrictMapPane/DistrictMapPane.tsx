@@ -1,3 +1,4 @@
+// src/components/DistrictMapPane/DistrictMapPane.tsx
 import React, { useEffect, useRef } from "react";
 import { GeoJSON, MapContainer, Pane, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -31,6 +32,7 @@ function FitDistrictBounds({ feature }: { feature: AnyGeo | null }) {
 
     useEffect(() => {
         if (!feature) return;
+
         const hash = JSON.stringify(feature?.geometry);
         if (prevRef.current === hash) return;
         prevRef.current = hash;
@@ -59,7 +61,8 @@ type Props = {
     poiAreas?: AnyGeo | null;
     filteredPoints?: AnyGeo | null;
 
-    selectedTypes: Set<PoiCategory>;
+    // ✅ era Set -> agora ReadonlySet (corrige TS2739)
+    selectedTypes: ReadonlySet<PoiCategory>;
     renderNonce: number;
 
     onPoiClick: (feature: any) => void;
@@ -100,11 +103,7 @@ export default function DistrictMapPane({
                 {districtFeature && (
                     <GeoJSON
                         data={districtFeature as any}
-                        style={() => ({
-                            color: "#2E7D32",
-                            weight: 2,
-                            fillOpacity: 0,
-                        })}
+                        style={() => ({ color: "#2E7D32", weight: 2, fillOpacity: 0 })}
                         interactive={false}
                     />
                 )}
@@ -135,12 +134,7 @@ export default function DistrictMapPane({
                     <Pane name="rails" style={{ zIndex: Z_RAIL }}>
                         <GeoJSON
                             data={rails as any}
-                            style={{
-                                color: COLOR_RAIL,
-                                weight: 1,
-                                dashArray: "4,3",
-                                opacity: 0.9,
-                            }}
+                            style={{ color: COLOR_RAIL, weight: 1, dashArray: "4,3", opacity: 0.9 }}
                             interactive={false}
                         />
                     </Pane>
@@ -148,15 +142,7 @@ export default function DistrictMapPane({
 
                 {roads && (
                     <Pane name="roads" style={{ zIndex: Z_ROADS }}>
-                        <GeoJSON
-                            data={roads as any}
-                            style={{
-                                color: COLOR_ROAD,
-                                weight: 1.2,
-                                opacity: 0.9,
-                            }}
-                            interactive={false}
-                        />
+                        <GeoJSON data={roads as any} style={{ color: COLOR_ROAD, weight: 1.2, opacity: 0.9 }} interactive={false} />
                     </Pane>
                 )}
 

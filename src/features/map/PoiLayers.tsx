@@ -212,12 +212,14 @@ export function PoiPointsLayer({
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize = getPinSizeForZoom(zoom);
 
-    const nothingSelected = !selectedTypes || selectedTypes.size === 0;
-
     const key = React.useMemo(() => {
         const cats = Array.from(selectedTypes ?? []).sort().join(",");
-        return `${cats}|mode:${showIcons ? "svg" : "pin"}|z:${zoom}|n:${nonce}`;
-    }, [selectedTypes, showIcons, zoom, nonce]);
+        const ids = (data?.features ?? [])
+            .map((f: any) => f?.properties?.id ?? "")
+            .join(",");
+
+        return `${cats}|mode:${showIcons ? "svg" : "pin"}|z:${zoom}|n:${nonce}|ids:${ids}`;
+    }, [selectedTypes, showIcons, zoom, nonce, data]);
 
     const layersRef = React.useRef<L.Layer[]>([]);
     const rafRef = React.useRef<number | null>(null);
@@ -289,11 +291,6 @@ export function PoiPointsLayer({
         <GeoJSON
             key={key}
             data={data as any}
-            filter={(f: any) => {
-                if (nothingSelected) return false;
-                const cat = getPoiCategory(f);
-                return cat ? selectedTypes.has(cat) : false;
-            }}
             pointToLayer={(feature: any, latlng: LatLngExpression) => {
                 const cat = getPoiCategory(feature);
 
