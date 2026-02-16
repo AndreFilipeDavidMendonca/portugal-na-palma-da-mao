@@ -7,23 +7,13 @@ import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
 import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay/LoadingOverlay";
-import TopDistrictFilter, { type SearchItem } from "@/features/topbar/TopDistrictFilter";
 
-import {
-    type CurrentUserDto,
-    type DistrictDto,
-    fetchDistricts,
-    fetchPois,
-    fetchPoiById,
-    type PoiDto, fetchSearch,
-} from "@/lib/api";
-
-import { filterPointsInsideDistrict } from "@/lib/spatial";
+import { fetchPoiById, type PoiDto, type SearchItem } from "@/lib/api";
 
 import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
-import { searchWikimediaIfAllowed } from "@/lib/wikiGate";
+import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
+import { useAuth } from "@/auth/AuthContext";
 
 type AnyGeo = any;
 
@@ -67,35 +57,20 @@ function poiDtoToFeature(p: PoiDto): any {
     };
 }
 
-function poiDtosToGeoJSON(pois: PoiDto[]): AnyGeo {
-    return { type: "FeatureCollection", features: (pois ?? []).map(poiDtoToFeature) };
-}
-
 export default function Home() {
+    // Auth (só sessão)
+    const { user } = useAuth();
+    const isAdmin = useMemo(() => user?.role?.toLowerCase() === "admin", [user]);
+
     // Geo
     const [ptGeo, setPtGeo] = useState<AnyGeo | null>(null);
     const [districtsGeo, setDistrictsGeo] = useState<AnyGeo | null>(null);
 
-    // API
-    const [districtDtos, setDistrictDtos] = useState<DistrictDto[]>([]);
-    const [allPois, setAllPois] = useState<PoiDto[]>([]);
-    const [loadingDistricts, setLoadingDistricts] = useState(false);
-    const [loadingAllPois, setLoadingAllPois] = useState(false);
-
-    // Dedupe fetchPois
-    const poisPromiseRef = useRef<Promise<PoiDto[]> | null>(null);
-
-    // User
-    const [currentUser, setCurrentUser] = useState<CurrentUserDto | null>(null);
-    const isAdmin = useMemo(() => currentUser?.role?.toLowerCase() === "admin", [currentUser]);
-
-    // District modal state
+    // District modal state (sem POIs por enquanto)
     const [selectedPoiTypes, setSelectedPoiTypes] = useState<Set<PoiCategory>>(new Set());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeDistrictFeature, setActiveDistrictFeature] = useState<any | null>(null);
     const [activeDistrictPois, setActiveDistrictPois] = useState<AnyGeo | null>(null);
-    const [loadingDistrictPois, setLoadingDistrictPois] = useState(false);
-    const districtPoisReqRef = useRef(0);
 
     // Map ref
     const mapRef = useRef<L.Map | null>(null);
@@ -105,17 +80,12 @@ export default function Home() {
     const [homePoiInfo, setHomePoiInfo] = useState<PoiInfo | null>(null);
     const [homePoiFeature, setHomePoiFeature] = useState<any | null>(null);
     const homePoiReqRef = useRef(0);
-    const CONTINENTAL_PT_BOUNDS = L.latLngBounds(
-        [36.90, -7.50], // SW (um pouco mais a Este do que -9.55)
-        [42.15, -5.90]  // NE (mais realista; -100 estava errado)
-    );
 
+    const CONTINENTAL_PT_BOUNDS = L.latLngBounds([36.90, -7.50], [42.15, -5.90]);
     const isMobile = useMediaQuery("(max-width: 900px)");
 
     const initialCenter = useMemo<[number, number]>(() => {
-        // Mobile: mais “apertado” no continente
         if (isMobile) return [37.5, -8.0];
-        // Desktop: um pouco mais “wide”
         return [37.0, -15.0];
     }, [isMobile]);
 
@@ -124,22 +94,8 @@ export default function Home() {
     }
 
     /* =========================
-       Load Geo
+       Geo
     ========================= */
-
-    const capitalsByDistrictId = useMemo(() => {
-        const m = new Map<number, [number, number]>();
-        for (const d of districtDtos) {
-            const id = (d as any).id;
-            const lat = (d as any).lat;
-            const lon = (d as any).lon;
-            if (typeof id === "number" && typeof lat === "number" && typeof lon === "number") {
-                m.set(id, [lat, lon]);
-            }
-        }
-        return m;
-    }, [districtDtos]);
-
     useEffect(() => {
         let aborted = false;
 
@@ -159,7 +115,6 @@ export default function Home() {
         };
     }, []);
 
-
     const fitContinentalPT = useCallback((map: L.Map, animate = false) => {
         const topbar = document.querySelector<HTMLElement>(".top-district-filter");
         const topH = topbar?.offsetHeight ?? 0;
@@ -171,87 +126,12 @@ export default function Home() {
             maxZoom: 10,
         });
 
-        // não prender maxBounds ao continente, mantém WORLD_BOUNDS para não “cortar” o mapa
         setTimeout(() => map.invalidateSize(), 0);
     }, []);
 
-    const ensureAllPois = useCallback(async (): Promise<PoiDto[]> => {
-        if (allPois.length > 0) return allPois;
-
-        if (poisPromiseRef.current) return await poisPromiseRef.current;
-
-        setLoadingAllPois(true);
-
-        const p = fetchPois()
-            .then((ps) => {
-                const next = ps ?? [];
-                setAllPois(next);
-                return next;
-            })
-            .catch((e) => {
-                console.error("[api] Falha a carregar POIs:", e);
-                setAllPois([]);
-                return [];
-            })
-            .finally(() => {
-                setLoadingAllPois(false);
-                poisPromiseRef.current = null;
-            });
-
-        poisPromiseRef.current = p;
-        return await p;
-    }, [allPois]);
-
     /* =========================
-       Load API data
+       Feature indexes (GeoJSON only)
     ========================= */
-    useEffect(() => {
-        let alive = true;
-
-        setLoadingDistricts(true);
-
-        Promise.all([
-            fetchDistricts().catch((e) => {
-                console.error("[api] Falha a carregar distritos:", e);
-                return [];
-            }),
-            ensureAllPois(),
-        ])
-            .then(([ds]) => {
-                if (!alive) return;
-                setDistrictDtos(ds ?? []);
-            })
-            .finally(() => {
-                if (!alive) return;
-                setLoadingDistricts(false);
-            });
-
-        return () => {
-            alive = false;
-        };
-    }, [ensureAllPois]);
-
-    /* =========================
-       Indexes
-    ========================= */
-    const districtDtoByName = useMemo(() => {
-        const m = new Map<string, DistrictDto>();
-        for (const d of districtDtos) {
-            if (d.namePt) m.set(d.namePt, d);
-            if (d.name) m.set(d.name, d);
-        }
-        return m;
-    }, [districtDtos]);
-
-    const districtDtoById = useMemo(() => {
-        const m = new Map<number, DistrictDto>();
-        for (const d of districtDtos) {
-            const id = (d as any).id;
-            if (typeof id === "number") m.set(id, d);
-        }
-        return m;
-    }, [districtDtos]);
-
     const featureByName = useMemo(() => {
         const m = new Map<string, any>();
         for (const f of districtsGeo?.features ?? []) {
@@ -263,39 +143,12 @@ export default function Home() {
 
     const districtFeatureById = useMemo(() => {
         const m = new Map<number, any>();
-
         for (const f of districtsGeo?.features ?? []) {
             const id = f?.properties?.id;
             if (typeof id === "number") m.set(id, f);
         }
-
-        if (m.size === 0 && districtDtos.length > 0) {
-            for (const d of districtDtos) {
-                const id = (d as any).id;
-                const name = d.namePt ?? d.name;
-                if (typeof id === "number" && name) {
-                    const f = featureByName.get(name);
-                    if (f) m.set(id, f);
-                }
-            }
-        }
-
         return m;
-    }, [districtsGeo, districtDtos, featureByName]);
-
-    const districtNames = useMemo(
-        () =>
-            Array.from(featureByName.keys()).sort((a, b) =>
-                a.localeCompare(b, "pt-PT", { sensitivity: "base" })
-            ),
-        [featureByName]
-    );
-
-    const poiSearchItems = useMemo(() => {
-        return (allPois ?? [])
-            .map((p) => ({ id: p.id, districtId: p.districtId ?? null, name: pickPoiLabelFromDto(p) }))
-            .filter((p) => p.name && p.name.length >= 3);
-    }, [allPois]);
+    }, [districtsGeo]);
 
     /* =========================
        Map utils
@@ -343,7 +196,6 @@ export default function Home() {
             const mql = window.matchMedia(query);
             const onChange = () => setMatches(mql.matches);
 
-            // Safari/old: addListener
             if ("addEventListener" in mql) mql.addEventListener("change", onChange);
             else (mql as any).addListener(onChange);
 
@@ -359,7 +211,7 @@ export default function Home() {
     }
 
     /* =========================
-       District modal
+       District modal (SEM POIs por agora)
     ========================= */
     const togglePoiType = useCallback((k: PoiCategory) => {
         setSelectedPoiTypes((prev) => {
@@ -371,46 +223,13 @@ export default function Home() {
 
     const clearPoiTypes = useCallback(() => setSelectedPoiTypes(new Set()), []);
 
-    const loadPoisForDistrictFeature = useCallback(
-        async (feature: any) => {
-            const name =
-                feature?.properties?.name || feature?.properties?.NAME || feature?.properties?.["name:pt"];
-            if (!name) {
-                setActiveDistrictPois(null);
-                return;
-            }
+    const openDistrictModal = useCallback((feature: any) => {
+        setActiveDistrictFeature(feature);
+        setIsModalOpen(true);
 
-            const reqId = ++districtPoisReqRef.current;
-            setLoadingDistrictPois(true);
-            setActiveDistrictPois(null);
-
-            try {
-                const pois = await ensureAllPois();
-                if (reqId !== districtPoisReqRef.current) return;
-
-                const allGeo = poiDtosToGeoJSON(pois);
-                const clipped =
-                    filterPointsInsideDistrict(allGeo, feature) ?? { type: "FeatureCollection", features: [] };
-
-                setActiveDistrictPois(clipped);
-            } catch (e) {
-                console.error("[api] Falha a carregar POIs do distrito:", e);
-                if (reqId === districtPoisReqRef.current) setActiveDistrictPois(null);
-            } finally {
-                if (reqId === districtPoisReqRef.current) setLoadingDistrictPois(false);
-            }
-        },
-        [districtDtoByName, ensureAllPois]
-    );
-
-    const openDistrictModal = useCallback(
-        async (feature: any) => {
-            setActiveDistrictFeature(feature);
-            setIsModalOpen(true);
-            await loadPoisForDistrictFeature(feature);
-        },
-        [loadPoisForDistrictFeature]
-    );
+        // até termos /pois/lite?bbox=...: devolve vazio
+        setActiveDistrictPois({ type: "FeatureCollection", features: [] });
+    }, []);
 
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false);
@@ -420,11 +239,8 @@ export default function Home() {
         const map = mapRef.current;
         if (!map) return;
 
-        if (isMobileViewport()) {
-            fitContinentalPT(map, true);
-        } else if (ptGeo) {
-            fitGeoJSONBoundsTight(map, ptGeo, true);
-        }
+        if (isMobileViewport()) fitContinentalPT(map, true);
+        else if (ptGeo) fitGeoJSONBoundsTight(map, ptGeo, true);
     }, [fitContinentalPT, fitGeoJSONBoundsTight, ptGeo]);
 
     const handleClickDistrict = useCallback(
@@ -446,31 +262,22 @@ export default function Home() {
         const feature = poiDtoToFeature(poiDto);
         setHomePoiFeature(feature);
 
-        try {
-            const label = pickPoiLabelFromDto(poiDto);
-            if (!label) return;
+        const label = pickPoiLabelFromDto(poiDto);
+        if (!label) return;
 
-            const base = await fetchPoiInfo({
-                approx: { name: label, lat: poiDto.lat, lon: poiDto.lon },
-                sourceFeature: feature,
-            });
+        const base = await fetchPoiInfo({
+            approx: { name: label, lat: poiDto.lat, lon: poiDto.lon },
+            sourceFeature: feature,
+        });
 
-            if (reqId !== homePoiReqRef.current) return;
-            if (!base) return;
+        if (reqId !== homePoiReqRef.current) return;
+        if (!base) return;
 
-            let merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+        const merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+        const infoNow: PoiInfo = { ...base, image: merged[0] ?? base.image ?? null, images: merged };
 
-            if (merged.length < 10) {
-                const wiki10 = await searchWikimediaIfAllowed(label, 10, base.category);
-                if (reqId !== homePoiReqRef.current) return;
-                merged = uniqStrings([...merged, ...(wiki10 ?? [])]).slice(0, 10);
-            }
-
-            const infoNow: PoiInfo = { ...base, image: merged[0] ?? base.image ?? null, images: merged };
-            setHomePoiInfo(infoNow);
-            setHomePoiOpen(true);
-        } finally {
-        }
+        setHomePoiInfo(infoNow);
+        setHomePoiOpen(true);
     }, []);
 
     useEffect(() => {
@@ -492,54 +299,29 @@ export default function Home() {
     }, [openPoiFromDto]);
 
     /* =========================
-       Top search pick
+       Top search pick (server-side)
     ========================= */
     const handlePickFromTop = useCallback(
         (item: SearchItem) => {
             if (item.kind === "district") {
-                const f = featureByName.get(item.name);
+                const f = featureByName.get(item.name) ?? (item.id != null ? districtFeatureById.get(item.id) : null);
                 if (!f) return;
                 zoomToFeatureBounds(f);
                 openDistrictModal(f);
                 return;
             }
 
-            const poiDto = allPois.find((p) => p.id === item.id);
-            if (poiDto) openPoiFromDto(poiDto);
-
-            const districtId = item.districtId ?? null;
-            const districtFeature = districtId != null ? districtFeatureById.get(districtId) : null;
-
-            if (districtFeature) {
-                zoomToFeatureBounds(districtFeature);
-                openDistrictModal(districtFeature);
-            } else if (districtId != null) {
-                const dto = districtDtoById.get(districtId);
-                const name = dto?.namePt ?? dto?.name ?? null;
-                if (name) {
-                    const f = featureByName.get(name);
-                    if (f) {
-                        zoomToFeatureBounds(f);
-                        openDistrictModal(f);
-                    }
-                }
-            }
+            fetchPoiById(item.id)
+                .then((dto) => dto && openPoiFromDto(dto))
+                .catch((e) => console.error("[Home] Falha fetchPoiById:", e));
         },
-        [
-            allPois,
-            districtDtoById,
-            districtFeatureById,
-            featureByName,
-            openDistrictModal,
-            openPoiFromDto,
-            zoomToFeatureBounds,
-        ]
+        [districtFeatureById, featureByName, openDistrictModal, openPoiFromDto, zoomToFeatureBounds]
     );
 
     /* =========================
        Render
     ========================= */
-    const dataReady = Boolean(ptGeo && districtsGeo && !loadingDistricts);
+    const dataReady = Boolean(ptGeo && districtsGeo);
     const showOverlay = !dataReady;
 
     return (
@@ -549,12 +331,7 @@ export default function Home() {
             {!isModalOpen && (
                 <div className="top-district-filter">
                     <div className="tdf-inner">
-                        <TopDistrictFilter
-                            districts={districtNames}
-                            pois={poiSearchItems}
-                            onPick={handlePickFromTop}
-                            loadingPois={loadingAllPois}
-                        />
+                        <TopDistrictFilter onPick={handlePickFromTop} />
                     </div>
                 </div>
             )}
@@ -600,7 +377,8 @@ export default function Home() {
                         <DistrictsHoverLayer
                             data={districtsGeo as any}
                             onClickDistrict={handleClickDistrict}
-                            capitalsByDistrictId={capitalsByDistrictId}
+                            // sem capitais do BE, sem stress
+                            capitalsByDistrictId={new Map()}
                         />
                     )}
                 </MapContainer>
@@ -617,8 +395,6 @@ export default function Home() {
                 isAdmin={isAdmin}
             />
 
-            {loadingDistrictPois && <SpinnerOverlay open={loadingDistrictPois} message="A carregar…" />}
-
             <PoiModal
                 open={homePoiOpen}
                 onClose={() => {
@@ -629,37 +405,6 @@ export default function Home() {
                 info={homePoiInfo}
                 poi={homePoiFeature}
                 isAdmin={isAdmin}
-                onSaved={(patch) => {
-                    setAllPois((prev) =>
-                        prev.map((p) =>
-                            p.id === patch.id
-                                ? {
-                                    ...p,
-                                    name: patch.name ?? p.name,
-                                    namePt: patch.namePt ?? p.namePt,
-                                    description: patch.description ?? p.description,
-                                    image: patch.image ?? p.image,
-                                    images: patch.images ?? p.images,
-                                }
-                                : p
-                        )
-                    );
-
-                    setHomePoiFeature((prev: any) => {
-                        if (!prev?.properties || prev.properties.id !== patch.id) return prev;
-                        return {
-                            ...prev,
-                            properties: {
-                                ...prev.properties,
-                                name: patch.name ?? prev.properties.name,
-                                namePt: patch.namePt ?? prev.properties.namePt,
-                                description: patch.description ?? prev.properties.description,
-                                image: patch.image ?? prev.properties.image,
-                                images: patch.images ?? prev.properties.images,
-                            },
-                        };
-                    });
-                }}
             />
         </>
     );
