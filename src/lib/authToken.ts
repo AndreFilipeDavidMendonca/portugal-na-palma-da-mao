@@ -1,15 +1,15 @@
 const KEY = "ptdot_auth_token";
 
-let memToken: string | null = null;
+let memToken: string | null | undefined = undefined; // 👈 undefined = "não carregado"
 
 export function getAuthToken(): string | null {
-    if (memToken !== null) return memToken;
+    if (memToken !== undefined) return memToken;
 
     try {
-        const t = localStorage.getItem(KEY);
-        memToken = t;
-        return t;
+        memToken = localStorage.getItem(KEY); // string | null
+        return memToken;
     } catch {
+        memToken = null;
         return null;
     }
 }

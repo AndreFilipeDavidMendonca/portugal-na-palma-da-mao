@@ -12,11 +12,10 @@ import TopDistrictFilter, { type SearchItem } from "@/features/topbar/TopDistric
 import {
     type CurrentUserDto,
     type DistrictDto,
-    fetchCurrentUser,
     fetchDistricts,
     fetchPois,
     fetchPoiById,
-    type PoiDto,
+    type PoiDto, fetchSearch,
 } from "@/lib/api";
 
 import { filterPointsInsideDistrict } from "@/lib/spatial";
@@ -123,19 +122,6 @@ export default function Home() {
     function isMobileViewport() {
         return typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
     }
-
-    /* =========================
-       Current user
-    ========================= */
-    useEffect(() => {
-        let alive = true;
-        fetchCurrentUser()
-            .then((u) => alive && setCurrentUser(u))
-            .catch(() => alive && setCurrentUser(null));
-        return () => {
-            alive = false;
-        };
-    }, []);
 
     /* =========================
        Load Geo

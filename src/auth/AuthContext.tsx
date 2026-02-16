@@ -15,7 +15,7 @@ type AuthContextType = {
     user: CurrentUserDto | null;
     setUser: (u: CurrentUserDto | null) => void;
     refreshUser: () => Promise<CurrentUserDto | null>;
-    bootstrapped: boolean; // evita “piscar”
+    bootstrapped: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,12 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<CurrentUserDto | null>(null);
     const [bootstrapped, setBootstrapped] = useState(false);
 
-    // evita chamadas concorrentes ao /me
     const inflightRef = useRef<Promise<CurrentUserDto | null> | null>(null);
 
     const refreshUser = useCallback(async () => {
-        // se não há token, não faz sentido bater no /me
         const token = getAuthToken();
+
         if (!token) {
             setUser(null);
             return null;
@@ -43,9 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return u;
             })
             .catch(() => {
-                // IMPORTANT: aqui NÃO apagues token automaticamente.
-                // Enquanto o BE ainda está em migração, 401 no /me pode ser “normal”.
-                setUser(null);
                 return null;
             })
             .finally(() => {
@@ -61,26 +57,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         (async () => {
             try {
-                const token = getAuthToken();
-                if (!token) {
-                    if (!alive) return;
-                    setUser(null);
-                    return;
-                }
-
-                const u = await fetchCurrentUser().catch(() => null);
-                if (!alive) return;
-                setUser(u);
+                await refreshUser();
             } finally {
-                if (!alive) return;
-                setBootstrapped(true);
+                if (alive) setBootstrapped(true);
             }
         })();
 
         return () => {
             alive = false;
         };
-    }, []);
+    }, [refreshUser]);
 
     const value = useMemo(
         () => ({ user, setUser, refreshUser, bootstrapped }),

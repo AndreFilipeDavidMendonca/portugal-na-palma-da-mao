@@ -52,18 +52,12 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         const trimmed = body.trim();
         if (!trimmed) return;
 
-        if (!user) {
-            toast.info("Faz login para comentar.");
-            return;
-        }
-
         setSending(true);
 
         try {
             const created = await addPoiComment(poiId, trimmed);
             setComments((prev) => [created, ...prev]);
             setBody("");
-            toast.success("Comentário publicado.");
         } catch (e: any) {
             toast.error(e?.message ?? "Falha ao enviar comentário.");
         } finally {
@@ -79,7 +73,6 @@ export default function usePoiComments({ open, poiId, user }: Args) {
         try {
             await deletePoiComment(commentId);
             setComments((prev) => prev.filter((c) => c.id !== commentId));
-            toast.success("Comentário removido.");
         } catch (e: any) {
             toast.error(e?.message ?? "Falha ao remover comentário.");
         } finally {

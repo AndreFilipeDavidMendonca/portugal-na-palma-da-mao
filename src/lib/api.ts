@@ -25,38 +25,17 @@ function extractErrorMessage(data: any, status: number) {
     );
 }
 
-function withAuthHeaders(init?: RequestInit): RequestInit {
-    const token = getAuthToken();
-    const headers = new Headers(init?.headers ?? {});
-    console.log("withAuthHeaders:", token), headers;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-
-    return {
-        ...(init ?? {}),
-        headers,
-        // token auth => não usar cookies
-        credentials: "omit",
-    };
-}
-
 /** Fetch base com Bearer token. Limpa token se 401. */
-type ApiFetchOptions = {
-    autoClearOn401?: boolean; // default false
-};
-
-async function apiFetch(input: RequestInfo, init: RequestInit = {}, opts: ApiFetchOptions = {}) {
+async function apiFetch(input: RequestInfo, init: RequestInit = {}) {
     const token = getAuthToken();
-
     const headers = new Headers(init.headers ?? {});
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
-    const res = await fetch(input, {
+    return fetch(input, {
         ...init,
         headers,
         credentials: "omit",
     });
-
-    return res;
 }
 
 /** Fetch JSON (ou texto) e lança erro se !ok */
@@ -416,4 +395,23 @@ export async function createPoi(body: CreatePoiPayload): Promise<{ id: number }>
             images: body.images ?? [],
         }),
     });
+}
+
+export type SearchItem =
+    | { kind: "district"; id: number; name: string }
+    | { kind: "poi"; id: number; name: string; districtId?: number | null };
+
+export async function fetchSearch(
+    q: string,
+    limit = 10,
+    signal?: AbortSignal
+): Promise<SearchItem[]> {
+    const qs = new URLSearchParams();
+    qs.set("q", q);
+    qs.set("limit", String(limit));
+
+    // jsonFetch aceita init, portanto podes passar signal
+   const data = jsonFetch<SearchItem[]>(`${API_BASE}/api/search?${qs.toString()}`, { signal });
+   console.log("fetchSearch:", data);
+   return data;
 }

@@ -113,7 +113,7 @@
   .poi-body {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0px;
     padding: 14px;
     margin-bottom: 30px;
 
@@ -127,7 +127,7 @@
     border-radius: 14px;
 
     aspect-ratio: 16 / 9;
-    max-height: 42vh;
+    max-height: 30vh;
   }
 
   /* garante que o componente interno acompanha o container */

@@ -53,11 +53,9 @@ export default function usePoiFavorite({ open, poiId, user }: Args) {
             if (isFav) {
                 await removeFavorite(poiId);
                 setIsFav(false);
-                toast.info("Removido dos favoritos.");
             } else {
                 await addFavorite(poiId);
                 setIsFav(true);
-                toast.success("Adicionado aos favoritos.");
             }
         } catch (e: any) {
             toast.error(e?.message ?? "Falha ao atualizar favoritos.");
