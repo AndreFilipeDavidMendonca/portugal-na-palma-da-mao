@@ -1,5 +1,6 @@
 // src/lib/poiInfo.ts
 import type { PoiCategory } from "@/utils/constants";
+import { resolvePoiMedia10 } from "@/lib/poiMedia";
 
 /* =====================================================================
    TIPOS
@@ -27,6 +28,11 @@ export type BuiltPeriod = {
     start?: string | null;
     end?: string | null;
     opened?: string | null;
+};
+
+export type MediaAttribution = {
+    source: "db" | "wikimedia" | "none";
+    note?: string | null;
 };
 
 export type PoiInfo = {
@@ -69,6 +75,9 @@ export type PoiInfo = {
     materials?: string[];
     builders?: string[];
     builtPeriod?: BuiltPeriod;
+
+    // ✅ para UI avisar “momentâneo”
+    mediaAttribution?: MediaAttribution;
 };
 
 /* =====================================================================
@@ -181,7 +190,8 @@ type FetchPoiInfoOpts = {
 };
 
 /**
- * Serve para criar uma base rápida (BD/GeoJSON) e deixar o Wikimedia para o DistrictModal.
+ * Base rápida (BD/GeoJSON) + fallback temporário para Wikimedia (via resolvePoiMedia10).
+ * Comerciais nunca usam wiki.
  */
 export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo | null> {
     const sourceFeature = options.sourceFeature || null;
@@ -208,19 +218,38 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
         cleanString(approx?.name) ??
         null;
 
-    // imagens da BD (GeoJSON)
+    // imagens da BD (GeoJSON/DTO)
     const dbImages = asStringArray(props.images);
 
-    const mainImageFromProps =
-        cleanString(props.image) ??
-        (dbImages.length > 0 ? dbImages[0] : null);
+    const mainImageFromProps = cleanString(props.image) ?? (dbImages.length > 0 ? dbImages[0] : null);
 
-    const mergedImages = uniqStrings([
-        ...(mainImageFromProps ? [mainImageFromProps] : []),
-        ...dbImages,
-    ]);
+    const baseMedia = uniqStrings([...(mainImageFromProps ? [mainImageFromProps] : []), ...dbImages]).slice(0, 10);
 
-    const finalImage = mergedImages.length > 0 ? mergedImages[0] : null;
+    // ✅ fallback temporário: wikimedia (até 10)
+    const resolvedMedia = label
+        ? await resolvePoiMedia10({
+            label,
+            baseImage: baseMedia[0] ?? null,
+            baseImages: baseMedia.slice(1),
+            allowWikiFor: sourceFeature, // resolvePoiMedia10 trata de comerciais/flag
+            limit: 10,
+        })
+        : baseMedia;
+
+    const finalMedia = uniqStrings(resolvedMedia).slice(0, 10);
+    const finalImage = finalMedia.length > 0 ? finalMedia[0] : null;
+
+    // attribution
+    const baseSet = new Set(baseMedia);
+    const wikiAdded = finalMedia.some((u) => !baseSet.has(u));
+    const mediaAttribution: MediaAttribution = finalMedia.length === 0
+        ? { source: "none", note: null }
+        : wikiAdded
+            ? {
+                source: "wikimedia",
+                note: "Fotografias via Wikimedia Commons (temporário).",
+            }
+            : { source: "db", note: null };
 
     // Contacts
     const phone = cleanString(props.phone);
@@ -240,7 +269,9 @@ export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo |
         description: cleanString(props.description) ?? null,
 
         image: finalImage,
-        images: mergedImages,
+        images: finalMedia,
+
+        mediaAttribution,
 
         coords,
 

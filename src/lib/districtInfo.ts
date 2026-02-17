@@ -12,7 +12,7 @@ export type DistrictInfo = {
     inhabited_since: string | null;
     description: string | null;
     history: string | null;
-    files: string[];
+    files: string[]; // ✅ imagens/ficheiros do distrito
 };
 
 function fromDto(dto: DistrictDto): DistrictInfo {
@@ -27,14 +27,11 @@ function fromDto(dto: DistrictDto): DistrictInfo {
         inhabited_since: dto.inhabitedSince,
         description: dto.description,
         history: dto.history,
-        files: dto.files ?? [],
+        files: Array.isArray(dto.files) ? dto.files.filter(Boolean) : [], // ✅ robusto
     };
 }
 
-/** Fonte única da verdade: distrito por ID. */
-export async function fetchDistrictInfoById(
-    id: number
-): Promise<DistrictInfo | null> {
+export async function fetchDistrictInfoById(id: number): Promise<DistrictInfo | null> {
     try {
         const dto = await fetchDistrictById(id);
         return dto ? fromDto(dto) : null;

@@ -75,6 +75,9 @@ export default function PoiModal({
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
 
+    // ✅ evitar gravar imagens do Wikimedia “sem querer”
+    const [persistWikiMedia, setPersistWikiMedia] = useState(false);
+
     /* =====================
        Sync info → local state
     ===================== */
@@ -83,6 +86,9 @@ export default function PoiModal({
         setLocalInfo(info);
         setEditing(false);
         setSaving(false);
+
+        // reset do toggle
+        setPersistWikiMedia(false);
 
         if (!info) {
             setTitleInput("");
@@ -108,6 +114,8 @@ export default function PoiModal({
         const base = editing ? imagesList : [localInfo?.image ?? "", ...(localInfo?.images ?? [])];
         return Array.from(new Set(base.filter(Boolean)));
     }, [editing, imagesList, localInfo?.image, localInfo?.images]);
+
+    const wikiTemp = localInfo?.mediaAttribution?.source === "wikimedia";
 
     /* =====================
        Hooks
@@ -149,12 +157,16 @@ export default function PoiModal({
         setSaving(true);
 
         try {
+            // ✅ se for media temporário do Wikimedia, só gravamos imagens se o user confirmar
+            const shouldPersistImages = !wikiTemp || persistWikiMedia;
+
             const updated = await updatePoi(poiId!, {
                 name: titleInput || null,
                 namePt: titleInput || null,
                 description: descInput || null,
-                image: primaryImage,
-                images: imagesList.length ? imagesList : null,
+
+                image: shouldPersistImages ? primaryImage : null,
+                images: shouldPersistImages ? (imagesList.length ? imagesList : null) : null,
             });
 
             setLocalInfo((prev) =>
@@ -163,8 +175,12 @@ export default function PoiModal({
                         ...prev,
                         label: updated.namePt ?? updated.name ?? prev.label,
                         description: updated.description ?? prev.description,
-                        image: updated.image ?? primaryImage ?? prev.image ?? null,
-                        images: updated.images ?? imagesList,
+                        image: updated.image ?? (shouldPersistImages ? primaryImage : prev.image) ?? null,
+                        images: updated.images ?? (shouldPersistImages ? imagesList : prev.images) ?? [],
+                        // se gravou, deixa de ser “temporário”
+                        mediaAttribution: shouldPersistImages
+                            ? { source: "db", note: null }
+                            : prev.mediaAttribution,
                     }
                     : prev
             );
@@ -222,6 +238,49 @@ export default function PoiModal({
 
                 <div className="poi-body">
                     <section className="poi-media" aria-label="Galeria">
+                        {/* ✅ aviso claro e discreto */}
+                        {wikiTemp && !editing && (
+                            <div
+                                style={{
+                                    margin: "8px 0 10px",
+                                    padding: "8px 10px",
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    borderRadius: 10,
+                                    fontSize: 13,
+                                    opacity: 0.9,
+                                }}
+                            >
+                                📷 Fotografias via <b>Wikimedia Commons</b> (temporário). No futuro, as fotos passam a vir
+                                sempre da nossa base de dados.
+                            </div>
+                        )}
+
+                        {/* ✅ se estiver a editar e as fotos são temporárias, pede confirmação para gravar */}
+                        {wikiTemp && editing && canEdit && (
+                            <label
+                                style={{
+                                    display: "flex",
+                                    gap: 10,
+                                    alignItems: "center",
+                                    margin: "8px 0 10px",
+                                    padding: "8px 10px",
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    borderRadius: 10,
+                                    fontSize: 13,
+                                    opacity: 0.9,
+                                    cursor: "pointer",
+                                    userSelect: "none",
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={persistWikiMedia}
+                                    onChange={(e) => setPersistWikiMedia(e.target.checked)}
+                                />
+                                Guardar estas fotos do <b>Wikimedia</b> neste POI (opcional).
+                            </label>
+                        )}
+
                         <PoiMedia
                             title={title}
                             mediaUrls={mediaUrls}

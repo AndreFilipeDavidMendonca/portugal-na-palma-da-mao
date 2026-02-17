@@ -9,7 +9,7 @@ import { type PoiCategory, WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import DistrictModal from "@/pages/district/DistrictModal";
 import LoadingOverlay from "@/components/LoadingOverlay/LoadingOverlay";
 
-import { fetchPoiById, fetchPoisLiteBbox, type PoiDto, type SearchItem } from "@/lib/api";
+import { fetchDistricts, fetchPoiById, fetchPoisLiteBbox, type PoiDto, type SearchItem } from "@/lib/api";
 
 import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
@@ -178,16 +178,70 @@ export default function Home() {
         return () => controller.abort();
     }, [selectedPoiTypes, activeBbox, isModalOpen]);
 
+    const norm = (s: string) =>
+        (s || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/^\s*distrito\s+de\s+/i, "")
+            .trim()
+            .toLowerCase();
+
     useEffect(() => {
         let aborted = false;
 
-        Promise.all([loadGeo("/geo/portugal.geojson"), loadGeo("/geo/distritos.geojson").catch(() => null)])
-            .then(([ptData, distData]) => {
+        (async () => {
+            try {
+                const [ptData, distData] = await Promise.all([
+                    loadGeo("/geo/portugal.geojson"),
+                    loadGeo("/geo/distritos.geojson").catch(() => null),
+                ]);
+
                 if (aborted) return;
+
                 setPtGeo(ptData);
-                setDistrictsGeo(distData);
-            })
-            .catch((e) => console.error("[geo] Falha ao carregar PT/distritos:", e));
+
+                if (!distData) {
+                    setDistrictsGeo(null);
+                    return;
+                }
+
+                // ✅ buscar distritos do backend
+                const apiDistricts = await fetchDistricts();
+
+                const idByName = new Map<string, number>();
+                for (const d of apiDistricts ?? []) {
+                    if (d.name) idByName.set(norm(d.name), d.id);
+                    if (d.namePt) idByName.set(norm(d.namePt), d.id);
+                    if (d.code) idByName.set(norm(d.code), d.id); // bonus (se fizer sentido)
+                }
+
+                const patched = {
+                    ...distData,
+                    features: (distData.features ?? []).map((f: any) => {
+                        const p = f?.properties ?? {};
+                        const name = p.name || p.NAME || p["name:pt"] || "";
+                        const code = p.code || p.COD || p.DICOFRE || ""; // se existir, fica bonus
+                        const dbId =
+                            idByName.get(norm(code)) ??
+                            idByName.get(norm(name)) ??
+                            null;
+
+                        return {
+                            ...f,
+                            properties: {
+                                ...p,
+                                districtDbId: dbId, // ✅ ID do backend
+                                geoId: p.id ?? null // opcional: guarda o antigo
+                            },
+                        };
+                    }),
+                };
+
+                setDistrictsGeo(patched);
+            } catch (e) {
+                console.error("[geo] Falha ao carregar PT/distritos:", e);
+            }
+        })();
 
         return () => {
             aborted = true;
@@ -215,7 +269,7 @@ export default function Home() {
         const m = new Map<string, any>();
         for (const f of districtsGeo?.features ?? []) {
             const name = f?.properties?.name || f?.properties?.NAME || f?.properties?.["name:pt"];
-            if (name) m.set(name, f);
+            if (name) m.set(norm(name), f);
         }
         return m;
     }, [districtsGeo]);
@@ -223,8 +277,8 @@ export default function Home() {
     const districtFeatureById = useMemo(() => {
         const m = new Map<number, any>();
         for (const f of districtsGeo?.features ?? []) {
-            const id = f?.properties?.id;
-            if (typeof id === "number") m.set(id, f);
+            const id = f?.properties?.districtDbId;
+            if (typeof id === "number" && Number.isFinite(id)) m.set(id, f);
         }
         return m;
     }, [districtsGeo]);
@@ -412,7 +466,9 @@ export default function Home() {
     const handlePickFromTop = useCallback(
         (item: SearchItem) => {
             if (item.kind === "district") {
-                const f = featureByName.get(item.name) ?? (item.id != null ? districtFeatureById.get(item.id) : null);
+                const f =
+                    featureByName.get(norm(item.name)) ??
+                    (item.id != null ? districtFeatureById.get(item.id) : null);
                 if (!f) return;
                 zoomToFeatureBounds(f);
                 openDistrictModal(f);
@@ -491,11 +547,6 @@ export default function Home() {
                 open={isModalOpen}
                 onClose={handleCloseModal}
                 districtFeature={activeDistrictFeature}
-                selectedTypes={selectedPoiTypes}
-                onToggleType={togglePoiType}
-                onClearTypes={clearPoiTypes}
-                poiPoints={activeDistrictPois}
-                countsByCat={countsByCat}
                 isAdmin={isAdmin}
             />
 

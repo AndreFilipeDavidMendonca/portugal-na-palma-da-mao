@@ -8,8 +8,7 @@ import { getDistrictMedia10, getPoiMedia10 } from "@/lib/wikimedia";
  */
 export const WIKI_MEDIA_ENABLED = true;
 
-const uniqStrings = (arr: string[]): string[] =>
-    Array.from(new Set((arr ?? []).filter(Boolean)));
+const uniqStrings = (arr: string[]): string[] => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 export function isBusinessPoi(input: any): boolean {
     // aceita feature (properties) ou dto/base
@@ -44,6 +43,7 @@ export async function resolvePoiMedia10(args: {
     if (!args.label?.trim()) return base;
     if (!shouldUseWikiImages(args.allowWikiFor)) return base;
 
+    // getPoiMedia10 deve respeitar base e devolver no máximo limit
     return getPoiMedia10(args.label, base, limit);
 }
 

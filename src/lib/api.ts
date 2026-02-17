@@ -229,9 +229,13 @@ export async function fetchPoisLiteBbox(
     qs.set("limit", String(opts?.limit ?? 2000));
     if (opts?.category) qs.set("category", opts.category);
 
-    return jsonFetch<PoiLiteResponseDto>(`${API_BASE}/api/pois/lite?${qs.toString()}`, {
-        signal: opts?.signal,
-    });
+    const data = await jsonFetch<PoiLiteResponseDto>(
+        `${API_BASE}/api/pois/lite?${qs.toString()}`,
+        { signal: opts?.signal }
+    );
+
+    // ✅ shape garantido
+    return data ?? { pois: [], countsByCategory: {} };
 }
 
 /* =========================
