@@ -15,7 +15,9 @@ import PoiFiltersMobileDropdown from "@/features/filters/PoiFilter/PoiFiltersMob
 import DistrictAsidePanel from "@/components/DistrictAsidePanel/DistrictAsidePanel";
 import DistrictMapPane from "@/components/DistrictMapPane/DistrictMapPane";
 
+
 import "./DistrictModal.scss";
+import DistrictGallery from "@/components/DistrictGalleryPane/DistrictGalleryPane";
 
 type AnyGeo = any;
 
@@ -60,7 +62,11 @@ function pickDistrictId(feature: any): number | null {
     const p = feature?.properties ?? {};
     const candidates = [
         p.districtDbId, // ✅ primeiro
-        p.id, p.ID, p.districtId, p.DISTRICT_ID, p.distritoId,
+        p.id,
+        p.ID,
+        p.districtId,
+        p.DISTRICT_ID,
+        p.distritoId,
     ];
 
     for (const raw of candidates) {
@@ -110,10 +116,7 @@ export default function DistrictModal({
     const clearPoiTypes = useCallback(() => setSelectedTypes(new Set()), []);
 
     const districtId = useMemo(() => pickDistrictId(districtFeature), [districtFeature]);
-    const activeBbox = useMemo(
-        () => (districtFeature ? bboxFromFeature(districtFeature) : null),
-        [districtFeature]
-    );
+    const activeBbox = useMemo(() => (districtFeature ? bboxFromFeature(districtFeature) : null), [districtFeature]);
 
     // District info
     const [districtInfo, setDistrictInfo] = useState<DistrictInfo | null>(null);
@@ -164,6 +167,7 @@ export default function DistrictModal({
         setShowPoiModal(false);
         setDistrictError(null);
         setEditingDistrict(false);
+        setShowGallery(false); // ✅ garantir que abre sempre no painel normal
 
         setRenderNonce((n) => n + 1);
     }, [open, districtId]);
@@ -178,10 +182,7 @@ export default function DistrictModal({
             if (!districtId) {
                 setDistrictInfo(null);
 
-                const fallback =
-                    districtFeature?.properties?.name ||
-                    districtFeature?.properties?.NAME ||
-                    "Distrito";
+                const fallback = districtFeature?.properties?.name || districtFeature?.properties?.NAME || "Distrito";
 
                 setDistName(fallback);
                 setDistMedia([]);
@@ -437,6 +438,16 @@ export default function DistrictModal({
 
     if (!open) return null;
 
+    const districtNameForGallery =
+        distName ||
+        districtInfo?.namePt ||
+        districtInfo?.name ||
+        districtFeature?.properties?.name ||
+        districtFeature?.properties?.NAME ||
+        "Distrito";
+
+    const districtBaseUrls = (districtInfo?.files ?? distMedia) || [];
+
     return (
         <div className="district-modal theme-dark">
             <div className="poi-top">
@@ -477,37 +488,49 @@ export default function DistrictModal({
                     />
                 </div>
 
-                <DistrictAsidePanel
-                    showGallery={showGallery}
-                    onToggleGallery={() => setShowGallery((prev) => !prev)}
-                    isAdmin={isAdmin}
-                    editing={editingDistrict}
-                    saving={false}
-                    error={districtError}
-                    onEdit={() => isAdmin && setEditingDistrict(true)}
-                    onCancel={() => {
-                        setEditingDistrict(false);
-                        setDistrictError(null);
-                    }}
-                    onSave={async () => {
-                        // liga aqui o updateDistrict quando quiseres
-                    }}
-                    districtNameFallback={distName}
-                    distName={distName}
-                    setDistName={setDistName}
-                    distPopulation={distPopulation}
-                    setDistPopulation={setDistPopulation}
-                    distMunicipalities={distMunicipalities}
-                    setDistMunicipalities={setDistMunicipalities}
-                    distParishes={distParishes}
-                    setDistParishes={setDistParishes}
-                    distInhabitedSince={distInhabitedSince}
-                    setDistInhabitedSince={setDistInhabitedSince}
-                    distDescription={distDescription}
-                    setDistDescription={setDistDescription}
-                    distHistory={distHistory}
-                    setDistHistory={setDistHistory}
-                />
+                <div className="right-pane">
+                    {!showGallery ? (
+                        <DistrictAsidePanel
+                            showGallery={showGallery}
+                            onToggleGallery={() => setShowGallery(true)}
+                            isAdmin={isAdmin}
+                            editing={editingDistrict}
+                            saving={false}
+                            error={districtError}
+                            onEdit={() => isAdmin && setEditingDistrict(true)}
+                            onCancel={() => {
+                                setEditingDistrict(false);
+                                setDistrictError(null);
+                            }}
+                            onSave={async () => {
+                                // liga aqui o updateDistrict quando quiseres
+                            }}
+                            districtNameFallback={distName}
+                            distName={distName}
+                            setDistName={setDistName}
+                            distPopulation={distPopulation}
+                            setDistPopulation={setDistPopulation}
+                            distMunicipalities={distMunicipalities}
+                            setDistMunicipalities={setDistMunicipalities}
+                            distParishes={distParishes}
+                            setDistParishes={setDistParishes}
+                            distInhabitedSince={distInhabitedSince}
+                            setDistInhabitedSince={setDistInhabitedSince}
+                            distDescription={distDescription}
+                            setDistDescription={setDistDescription}
+                            distHistory={distHistory}
+                            setDistHistory={setDistHistory}
+                        />
+                    ) : (
+                        <DistrictGallery
+                            open={showGallery}
+                            districtName={districtNameForGallery}
+                            baseUrls={districtBaseUrls}
+                            onClose={() => setShowGallery(false)}
+                            setLoading={setLoadingGallery}
+                        />
+                    )}
+                </div>
             </div>
 
             <PoiModal
@@ -522,9 +545,7 @@ export default function DistrictModal({
                 isAdmin={isAdmin}
             />
 
-            {(loadingPoi || loadingGallery) && (
-                <SpinnerOverlay open={loadingPoi || loadingGallery} message="A carregar…" />
-            )}
+            {(loadingPoi || loadingGallery) && <SpinnerOverlay open={loadingPoi || loadingGallery} message="A carregar…" />}
         </div>
     );
 }

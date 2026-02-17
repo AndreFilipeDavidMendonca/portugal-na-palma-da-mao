@@ -16,6 +16,9 @@ import PoiComments from "@/components/PoiComment/PoiComments";
 
 import { toast } from "@/components/Toastr/toast";
 
+// ✅ NOVO: resolver media (BD + Wikimedia temporário)
+import { resolvePoiMedia10, shouldUseWikiImages } from "@/lib/poiMedia";
+
 type Props = {
     open: boolean;
     onClose: () => void;
@@ -32,14 +35,7 @@ type Props = {
     isAdmin?: boolean;
 };
 
-export default function PoiModal({
-                                     open,
-                                     onClose,
-                                     info,
-                                     poi,
-                                     onSaved,
-                                     isAdmin = false,
-                                 }: Props) {
+export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = false }: Props) {
     const { user } = useAuth();
 
     /* =====================
@@ -75,8 +71,8 @@ export default function PoiModal({
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
 
-    // ✅ evitar gravar imagens do Wikimedia “sem querer”
-    const [persistWikiMedia, setPersistWikiMedia] = useState(false);
+    // ✅ NOVO: loading do Wikimedia para POI (opcional)
+    const [loadingMedia, setLoadingMedia] = useState(false);
 
     /* =====================
        Sync info → local state
@@ -86,9 +82,7 @@ export default function PoiModal({
         setLocalInfo(info);
         setEditing(false);
         setSaving(false);
-
-        // reset do toggle
-        setPersistWikiMedia(false);
+        setLoadingMedia(false);
 
         if (!info) {
             setTitleInput("");
@@ -105,6 +99,72 @@ export default function PoiModal({
     }, [info]);
 
     /* =====================
+       Enriquecer imagens via Wikimedia (TEMP)
+       - Só quando abre
+       - Só se não houver fotos suficientes na BD
+       - Comerciais não chamam (shouldUseWikiImages)
+    ===================== */
+
+    useEffect(() => {
+        let alive = true;
+        if (!open) return;
+        if (!localInfo?.label?.trim()) return;
+
+        // base vindo da BD/props
+        const base = Array.from(new Set([localInfo.image ?? "", ...(localInfo.images ?? [])].filter(Boolean))).slice(0, 10);
+
+        // se já tens fotos suficientes, não faz nada
+        if (base.length >= 3) return;
+
+        // se este POI não deve usar wiki (ex: business), não chama
+        if (!shouldUseWikiImages(poi)) return;
+
+        (async () => {
+            setLoadingMedia(true);
+            try {
+                // TODO: quando os POIs tiverem sempre fotos na BD,
+                // desativar o Wikimedia (WIKI_MEDIA_ENABLED=false) e remover este enrich.
+                const merged = await resolvePoiMedia10({
+                    label: localInfo.label!,
+                    baseImage: localInfo.image ?? null,
+                    baseImages: localInfo.images ?? [],
+                    allowWikiFor: poi,
+                    limit: 10,
+                });
+
+                if (!alive) return;
+
+                const primary = merged[0] ?? null;
+
+                setLocalInfo((prev) =>
+                    prev
+                        ? {
+                            ...prev,
+                            image: primary ?? prev.image ?? null,
+                            images: merged,
+                        }
+                        : prev
+                );
+
+                // se não estás a editar, também atualiza o "draft" da lista
+                setImagesList((prev) => {
+                    if (editing) return prev;
+                    return merged;
+                });
+            } catch {
+                // silencioso: fica com base
+            } finally {
+                if (alive) setLoadingMedia(false);
+            }
+        })();
+
+        return () => {
+            alive = false;
+        };
+        // importante: depende do open + label + poiId (para mudar quando muda POI)
+    }, [open, poiId, localInfo?.label, localInfo?.image, localInfo?.images, poi, editing]);
+
+    /* =====================
        Derived
     ===================== */
 
@@ -115,18 +175,11 @@ export default function PoiModal({
         return Array.from(new Set(base.filter(Boolean)));
     }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
-    const wikiTemp = localInfo?.mediaAttribution?.source === "wikimedia";
-
     /* =====================
        Hooks
     ===================== */
 
-    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
-        open,
-        poiId,
-        user,
-    });
-
+    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({ open, poiId, user });
     const commentsState = usePoiComments({ open, poiId, user });
 
     /* =====================
@@ -157,16 +210,12 @@ export default function PoiModal({
         setSaving(true);
 
         try {
-            // ✅ se for media temporário do Wikimedia, só gravamos imagens se o user confirmar
-            const shouldPersistImages = !wikiTemp || persistWikiMedia;
-
             const updated = await updatePoi(poiId!, {
                 name: titleInput || null,
                 namePt: titleInput || null,
                 description: descInput || null,
-
-                image: shouldPersistImages ? primaryImage : null,
-                images: shouldPersistImages ? (imagesList.length ? imagesList : null) : null,
+                image: primaryImage,
+                images: imagesList.length ? imagesList : null,
             });
 
             setLocalInfo((prev) =>
@@ -175,12 +224,8 @@ export default function PoiModal({
                         ...prev,
                         label: updated.namePt ?? updated.name ?? prev.label,
                         description: updated.description ?? prev.description,
-                        image: updated.image ?? (shouldPersistImages ? primaryImage : prev.image) ?? null,
-                        images: updated.images ?? (shouldPersistImages ? imagesList : prev.images) ?? [],
-                        // se gravou, deixa de ser “temporário”
-                        mediaAttribution: shouldPersistImages
-                            ? { source: "db", note: null }
-                            : prev.mediaAttribution,
+                        image: updated.image ?? primaryImage ?? prev.image ?? null,
+                        images: updated.images ?? imagesList,
                     }
                     : prev
             );
@@ -205,10 +250,6 @@ export default function PoiModal({
     };
 
     if (!canRender || !localInfo) return null;
-
-    /* =====================
-       Render
-    ===================== */
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
@@ -238,49 +279,6 @@ export default function PoiModal({
 
                 <div className="poi-body">
                     <section className="poi-media" aria-label="Galeria">
-                        {/* ✅ aviso claro e discreto */}
-                        {wikiTemp && !editing && (
-                            <div
-                                style={{
-                                    margin: "8px 0 10px",
-                                    padding: "8px 10px",
-                                    border: "1px solid rgba(255,255,255,0.12)",
-                                    borderRadius: 10,
-                                    fontSize: 13,
-                                    opacity: 0.9,
-                                }}
-                            >
-                                📷 Fotografias via <b>Wikimedia Commons</b> (temporário). No futuro, as fotos passam a vir
-                                sempre da nossa base de dados.
-                            </div>
-                        )}
-
-                        {/* ✅ se estiver a editar e as fotos são temporárias, pede confirmação para gravar */}
-                        {wikiTemp && editing && canEdit && (
-                            <label
-                                style={{
-                                    display: "flex",
-                                    gap: 10,
-                                    alignItems: "center",
-                                    margin: "8px 0 10px",
-                                    padding: "8px 10px",
-                                    border: "1px solid rgba(255,255,255,0.12)",
-                                    borderRadius: 10,
-                                    fontSize: 13,
-                                    opacity: 0.9,
-                                    cursor: "pointer",
-                                    userSelect: "none",
-                                }}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={persistWikiMedia}
-                                    onChange={(e) => setPersistWikiMedia(e.target.checked)}
-                                />
-                                Guardar estas fotos do <b>Wikimedia</b> neste POI (opcional).
-                            </label>
-                        )}
-
                         <PoiMedia
                             title={title}
                             mediaUrls={mediaUrls}
@@ -289,6 +287,10 @@ export default function PoiModal({
                             imagesList={imagesList}
                             setImagesList={setImagesList}
                         />
+                        {/* opcional: um hint quando está a ir buscar */}
+                        {!editing && loadingMedia && (
+                            <div className="poi-media__hint">A carregar fotos (Wikimedia)…</div>
+                        )}
                     </section>
 
                     <aside className="poi-side" aria-label="Detalhes">
