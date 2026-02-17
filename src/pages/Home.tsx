@@ -346,15 +346,6 @@ export default function Home() {
     /* =========================
        District modal
     ========================= */
-    const togglePoiType = useCallback((k: PoiCategory) => {
-        setSelectedPoiTypes((prev) => {
-            const next = new Set(prev);
-            next.has(k) ? next.delete(k) : next.add(k);
-            return next;
-        });
-    }, []);
-
-    const clearPoiTypes = useCallback(() => setSelectedPoiTypes(new Set()), []);
 
     function bboxFromFeature(feature: any): string | null {
         try {
