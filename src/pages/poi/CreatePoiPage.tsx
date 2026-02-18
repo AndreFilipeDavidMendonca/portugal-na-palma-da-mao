@@ -214,7 +214,7 @@ export default function CreatePoiPage() {
             if (aliveRef.current) setLoading(false);
         }
     }
-
+    console.log("creating poi images:", images);
     return (
         <div className="create-poi-page">
             <div className="create-poi-card">

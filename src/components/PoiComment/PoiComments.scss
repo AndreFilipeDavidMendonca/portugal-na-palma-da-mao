@@ -1,8 +1,9 @@
 /* src/components/PoiComments.scss */
 
-.poi-comments {
-  padding: 5px;
+.poi-comment {
+  min-width: 0;
 }
+
 .poi-comments__list {
   max-height: 360px;
   overflow: auto;
@@ -61,7 +62,7 @@
   max-height: 160px;
   overflow: auto;
   resize: vertical;
-
+  overflow-wrap: anywhere;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--bg-panel-2);
@@ -168,6 +169,10 @@
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.88);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  padding: 9px;
 }
 
 @media (max-width: 980px) {
