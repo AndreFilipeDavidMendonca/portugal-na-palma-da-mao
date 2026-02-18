@@ -11,104 +11,107 @@
   box-sizing: border-box;
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 
-  /* desktop: header + content */
   display: grid;
   grid-template-rows: auto 1fr;
-
-  /* desktop: o scroll NÃO é no root */
   overflow: hidden;
+
+  min-width: 0;
 
   .modal-content {
     display: grid;
     grid-template-columns: 1fr clamp(420px, 28vw, 560px);
-    min-height: 0; /* importante para grid children */
+    min-height: 0;
+    min-width: 0;
   }
 
   .left-pane {
     position: relative;
     min-height: 0;
-  }
-
-  /* Gallery left wrapper */
-  .district-gallery-left {
-    height: 100%;
-    min-height: 0;
-    padding: 20px 18px 18px;
-    box-sizing: border-box;
-
-    background: var(--bg-panel-2);
-    overflow: hidden; /* scroll fica no MediaStack */
-
-    display: flex;
-    flex-direction: column;
-  }
-
-  .district-gallery-left > .media-stack {
-    flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .right-pane {
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .right-pane > * {
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
   }
 }
-
-.district-modal.theme-dark.district-modal--gallery-open {
-  .modal-content {
-    grid-template-columns: minmax(420px, 1.4fr) minmax(420px, 1.1fr);
-  }
-}
-
-/* =========================
-   Mobile / Tablet: sobe tudo
-========================= */
 
 @media (max-width: 1024px) {
   .district-modal.theme-dark {
-    /* ✅ agora o scroll é na “página” inteira */
     height: 100dvh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-
-    /* não precisamos de grid 2 linhas aqui, mas pode ficar */
   }
 
   .district-modal.theme-dark .modal-content {
-    /* ✅ em mobile deixa de ser grid */
     display: flex;
     flex-direction: column;
-
     min-height: auto;
     overflow: visible;
   }
 
   .district-modal.theme-dark .left-pane {
-    /* ✅ mapa ocupa uma “hero height” dinâmica */
     flex: 0 0 auto;
-    height: clamp(52vh, 60vh, 72vh);
     overflow: hidden;
   }
 
-  /* ✅ o painel de detalhes vem abaixo e cresce naturalmente */
-  .district-modal.theme-dark .modal-content > :last-child {
-    /* normalmente este é o DistrictAsidePanel */
+  .district-modal.theme-dark .right-pane {
     flex: 0 0 auto;
     height: auto;
     overflow: visible;
-    min-height: 0;
+    display: block;
   }
 
-  /* Gallery padding mais compacto em mobile */
-  .district-modal.theme-dark .district-gallery-left {
-    padding: 14px 12px 12px;
-  }
-
-  /* esconder topbar desktop filters em mobile */
   .poi-filter--top {
     display: none;
   }
 }
 
-/* Phone pequeno: um bocadinho mais mapa (para não ficar “apertado”) */
+@media (max-width: 1024px) {
+  .district-modal.theme-dark {
+    height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .district-modal.theme-dark .modal-content {
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .district-modal.theme-dark .left-pane {
+    flex: 0 0 auto;
+    height: clamp(52vh, 60vh, 72vh); /* ✅ faltava isto */
+    overflow: hidden;
+  }
+
+  .district-modal.theme-dark .right-pane {
+    flex: 0 0 auto;
+    height: auto;
+    overflow: visible;
+    display: block;
+  }
+
+  .poi-filter--top {
+    display: none;
+  }
+}
+
 @media (max-width: 600px) {
   .district-modal.theme-dark .left-pane {
-    height: clamp(58vh, 66vh, 78vh);
+    height: clamp(45vh, 10vh, 78vh);
   }
 }
