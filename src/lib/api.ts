@@ -6,7 +6,6 @@ export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085"
 /* =========================
    Helpers
 ========================= */
-
 async function parseJsonSafe(res: Response) {
     const text = await res.text();
     if (!text) return null;
@@ -31,11 +30,19 @@ async function apiFetch(input: RequestInfo, init: RequestInit = {}) {
     const headers = new Headers(init.headers ?? {});
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
-    return fetch(input, {
+    const res = await fetch(input, {
         ...init,
         headers,
         credentials: "omit",
     });
+
+    // ✅ Se backend diz 401, token é inválido/expirou (ou backend está a negar)
+    // Mantemos regra clara: 401 => sessão inválida => limpa token.
+    if (res.status === 401) {
+        clearAuthToken();
+    }
+
+    return res;
 }
 
 /** Fetch JSON (ou texto) e lança erro se !ok */
@@ -133,6 +140,7 @@ export async function login(email: string, password: string): Promise<CurrentUse
 
 export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
     const res = await apiFetch(`${API_BASE}/api/me`);
+
     if (res.status === 401) return null;
     if (res.status === 204) return null;
 

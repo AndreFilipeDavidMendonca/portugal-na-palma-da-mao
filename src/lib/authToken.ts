@@ -1,6 +1,7 @@
 const KEY = "ptdot_auth_token";
 
-let memToken: string | null | undefined = undefined; // 👈 undefined = "não carregado"
+// undefined = "não carregado"
+let memToken: string | null | undefined = undefined;
 
 export function getAuthToken(): string | null {
     if (memToken !== undefined) return memToken;

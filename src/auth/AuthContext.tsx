@@ -8,8 +8,9 @@ import {
     useState,
     type ReactNode,
 } from "react";
+
 import { fetchCurrentUser, type CurrentUserDto } from "@/lib/api";
-import { getAuthToken } from "@/lib/authToken";
+import { clearAuthToken, getAuthToken } from "@/lib/authToken";
 
 type AuthContextType = {
     user: CurrentUserDto | null;
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshUser = useCallback(async () => {
         const token = getAuthToken();
 
+        // Sem token: não há sessão
         if (!token) {
             setUser(null);
             return null;
@@ -36,17 +38,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (inflightRef.current) return inflightRef.current;
 
-        const p = fetchCurrentUser()
-            .then((u) => {
-                setUser(u);
+        const p = (async () => {
+            try {
+                const u = await fetchCurrentUser();
+                // fetchCurrentUser devolve null se 204 ou 401
+                if (u) setUser(u);
                 return u;
-            })
-            .catch(() => {
+            } catch (e: any) {
+                // Erro “normal” (rede/cold start/etc): não destruir sessão local
+                // Mantém user como está; no refresh inicial user é null e ok, mas não “limpa token”.
                 return null;
-            })
-            .finally(() => {
+            } finally {
                 inflightRef.current = null;
-            });
+            }
+        })();
 
         inflightRef.current = p;
         return p;
@@ -57,7 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         (async () => {
             try {
-                await refreshUser();
+                const u = await refreshUser();
+
+                // Se havia token mas /api/me voltou null, é provável 401/204.
+                // 204 seria estranho aqui; normalmente é 401. Para ser mais seguro:
+                // - não limpamos token aqui, porque o backend pode estar a falhar temporariamente.
+                // A limpeza de token por 401 fica tratada no apiFetch (ver api.ts abaixo).
+                void u;
             } finally {
                 if (alive) setBootstrapped(true);
             }
