@@ -426,6 +426,18 @@ export default function DistrictModal({
         };
     }, [selectedPoi]);
 
+    const handleNav = useCallback(() => {
+        if (showGallery) {
+            setShowGallery(false);
+            return;
+        }
+        onClose();
+    }, [showGallery, onClose]);
+
+    const onAnySelection = useCallback(() => {
+        if (showGallery) setShowGallery(false);
+    }, [showGallery]);
+
     if (!open) return null;
 
     const districtNameForGallery =
@@ -437,18 +449,6 @@ export default function DistrictModal({
         "Distrito";
 
     const districtBaseUrls = (districtInfo?.files ?? distMedia) || [];
-
-    const handleNav = useCallback(() => {
-        if (showGallery) {
-            setShowGallery(false);     // ✅ “back” fecha a galeria
-            return;
-        }
-        onClose();                  // ✅ “home” fecha o modal (volta à home)
-    }, [showGallery, onClose]);
-
-    const onAnySelection = useCallback(() => {
-        if (showGallery) setShowGallery(false);
-    }, [showGallery]);
 
     return (
         <div className="district-modal theme-dark">
