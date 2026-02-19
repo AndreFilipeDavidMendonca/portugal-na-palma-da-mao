@@ -67,9 +67,34 @@
   padding: 20px;
 }
 
+/* =========================
+   EDITING: empurrar tudo para baixo
+   (tens de adicionar class "is-editing" no TSX)
+   <div className={`poi-body ${editing ? "is-editing" : ""}`}>
+========================= */
+.poi-body.is-editing {
+  padding-top: 34px; /* empurra o conteúdo para baixo */
+  gap: 18px;         /* mais respiro entre blocos */
+}
+
+/* Desktop: em edit, comments ocupam a largura toda (fica mais natural) */
+@media (min-width: 901px) {
+  .poi-body.is-editing {
+    grid-template-areas:
+      "media side"
+      "comments comments";
+  }
+
+  .poi-body.is-editing .poi-comments-wrap {
+    margin-top: 14px;
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+}
+
 /* Desktop: dá espaço real ao media para evitar overlap */
 .poi-media {
-  min-height: clamp(320px, 46vh, 560px);
+  min-height: clamp(320px, 100vh, 560px);
   overflow: hidden;
   border-radius: 16px;
 }
@@ -104,15 +129,17 @@
     padding: 16px;
     gap: 15px;
   }
+
+  .poi-body.is-editing {
+    padding-top: 28px;
+    gap: 16px;
+  }
 }
 
 /* =========================
    Mobile (Chrome-safe)
 ========================= */
 @media (max-width: 900px) {
-  .poi-side {
-    width: 95%;
-  }
   .poi-body {
     display: flex;
     flex-direction: column;
@@ -124,6 +151,20 @@
     grid-template-areas: unset;
   }
 
+  /* Mobile edit: empurra mais para baixo e dá mais espaço */
+  .poi-body.is-editing {
+    padding-top: 22px;
+    padding-bottom: 18px;
+    gap: 12px;
+    margin-bottom: 44px;
+  }
+
+  .poi-side {
+    width: 95%;
+    position: relative;
+    z-index: 0;
+  }
+
   .poi-media {
     overflow: hidden;
     position: relative;
@@ -131,6 +172,14 @@
 
     aspect-ratio: 16 / 9;
     max-height: 30vh;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .poi-body.is-editing .poi-media {
+    max-height: 36vh; /* mais alto em edição */
   }
 
   /* garante que o componente interno acompanha o container */
@@ -162,17 +211,11 @@
 
   /* iOS/Safari: impedir overflow horizontal do slideshow */
   .poi-card {
-    overflow: hidden; /* já tens, mas garante mesmo */
+    overflow: hidden;
   }
 
   .poi-body {
-    overflow-x: hidden; /* evita “fuga” para a direita */
-  }
-
-  .poi-media {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
+    overflow-x: hidden;
   }
 
   /* força tudo dentro da media a respeitar o container */

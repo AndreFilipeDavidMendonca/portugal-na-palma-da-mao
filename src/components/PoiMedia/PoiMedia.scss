@@ -3,6 +3,14 @@
   min-height: 0;
 }
 
-.poi-media__uploader {
-  padding: 0 4px 6px 4px;
+/* 👇 Quando edita, deixa crescer naturalmente */
+.poi-media__root.is-editing {
+  height: auto;        /* já não fica preso ao frame */
+}
+
+/* uploader empurra mesmo */
+.poi-media__root.is-editing .poi-media__uploader {
+  padding: 12px 4px 6px 4px;
+  margin-top: 12px;
+  min-height: 160px;   /* força empurrão visível */
 }
