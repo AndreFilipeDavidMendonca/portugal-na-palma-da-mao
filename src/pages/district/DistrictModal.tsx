@@ -15,6 +15,7 @@ import PoiFiltersMobileDropdown from "@/features/filters/PoiFilter/PoiFiltersMob
 import DistrictAsidePanel from "@/components/DistrictAsidePanel/DistrictAsidePanel";
 import DistrictMapPane from "@/components/DistrictMapPane/DistrictMapPane";
 import DistrictGalleryPane from "@/components/DistrictGalleryPane/DistrictGalleryPane";
+import { filterPointsInsideDistrict } from "@/lib/spatial";
 
 import "./DistrictModal.scss";
 
@@ -44,8 +45,9 @@ type Props = {
 };
 
 type PoiCacheEntry = { info: PoiInfo; updatedAt: number };
-
 const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
+
+const EMPTY_FC = { type: "FeatureCollection", features: [] as any[] };
 
 const pickPoiId = (feature: any): number | null => {
     const id = feature?.properties?.id;
@@ -60,7 +62,6 @@ const pickPoiId = (feature: any): number | null => {
 function pickDistrictId(feature: any): number | null {
     const p = feature?.properties ?? {};
     const candidates = [p.districtDbId, p.id, p.ID, p.districtId, p.DISTRICT_ID, p.distritoId];
-
     for (const raw of candidates) {
         if (typeof raw === "number" && Number.isFinite(raw)) return raw;
         if (typeof raw === "string") {
@@ -73,13 +74,50 @@ function pickDistrictId(feature: any): number | null {
 
 function bboxFromFeature(feature: any): string | null {
     try {
-        const gj = L.geoJSON(feature);
-        const b = gj.getBounds();
+        const b = L.geoJSON(feature).getBounds();
         if (!b.isValid()) return null;
         return `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     } catch {
         return null;
     }
+}
+
+function dtoToPointFeature(p: any) {
+    return {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+        properties: {
+            id: p.id,
+            name: p.name,
+            namePt: p.namePt ?? p.name,
+            category: p.category ?? null,
+            ownerId: p.ownerId ?? null,
+        },
+    };
+}
+
+function normalizePoints(fc: AnyGeo | null) {
+    if (!fc) return EMPTY_FC;
+
+    const feats = (fc.features ?? [])
+        .map((f: any) => {
+            const props = { ...(f.properties || {}) };
+            const name = props["name:pt"] || props.name || props["name:en"] || props.label;
+            if (!name) return null;
+
+            const cat = normalizeCat(props.category);
+            return {
+                ...f,
+                properties: {
+                    ...props,
+                    __cat: cat ?? null,
+                    category: cat ?? props.category ?? null,
+                },
+            };
+        })
+        .filter(Boolean);
+
+    return { ...fc, features: feats };
 }
 
 export default function DistrictModal({
@@ -96,7 +134,7 @@ export default function DistrictModal({
                                       }: Props) {
     const [renderNonce, setRenderNonce] = useState(0);
 
-    // filtros vivem aqui
+    // filters
     const [selectedTypes, setSelectedTypes] = useState<Set<PoiCategory>>(new Set());
     const togglePoiType = useCallback((k: PoiCategory) => {
         setSelectedTypes((prev) => {
@@ -130,40 +168,38 @@ export default function DistrictModal({
     const [showGallery, setShowGallery] = useState(false);
     const [loadingGallery, setLoadingGallery] = useState(false);
 
-    // POIs (lite) + counts
-    const [poiPoints, setPoiPoints] = useState<AnyGeo | null>(null);
-    const [countsByCat, setCountsByCat] = useState<Partial<Record<PoiCategory, number>>>({});
-
-    // refs separados (evita race conditions)
+    // POIs base (1 fetch por distrito)
+    const [poiBase, setPoiBase] = useState<AnyGeo>(EMPTY_FC);
     const poisReqRef = useRef(0);
-    const poiModalReqRef = useRef(0);
 
-    // POI modal (inside district)
+    // POI modal
     const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
     const [poiInfo, setPoiInfo] = useState<PoiInfo | null>(null);
     const [showPoiModal, setShowPoiModal] = useState(false);
     const [loadingPoi, setLoadingPoi] = useState(false);
+    const poiModalReqRef = useRef(0);
     const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
 
     const navMode: "home" | "back" = showGallery ? "back" : "home";
 
+    // Reset “session” quando abre / muda distrito
     useEffect(() => {
         if (!open) return;
 
-        setSelectedTypes(new Set());
-        setPoiPoints({ type: "FeatureCollection", features: [] });
-        setCountsByCat({});
-        setSelectedPoi(null);
-        setPoiInfo(null);
-        setShowPoiModal(false);
+        setSelectedTypes(new Set()); // podes manter ou não; eu deixei para UX consistente
+        setPoiBase(EMPTY_FC);
         setDistrictError(null);
         setEditingDistrict(false);
         setShowGallery(false);
 
+        setSelectedPoi(null);
+        setPoiInfo(null);
+        setShowPoiModal(false);
+
         setRenderNonce((n) => n + 1);
     }, [open, districtId]);
 
-    // 1) Load district data by ID
+    // 1) Load district info
     useEffect(() => {
         let alive = true;
 
@@ -172,9 +208,7 @@ export default function DistrictModal({
 
             if (!districtId) {
                 setDistrictInfo(null);
-
                 const fallback = districtFeature?.properties?.name || districtFeature?.properties?.NAME || "Distrito";
-
                 setDistName(fallback);
                 setDistMedia([]);
                 setDistPopulation("");
@@ -214,13 +248,12 @@ export default function DistrictModal({
         };
     }, [open, districtId, districtFeature]);
 
-    // 2) Load counts (sempre) + POIs (dependente de filtro)
+    // 2) Fetch POIs base (uma vez por distrito/bbox)
     useEffect(() => {
         if (!open) return;
 
         if (!activeBbox) {
-            setPoiPoints({ type: "FeatureCollection", features: [] });
-            setCountsByCat({});
+            setPoiBase(EMPTY_FC);
             return;
         }
 
@@ -231,74 +264,13 @@ export default function DistrictModal({
             try {
                 const limit = 5000;
 
-                // counts (limit=1)
-                const countsRes = await fetchPoisLiteBbox(activeBbox, {
-                    limit: 1,
-                    signal: controller.signal,
-                });
+                // ✅ SEMPRE sem category: queremos universo completo do bbox (depois recortamos pelo polígono)
+                const res = await fetchPoisLiteBbox(activeBbox, { limit, signal: controller.signal });
                 if (poisReqRef.current !== reqId) return;
 
-                const nextCounts: Partial<Record<PoiCategory, number>> = {};
-                for (const [k, v] of Object.entries(countsRes.countsByCategory ?? {})) {
-                    nextCounts[k as PoiCategory] = Number(v ?? 0);
-                }
-                setCountsByCat(nextCounts);
-
-                const selected = Array.from(selectedTypes);
-
-                if (selected.length === 0) {
-                    setPoiPoints({ type: "FeatureCollection", features: [] });
-                    return;
-                }
-
-                if (selected.length === 1) {
-                    const res = await fetchPoisLiteBbox(activeBbox, {
-                        category: selected[0],
-                        limit,
-                        signal: controller.signal,
-                    });
-                    if (poisReqRef.current !== reqId) return;
-                    console.log("fetchPoisLiteBbox:", res);
-                    setPoiPoints({
-                        type: "FeatureCollection",
-                        features: res.pois.map((p) => ({
-                            type: "Feature",
-                            geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-                            properties: {
-                                id: p.id,
-                                name: p.name,
-                                namePt: p.namePt ?? p.name,
-                                category: p.category,
-                                ownerId: p.ownerId,
-                            },
-                        })),
-                    });
-                    return;
-                }
-
-                const res = await fetchPoisLiteBbox(activeBbox, {
-                    limit,
-                    signal: controller.signal,
-                });
-                if (poisReqRef.current !== reqId) return;
-
-                const sel = new Set(selected);
-
-                setPoiPoints({
+                setPoiBase({
                     type: "FeatureCollection",
-                    features: res.pois
-                        .filter((p) => p.category && sel.has(p.category as PoiCategory))
-                        .map((p) => ({
-                            type: "Feature",
-                            geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-                            properties: {
-                                id: p.id,
-                                name: p.name,
-                                namePt: p.namePt ?? p.name,
-                                category: p.category,
-                                ownerId: p.ownerId,
-                            },
-                        })),
+                    features: (res.pois ?? []).map(dtoToPointFeature),
                 });
             } catch (e: any) {
                 if (e?.name !== "AbortError") console.error("[DistrictModal] erro ao buscar POIs:", e);
@@ -306,63 +278,51 @@ export default function DistrictModal({
         })();
 
         return () => controller.abort();
-    }, [open, activeBbox, selectedTypes]);
+    }, [open, activeBbox]);
 
-    // 3) Normalize POIs
-    const normalizedPoints = useMemo(() => {
-        if (!poiPoints) return null;
+    // 3) Normalize + Spatial clip (tesoura) (sempre no universo completo)
+    const clippedPoints = useMemo(() => {
+        const normalized = normalizePoints(poiBase);
+        return filterPointsInsideDistrict(normalized, districtFeature);
+    }, [poiBase, districtFeature]);
 
-        const feats = (poiPoints.features ?? [])
-            .map((f: any) => {
-                const props = { ...(f.properties || {}) };
-                const name = props["name:pt"] || props.name || props["name:en"] || props.label;
-                if (!name) return null;
-
-                const nf = { ...f, properties: { ...props } };
-                const cat = normalizeCat(props.category);
-                if (cat) {
-                    (nf.properties as any).__cat = cat;
-                    (nf.properties as any).category = cat;
-                }
-                return nf;
-            })
-            .filter(Boolean);
-
-        return { ...poiPoints, features: feats };
-    }, [poiPoints]);
-
-    const { localCountsByCat, filteredPoints } = useMemo(() => {
+    // 4) Counts fixos (do universo clipped) + pontos para mapa (dependem do filtro)
+    const { countsByCat, filteredPoints } = useMemo(() => {
         const counts = Object.create(null) as Record<PoiCategory, number>;
         const allCats = Object.keys(POI_LABELS) as PoiCategory[];
         for (const c of allCats) counts[c] = 0;
 
-        if (!normalizedPoints) return { localCountsByCat: counts, filteredPoints: null as any };
+        const featsAll = (clippedPoints?.features ?? []) as any[];
 
-        const hasFilter = selectedTypes.size > 0;
-        const feats: any[] = [];
-
-        for (const f of normalizedPoints.features ?? []) {
-            const cat = (f.properties as any).__cat as PoiCategory | undefined;
+        // ✅ BUG FIX: counts nunca dependem de selectedTypes
+        for (const f of featsAll) {
+            const cat = (f?.properties as any)?.__cat as PoiCategory | undefined;
             if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
-
-            if (!hasFilter) feats.push(f);
-            else if (cat && selectedTypes.has(cat)) feats.push(f);
         }
 
-        return {
-            localCountsByCat: counts,
-            filteredPoints: { ...normalizedPoints, features: feats },
-        };
-    }, [normalizedPoints, selectedTypes]);
+        const hasFilter = selectedTypes.size > 0;
 
-    const effectiveCountsByCat = useMemo(() => {
-        const hasAny = Object.values(countsByCat ?? {}).some((v) => (v ?? 0) > 0);
-        return hasAny ? countsByCat : localCountsByCat;
-    }, [countsByCat, localCountsByCat]);
+        // 👇 escolhe o comportamento que queres:
+        // A) sem filtros: não mostrar nada (mantém o teu UX anterior)
+        const featsForMap = !hasFilter
+            ? []
+            : featsAll.filter((f) => {
+                const cat = (f?.properties as any)?.__cat as PoiCategory | undefined;
+                return cat ? selectedTypes.has(cat) : false;
+            });
+
+        // B) alternativa: sem filtros mostrar tudo
+        // const featsForMap = !hasFilter ? featsAll : featsAll.filter(...)
+
+        return {
+            countsByCat: counts,
+            filteredPoints: { type: "FeatureCollection", features: featsForMap },
+        };
+    }, [clippedPoints, selectedTypes]);
 
     const filterKey = useMemo(() => Array.from(selectedTypes).sort().join("|"), [selectedTypes]);
 
-    // 4) POI Modal logic
+    // 5) POI Modal logic (igual, só mais estável)
     useEffect(() => {
         let alive = true;
 
@@ -370,7 +330,6 @@ export default function DistrictModal({
             if (!selectedPoi?.properties) return;
 
             const reqId = ++poiModalReqRef.current;
-
             setLoadingPoi(true);
             setShowPoiModal(false);
 
@@ -459,7 +418,7 @@ export default function DistrictModal({
                     selected={selectedTypes}
                     onToggle={togglePoiType}
                     onClear={clearPoiTypes}
-                    countsByCat={effectiveCountsByCat}
+                    countsByCat={countsByCat}
                     onAnySelection={onAnySelection}
                 />
 
@@ -470,7 +429,7 @@ export default function DistrictModal({
                     selected={selectedTypes}
                     onToggle={togglePoiType}
                     onClear={clearPoiTypes}
-                    countsByCat={effectiveCountsByCat}
+                    countsByCat={countsByCat}
                     onAnySelection={onAnySelection}
                 />
             </div>
@@ -502,11 +461,10 @@ export default function DistrictModal({
                     )}
                 </div>
 
-                {/* ✅ Right pane fica sempre igual: AsidePanel SEMPRE renderizado */}
                 <div className="right-pane">
                     <DistrictAsidePanel
                         showGallery={showGallery}
-                        onToggleGallery={() => setShowGallery((prev) => !prev)} // ✅ alterna
+                        onToggleGallery={() => setShowGallery((prev) => !prev)}
                         isAdmin={isAdmin}
                         editing={editingDistrict}
                         saving={false}
@@ -550,9 +508,7 @@ export default function DistrictModal({
                 isAdmin={isAdmin}
             />
 
-            {(loadingPoi || loadingGallery) && (
-                <SpinnerOverlay open={loadingPoi || loadingGallery} message="A carregar…" />
-            )}
+            {(loadingPoi || loadingGallery) && <SpinnerOverlay open={loadingPoi || loadingGallery} message="A carregar…" />}
         </div>
     );
 }

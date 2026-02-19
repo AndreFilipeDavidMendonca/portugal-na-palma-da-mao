@@ -8,27 +8,27 @@ export function isPointInside(featurePoint: AnyGeo, areaFeature: AnyGeo): boolea
     const coords = featurePoint?.geometry?.coordinates;
     if (!coords || featurePoint?.geometry?.type !== "Point") return false;
 
-    const polyGeom = areaFeature?.geometry;
-    if (!polyGeom) return false;
-
-    const p = point(coords as [number, number]);
+    if (!areaFeature) return false;
 
     try {
-        // aceita Polygon/MultiPolygon/Feature<Polygon|MultiPolygon>
+        // coords já vêm em [lon, lat]
+        const p = point(coords as [number, number]);
         return booleanPointInPolygon(p, areaFeature as any);
     } catch {
         return false;
     }
 }
 
-export function filterPointsInsideDistrict(
-    allPoints: AnyGeo | null,           // FeatureCollection
-    districtFeature: AnyGeo | null      // Feature (Polygon|MultiPolygon)
-): AnyGeo | null {
-    if (!allPoints || !districtFeature) return null;
-    const out = { type: "FeatureCollection", features: [] as any[] };
-    for (const f of allPoints.features || []) {
-        if (isPointInside(f, districtFeature)) out.features.push(f);
-    }
-    return out;
+export function filterPointsInsideDistrict(allPoints: AnyGeo | null, districtFeature: AnyGeo | null): AnyGeo {
+    // ✅ nunca devolver null
+    if (!allPoints) return { type: "FeatureCollection", features: [] as any[] };
+
+    // ✅ se não houver distrito, não filtra
+    if (!districtFeature) return allPoints;
+
+    const feats = allPoints.features ?? [];
+    return {
+        type: "FeatureCollection",
+        features: feats.filter((f: any) => isPointInside(f, districtFeature)),
+    };
 }
