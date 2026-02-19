@@ -110,6 +110,9 @@
    Mobile (Chrome-safe)
 ========================= */
 @media (max-width: 900px) {
+  .poi-side {
+    width: 95%;
+  }
   .poi-body {
     display: flex;
     flex-direction: column;

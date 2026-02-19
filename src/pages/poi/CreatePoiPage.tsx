@@ -12,7 +12,14 @@ import ImageDropField from "@/components/ImageDropField/ImageDropField";
 import { toast } from "@/components/Toastr/toast";
 import "./CreatePoiPage.scss";
 
-type Category = "Evento" | "Artesanato" | "Gastronomia" | "Alojamento";
+type Category = "event" | "crafts" | "gastronomy" | "accommodation";
+
+const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
+    { value: "event", label: "Evento" },
+    { value: "crafts", label: "Artesanato" },
+    { value: "gastronomy", label: "Gastronomia" },
+    { value: "accommodation", label: "Alojamento" },
+];
 
 type FieldKey = "name" | "districtId" | "municipality" | "street" | "latlon" | "images";
 type FieldErrors = Partial<Record<FieldKey, string>>;
@@ -26,7 +33,7 @@ export default function CreatePoiPage() {
     const canCreate = user?.role === "BUSINESS" || user?.role === "ADMIN";
 
     const [name, setName] = useState("");
-    const [category, setCategory] = useState<Category>("Evento");
+    const [category, setCategory] = useState<Category>("event");
     const [description, setDescription] = useState("");
 
     const [street, setStreet] = useState("");
@@ -240,10 +247,9 @@ export default function CreatePoiPage() {
                         onChange={(e) => setCategory(e.target.value as Category)}
                         disabled={loading}
                     >
-                        <option>Evento</option>
-                        <option>Artesanato</option>
-                        <option>Gastronomia</option>
-                        <option>Alojamento</option>
+                        {CATEGORY_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
                     </select>
 
                     <textarea

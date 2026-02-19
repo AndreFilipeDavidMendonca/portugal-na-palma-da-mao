@@ -258,7 +258,7 @@ export default function DistrictModal({
                         signal: controller.signal,
                     });
                     if (poisReqRef.current !== reqId) return;
-
+                    console.log("fetchPoisLiteBbox:", res);
                     setPoiPoints({
                         type: "FeatureCollection",
                         features: res.pois.map((p) => ({
