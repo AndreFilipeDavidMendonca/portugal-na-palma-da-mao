@@ -1,16 +1,63 @@
-.poi-media__root {
+.media-stack {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 14px;
+
+  --ms-frame-h: clamp(320px, 52vh, 680px);
+  --ms-frame-h-m: clamp(240px, 42vh, 520px);
+  --ms-max-w: 920px;
+
+  /* ✅ novo: limite do editor */
+  --ms-editor-max-h: clamp(140px, 22vh, 260px);
+}
+
+.media-stack__slideshow {
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.media-stack__slideshow-inner {
+  width: min(var(--ms-max-w), 100%);
+}
+
+.media-stack__slideshow-inner .slideshow__frame {
+  height: var(--ms-frame-h);
+  aspect-ratio: auto;
+}
+
+.media-stack__slideshow-inner .slideshow__media {
+  height: 100%;
+}
+
+/* ✅ editor: deixa de sugar o layout */
+.media-stack__editor {
+  flex: 0 0 auto;        /* <-- em vez de 1 1 auto */
+  min-height: 0;
+  max-height: var(--ms-editor-max-h);
+  overflow: auto;
+
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* below mantém-se normal */
+.media-stack__below {
+  flex: 0 0 auto;
   min-height: 0;
 }
 
-/* 👇 Quando edita, deixa crescer naturalmente */
-.poi-media__root.is-editing {
-  height: auto;        /* já não fica preso ao frame */
-}
+@media (max-width: 980px) {
+  .media-stack__slideshow-inner .slideshow__frame {
+    height: var(--ms-frame-h-m);
+  }
 
-/* uploader empurra mesmo */
-.poi-media__root.is-editing .poi-media__uploader {
-  padding: 12px 4px 6px 4px;
-  margin-top: 12px;
-  min-height: 160px;   /* força empurrão visível */
+  .media-stack {
+    gap: 12px;
+
+    /* mobile: editor um pouco maior */
+    --ms-editor-max-h: clamp(120px, 26vh, 300px);
+  }
 }
