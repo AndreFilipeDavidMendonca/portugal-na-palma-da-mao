@@ -1,3 +1,4 @@
+// src/features/map/PoiPointsLayer.tsx
 import React from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
@@ -183,7 +184,9 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
 /* =========================
    PoiPointsLayer
    - Icon >= 13
-   - Tooltips >= 15
+   - Tooltips:
+       * Desktop: >= 17
+       * Mobile real: quando já há ícones (>= 13) para evitar bug touch
    - Abre no máximo 5 (mais centrais)
 ========================= */
 
@@ -207,17 +210,18 @@ export function PoiPointsLayer({
     const MAX_OPEN = 5;
 
     const showIcons = zoom >= MIN_ZOOM_ICONS;
-    const showTooltips = zoom >= MIN_ZOOM_TOOLTIPS;
+
+    // ✅ No telemóvel real, mostrar tooltip assim que aparecem ícones
+    // (no desktop "mobile mode" funciona, mas no device real o touch/ordering pode falhar com limiar alto)
+    const isMobile = React.useMemo(() => isMobileViewport(), []);
+    const showTooltips = showIcons && (isMobile ? zoom >= MIN_ZOOM_ICONS : zoom >= MIN_ZOOM_TOOLTIPS);
 
     const iconSize = getIconSizeForZoom(zoom);
     const pinSize = getPinSizeForZoom(zoom);
 
     const key = React.useMemo(() => {
         const cats = Array.from(selectedTypes ?? []).sort().join(",");
-        const ids = (data?.features ?? [])
-            .map((f: any) => f?.properties?.id ?? "")
-            .join(",");
-
+        const ids = (data?.features ?? []).map((f: any) => f?.properties?.id ?? "").join(",");
         return `${cats}|mode:${showIcons ? "svg" : "pin"}|z:${zoom}|n:${nonce}|ids:${ids}`;
     }, [selectedTypes, showIcons, zoom, nonce, data]);
 
@@ -287,6 +291,17 @@ export function PoiPointsLayer({
         };
     }, [map, scheduleUpdate]);
 
+    // ✅ Em mobile real, o "add" do layer pode acontecer depois do primeiro frame.
+    // Dois ticks para garantir que o update apanha tudo já no DOM.
+    React.useEffect(() => {
+        const t1 = window.setTimeout(() => scheduleUpdate(), 0);
+        const t2 = window.setTimeout(() => scheduleUpdate(), 60);
+        return () => {
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+        };
+    }, [key, showTooltips, scheduleUpdate]);
+
     return (
         <GeoJSON
             key={key}
@@ -335,15 +350,14 @@ export function PoiPointsLayer({
                     offset: L.point(0, -10),
                     sticky: false,
                     opacity: 1,
-                    permanent: showTooltips,
+                    permanent: false, // ✅ sempre false; nós controlamos via open/close
                     interactive: false,
                 });
 
                 const anyLayer: any = layer as any;
-                anyLayer.closeTooltip?.();
 
+                // ✅ não forçar close aqui (no touch pode "ganhar" ao open)
                 anyLayer.once?.("add", () => {
-                    anyLayer.closeTooltip?.();
                     scheduleUpdate();
                 });
 

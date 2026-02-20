@@ -94,7 +94,7 @@
 
 /* Desktop: dá espaço real ao media para evitar overlap */
 .poi-media {
-  min-height: clamp(320px, 100vh, 560px);
+  min-height: clamp(270px, 50vh, 560px);
   overflow: hidden;
   border-radius: 16px;
 }

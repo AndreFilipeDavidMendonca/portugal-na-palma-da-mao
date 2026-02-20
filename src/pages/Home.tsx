@@ -14,6 +14,7 @@ import PoiModal from "@/pages/poi/PoiModal";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
 import { useAuth } from "@/auth/AuthContext";
+import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
 
 type AnyGeo = any;
 
@@ -84,6 +85,10 @@ export default function Home() {
     const [homePoiInfo, setHomePoiInfo] = useState<PoiInfo | null>(null);
     const [homePoiFeature, setHomePoiFeature] = useState<any | null>(null);
     const homePoiReqRef = useRef(0);
+
+    // Spinner apenas para "a abrir POI" (não confundir com LoadingOverlay do arranque)
+    const [openingPoi, setOpeningPoi] = useState(false);
+    const [openingPoiLabel, setOpeningPoiLabel] = useState<string | null>(null);
 
     const isMobile = useMediaQuery("(max-width: 900px)");
 
@@ -258,41 +263,86 @@ export default function Home() {
     const openPoiFromDto = useCallback(async (poiDto: PoiDto) => {
         const reqId = ++homePoiReqRef.current;
 
+        const label = pickPoiLabelFromDto(poiDto);
+        setOpeningPoi(true);
+        setOpeningPoiLabel(label || null);
+
+        // limpa UI atual para evitar “flash” do conteúdo antigo
         setHomePoiOpen(false);
         setHomePoiInfo(null);
 
         const feature = poiDtoToFeature(poiDto);
         setHomePoiFeature(feature);
 
-        const label = pickPoiLabelFromDto(poiDto);
-        if (!label) return;
+        if (!label) {
+            if (reqId === homePoiReqRef.current) {
+                setOpeningPoi(false);
+                setOpeningPoiLabel(null);
+            }
+            return;
+        }
 
-        const base = await fetchPoiInfo({
-            approx: { name: label, lat: poiDto.lat, lon: poiDto.lon },
-            sourceFeature: feature,
-        });
+        try {
+            const base = await fetchPoiInfo({
+                approx: { name: label, lat: poiDto.lat, lon: poiDto.lon },
+                sourceFeature: feature,
+            });
 
-        if (reqId !== homePoiReqRef.current) return;
-        if (!base) return;
+            if (reqId !== homePoiReqRef.current) return;
+            if (!base) return;
 
-        const merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
-        const infoNow: PoiInfo = { ...base, image: merged[0] ?? base.image ?? null, images: merged };
+            const merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+            const infoNow: PoiInfo = {
+                ...base,
+                image: merged[0] ?? base.image ?? null,
+                images: merged,
+            };
 
-        setHomePoiInfo(infoNow);
-        setHomePoiOpen(true);
+            setHomePoiInfo(infoNow);
+            setHomePoiOpen(true);
+        } catch (e) {
+            if (reqId === homePoiReqRef.current) {
+                console.error("[Home] Falha fetchPoiInfo:", e);
+            }
+        } finally {
+            if (reqId === homePoiReqRef.current) {
+                setOpeningPoi(false);
+                setOpeningPoiLabel(null);
+            }
+        }
     }, []);
 
     useEffect(() => {
         const handler = async (e: Event) => {
-            const ce = e as CustomEvent<{ poiId: number }>;
+            const ce = e as CustomEvent<{ poiId: number; label?: string }>;
             const poiId = ce?.detail?.poiId;
+            const label = ce?.detail?.label ?? null;
             if (!poiId) return;
+
+            const reqId = ++homePoiReqRef.current;
+
+            setOpeningPoi(true);
+            setOpeningPoiLabel(label);
+
+            // limpa UI atual para evitar “flash”
+            setHomePoiOpen(false);
+            setHomePoiInfo(null);
+            setHomePoiFeature(null);
 
             try {
                 const dto = await fetchPoiById(poiId);
+                if (reqId !== homePoiReqRef.current) return;
                 if (dto) await openPoiFromDto(dto);
             } catch (err) {
-                console.error("[Home] Falha ao abrir POI por id:", err);
+                if (reqId === homePoiReqRef.current) {
+                    console.error("[Home] Falha ao abrir POI por id:", err);
+                }
+            } finally {
+                // openPoiFromDto também controla spinner, mas este finally garante que nunca fica preso
+                if (reqId === homePoiReqRef.current) {
+                    setOpeningPoi(false);
+                    setOpeningPoiLabel(null);
+                }
             }
         };
 
@@ -306,16 +356,43 @@ export default function Home() {
     const handlePickFromTop = useCallback(
         (item: SearchItem) => {
             if (item.kind === "district") {
-                const f = featureByName.get(norm(item.name)) ?? (item.id != null ? districtFeatureById.get(item.id) : null);
+                const f =
+                    featureByName.get(norm(item.name)) ??
+                    (item.id != null ? districtFeatureById.get(item.id) : null);
+
                 if (!f) return;
                 zoomToFeatureBounds(f);
                 openDistrictModal(f);
                 return;
             }
 
+            const reqId = ++homePoiReqRef.current;
+
+            setOpeningPoi(true);
+            setOpeningPoiLabel(item.name || null);
+
+            // limpa UI atual para evitar “flash”
+            setHomePoiOpen(false);
+            setHomePoiInfo(null);
+            setHomePoiFeature(null);
+
             fetchPoiById(item.id)
-                .then((dto) => dto && openPoiFromDto(dto))
-                .catch((e) => console.error("[Home] Falha fetchPoiById:", e));
+                .then((dto) => {
+                    if (reqId !== homePoiReqRef.current) return;
+                    if (dto) return openPoiFromDto(dto);
+                })
+                .catch((e) => {
+                    if (reqId === homePoiReqRef.current) {
+                        console.error("[Home] Falha fetchPoiById:", e);
+                    }
+                })
+                .finally(() => {
+                    // openPoiFromDto também controla, mas este finally garante que nunca fica preso
+                    if (reqId === homePoiReqRef.current) {
+                        setOpeningPoi(false);
+                        setOpeningPoiLabel(null);
+                    }
+                });
         },
         [districtFeatureById, featureByName, openDistrictModal, openPoiFromDto, zoomToFeatureBounds]
     );
@@ -329,6 +406,13 @@ export default function Home() {
     return (
         <>
             {showOverlay && <LoadingOverlay message="A carregar o mapa de Portugal" />}
+
+            {openingPoi && (
+                <SpinnerOverlay
+                    message={openingPoiLabel ? openingPoiLabel : "A abrir ponto…"}
+                    open={openingPoi}
+                />
+            )}
 
             {!isDistrictModalOpen && (
                 <div className="top-district-filter">
@@ -367,7 +451,11 @@ export default function Home() {
                     </Pane>
 
                     <Pane name="worldLabels" style={{ zIndex: 210, pointerEvents: "none" }}>
-                        <TileLayer url={WORLD_LABELS} attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>' noWrap />
+                        <TileLayer
+                            url={WORLD_LABELS}
+                            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            noWrap
+                        />
                     </Pane>
 
                     {districtsGeo && (
@@ -380,7 +468,12 @@ export default function Home() {
                 </MapContainer>
             </div>
 
-            <DistrictModal open={isDistrictModalOpen} onClose={handleCloseDistrictModal} districtFeature={activeDistrictFeature} isAdmin={isAdmin} />
+            <DistrictModal
+                open={isDistrictModalOpen}
+                onClose={handleCloseDistrictModal}
+                districtFeature={activeDistrictFeature}
+                isAdmin={isAdmin}
+            />
 
             <PoiModal
                 open={homePoiOpen}

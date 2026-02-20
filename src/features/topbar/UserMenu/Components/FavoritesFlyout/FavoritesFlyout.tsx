@@ -20,6 +20,7 @@ export default function FavoritesFlyout({
                                             onOpenPoi,
                                             onToggleFavorite,
                                         }: Props) {
+
     return (
         <div className="user-menu__flyout" role="region" aria-label="Favoritos">
             <div className="user-menu__flyout-header">
@@ -51,14 +52,15 @@ export default function FavoritesFlyout({
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            onOpenPoi(f.poiId);
+                                            onClose();
+                                            window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId: f.poiId } }));
                                         }}
                                         title={f.name}
                                     >
                                         {hasImage && (
                                             <span className="user-menu__fav-thumb">
-                        <img src={f.image!} alt={f.name} />
-                      </span>
+            <img src={f.image!} alt={f.name} />
+          </span>
                                         )}
                                         <span className="user-menu__fav-name">{f.name}</span>
                                     </button>
@@ -82,8 +84,8 @@ export default function FavoritesFlyout({
                                             }
                                         }}
                                     >
-                    ×
-                  </span>
+                                        ×
+                                    </span>
                                 </li>
                             );
                         })}

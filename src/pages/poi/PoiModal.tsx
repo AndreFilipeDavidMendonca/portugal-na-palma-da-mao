@@ -71,9 +71,9 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
     const [descInput, setDescInput] = useState("");
     const [imagesList, setImagesList] = useState<string[]>([]);
 
-    // ✅ NOVO: loading do Wikimedia para POI (opcional)
     const [loadingMedia, setLoadingMedia] = useState(false);
-
+    const wikiTriedRef = React.useRef<Record<number, boolean>>({});
+    const wikiInflightRef = React.useRef<Record<number, boolean>>({});
     /* =====================
        Sync info → local state
     ===================== */
@@ -107,23 +107,34 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
 
     useEffect(() => {
         let alive = true;
+
         if (!open) return;
+        if (!poiId) return;
         if (!localInfo?.label?.trim()) return;
 
-        // base vindo da BD/props
-        const base = Array.from(new Set([localInfo.image ?? "", ...(localInfo.images ?? [])].filter(Boolean))).slice(0, 10);
-
-        // se já tens fotos suficientes, não faz nada
-        if (base.length >= 3) return;
-
-        // se este POI não deve usar wiki (ex: business), não chama
+        // não chama para POIs que não devem usar wiki (ex: business)
         if (!shouldUseWikiImages(poi)) return;
+
+        // ✅ garante que só tentamos 1 vez por poiId
+        if (wikiTriedRef.current[poiId]) return;
+        if (wikiInflightRef.current[poiId]) return;
+
+        // base vindo da BD/props, mas sem pôr isto em deps
+        const base = Array.from(
+            new Set([localInfo.image ?? "", ...(localInfo.images ?? [])].filter(Boolean))
+        ).slice(0, 10);
+
+        // se já tens fotos suficientes, marca como "tentado" e não faz nada
+        if (base.length >= 3) {
+            wikiTriedRef.current[poiId] = true;
+            return;
+        }
+
+        wikiInflightRef.current[poiId] = true;
 
         (async () => {
             setLoadingMedia(true);
             try {
-                // TODO: quando os POIs tiverem sempre fotos na BD,
-                // desativar o Wikimedia (WIKI_MEDIA_ENABLED=false) e remover este enrich.
                 const merged = await resolvePoiMedia10({
                     label: localInfo.label!,
                     baseImage: localInfo.image ?? null,
@@ -133,6 +144,12 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                 });
 
                 if (!alive) return;
+
+                // ✅ marca que já tentámos, mesmo que venha vazio
+                wikiTriedRef.current[poiId] = true;
+
+                // ✅ se não veio nada, não faças setLocalInfo que alimenta loops
+                if (!merged || merged.length === 0) return;
 
                 const primary = merged[0] ?? null;
 
@@ -152,8 +169,10 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                     return merged;
                 });
             } catch {
-                // silencioso: fica com base
+                // ✅ mesmo em erro, marca como tentado para não ficar em loop
+                wikiTriedRef.current[poiId] = true;
             } finally {
+                wikiInflightRef.current[poiId] = false;
                 if (alive) setLoadingMedia(false);
             }
         })();
@@ -161,8 +180,8 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         return () => {
             alive = false;
         };
-        // importante: depende do open + label + poiId (para mudar quando muda POI)
-    }, [open, poiId, localInfo?.label, localInfo?.image, localInfo?.images, poi, editing]);
+        // ✅ deps minimizadas: não incluir localInfo.image/images
+    }, [open, poiId, localInfo?.label, poi, editing]);
 
     /* =====================
        Derived

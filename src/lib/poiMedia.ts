@@ -24,11 +24,6 @@ export function shouldUseWikiImages(input: any): boolean {
     return true;
 }
 
-/**
- * ✅ Resolve media de POI até 10 (BD + opcional wiki)
- * - Comerciais: nunca usa wiki
- * - Futuro: WIKI_MEDIA_ENABLED=false e fica só BD
- */
 export async function resolvePoiMedia10(args: {
     label: string;
     baseImage?: string | null;
