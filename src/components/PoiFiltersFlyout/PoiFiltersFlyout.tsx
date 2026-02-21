@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
 import { usePoiFilters } from "@/state/PoiFiltersContext";
 import "./PoiFiltersFlyout.scss";
+import Button from "@/components/Button/Button";
 
 type Props = {
     open: boolean;
@@ -22,7 +23,7 @@ export default function PoiFiltersFlyout({ open, onClose }: Props) {
             <div className="user-menu__flyout-header">
                 <span>Filtros POI</span>
 
-                <button
+                <Button
                     type="button"
                     className="user-menu__flyout-close"
                     onClick={onClose}
@@ -30,7 +31,7 @@ export default function PoiFiltersFlyout({ open, onClose }: Props) {
                     title="Fechar"
                 >
                     ×
-                </button>
+                </Button>
             </div>
 
             <div className="poi-filters-flyout__meta">
@@ -38,7 +39,7 @@ export default function PoiFiltersFlyout({ open, onClose }: Props) {
           Ativos: <b>{activeCount}</b>
         </span>
 
-                <button
+                <Button
                     type="button"
                     className="poi-filters-flyout__clear"
                     onClick={clear}
@@ -46,14 +47,14 @@ export default function PoiFiltersFlyout({ open, onClose }: Props) {
                     title="Limpar filtros"
                 >
                     Limpar
-                </button>
+                </Button>
             </div>
 
             <div className="poi-filters-flyout__list gold-scroll">
                 {allCats.map((cat) => {
                     const isOn = selected.has(cat);
                     return (
-                        <button
+                        <Button
                             key={cat}
                             type="button"
                             className={`poi-filters-flyout__item ${isOn ? "is-on" : ""}`}
@@ -63,7 +64,7 @@ export default function PoiFiltersFlyout({ open, onClose }: Props) {
                         >
                             <span className="poi-filters-flyout__label">{POI_LABELS[cat]}</span>
                             <span className="poi-filters-flyout__chip">{isOn ? "ON" : "OFF"}</span>
-                        </button>
+                        </Button>
                     );
                 })}
             </div>

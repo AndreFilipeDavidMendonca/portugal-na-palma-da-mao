@@ -6,6 +6,7 @@ import PoiGroup from "./components/PoiGroup";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 
 import "./poiFilter.scss";
+import Button from "@/components/Button/Button";
 
 type NavMode = "home" | "back";
 
@@ -156,9 +157,9 @@ export default function PoiFilter({
                         );
                     })}
 
-                    <button type="button" className="btn-clear" onClick={handleClear}>
+                    <Button type="button" className="btn-clear" onClick={handleClear}>
                         Limpar
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
@@ -172,9 +173,9 @@ export default function PoiFilter({
     return (
         <div className="poi-filter poi-filter--top" data-poi-filter="top" ref={wrapRef}>
             <div className="poi-filter__inner">
-                <button className="gold-close gold-close--left" onClick={onNav} aria-label={navLabel} title={navLabel} type="button">
+                <Button className="gold-close gold-close--left" onClick={onNav} aria-label={navLabel} title={navLabel} type="button">
                     {navMode === "home" ? <HomeIcon /> : <BackIcon />}
-                </button>
+                </Button>
 
                 {grouped.culture.length > 0 && (
                     <PoiGroup label="Cultura" items={grouped.culture} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
@@ -186,9 +187,9 @@ export default function PoiFilter({
                     <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                 )}
 
-                <button type="button" className="btn-clear" onClick={handleClear}>
+                <Button type="button" className="btn-clear" onClick={handleClear}>
                     Limpar
-                </button>
+                </Button>
 
                 <div className="poi-spacer" />
                 <TopRightUserMenu />

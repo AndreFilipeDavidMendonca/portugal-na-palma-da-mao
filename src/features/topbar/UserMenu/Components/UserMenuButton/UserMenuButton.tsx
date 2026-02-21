@@ -1,4 +1,5 @@
 import logo from "@/assets/logo.png";
+import Button from "@/components/Button/Button";
 
 type Props = {
     email: string | null;
@@ -16,7 +17,7 @@ export default function UserMenuButton({ email, isOpen, onToggle }: Props) {
     const label = isLoggedOut ? "Iniciar sessão" : emailPrefix(email);
 
     return (
-        <button
+        <Button
             type="button"
             className="user-menu__btn"
             onClick={onToggle}
@@ -32,6 +33,6 @@ export default function UserMenuButton({ email, isOpen, onToggle }: Props) {
             <span className="user-menu__hamburger" aria-hidden="true">
         ☰
       </span>
-        </button>
+        </Button>
     );
 }

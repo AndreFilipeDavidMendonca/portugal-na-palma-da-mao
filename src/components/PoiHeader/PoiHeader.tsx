@@ -1,5 +1,6 @@
 import React from "react";
 import "./PoiHeader.scss";
+import Button from "@/components/Button/Button";
 
 type Props = {
     title: string;
@@ -64,7 +65,7 @@ export default function PoiHeader({
                         <span className="poi-title-row">
               <span className="poi-title-text">{title}</span>
 
-              <button
+              <Button
                   type="button"
                   className={`poi-fav-btn ${isFav ? "is-active" : ""}`}
                   onClick={onToggleFavorite}
@@ -77,7 +78,7 @@ export default function PoiHeader({
                   }
               >
                 <StarIcon filled={isFav} />
-              </button>
+              </Button>
             </span>
                     )}
                 </h2>
@@ -85,20 +86,20 @@ export default function PoiHeader({
 
             <div className="poi-actions">
                 {canEdit && (
-                    <button className="poi-edit-btn" type="button" onClick={onToggleEdit}>
+                    <Button className="poi-edit-btn" type="button" onClick={onToggleEdit}>
                         {editing ? "Cancelar" : "Editar"}
-                    </button>
+                    </Button>
                 )}
 
                 {editing && canEdit && (
-                    <button className="poi-save-btn" type="button" disabled={saving} onClick={onSave}>
+                    <Button className="poi-save-btn" type="button" disabled={saving} onClick={onSave}>
                         {saving ? "A guardar..." : "Guardar"}
-                    </button>
+                    </Button>
                 )}
 
-                <button className="poi-close" onClick={onClose} aria-label="Fechar" type="button">
+                <Button className="poi-close" onClick={onClose} aria-label="Fechar" type="button">
                     ×
-                </button>
+                </Button>
             </div>
         </header>
     );

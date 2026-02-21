@@ -6,6 +6,7 @@ import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
 import { toast } from "@/components/Toastr/toast";
 import "./LoginPage.scss";
+import Button from "@/components/Button/Button";
 
 type FieldKey = "email" | "password";
 type FieldErrors = Partial<Record<FieldKey, string>>;
@@ -158,30 +159,30 @@ export default function LoginPage() {
                     />
 
                     <div className="login-actions">
-                        <button className="login-btn login-btn--primary" type="submit" disabled={loading}>
+                        <Button className="login-btn login-btn--primary" type="submit" disabled={loading}>
                             {loading ? "A entrar…" : "Entrar"}
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
                             className="login-btn login-btn--ghost"
                             type="button"
                             onClick={() => navigate("/", { replace: true })}
                             disabled={loading}
                         >
                             Cancelar
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="login-footer">
                         <span className="login-footer__text">Ainda não tens conta?</span>
-                        <button
+                        <Button
                             type="button"
                             className="login-link"
                             disabled={loading}
                             onClick={() => navigate("/register", { state: { from }, replace: true })}
                         >
                             Criar conta
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

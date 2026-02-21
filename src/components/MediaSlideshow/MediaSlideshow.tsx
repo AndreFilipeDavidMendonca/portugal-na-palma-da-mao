@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./MediaSlideshow.scss";
+import Button from "@/components/Button/Button";
 
 type ReadyPayload = {
     ready: boolean;
@@ -296,22 +297,22 @@ export default function MediaSlideshow({
 
                 {visibleItems.length > 1 && (
                     <>
-                        <button
+                        <Button
                             type="button"
                             className="slideshow__arrow slideshow__arrow--left"
                             onClick={goPrev}
                             aria-label="Anterior"
                         >
                             ◀
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             className="slideshow__arrow slideshow__arrow--right"
                             onClick={goNext}
                             aria-label="Seguinte"
                         >
                             ▶
-                        </button>
+                        </Button>
                     </>
                 )}
             </div>
@@ -319,7 +320,7 @@ export default function MediaSlideshow({
             {visibleItems.length > 1 && (
                 <div className="slideshow__dots">
                     {visibleItems.map((_u, i) => (
-                        <button
+                        <Button
                             key={i}
                             type="button"
                             className={"slideshow__dot" + (i === idx ? " slideshow__dot--active" : "")}

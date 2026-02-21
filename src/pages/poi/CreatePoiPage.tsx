@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-    createPoi,
-    fetchDistricts,
-    geocodeAddress,
-    type DistrictDto,
-    type GeocodeRequestDto,
-} from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
 import ImageDropField from "@/components/ImageDropField/ImageDropField";
 import { toast } from "@/components/Toastr/toast";
 import "./CreatePoiPage.scss";
+import {createPoi, DistrictDto, fetchDistricts, geocodeAddress, GeocodeRequestDto} from "@/lib/api";
+import Button from "@/components/Button/Button";
 
 type Category = "event" | "crafts" | "gastronomy" | "accommodation";
 
@@ -344,18 +339,18 @@ export default function CreatePoiPage() {
                     </div>
 
                     <div className="create-poi-actions">
-                        <button className="create-poi-btn create-poi-btn--primary" disabled={loading || geoLoading}>
+                        <Button className="create-poi-btn create-poi-btn--primary" disabled={loading || geoLoading}>
                             {loading ? "A criar…" : "Criar"}
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
                             type="button"
                             className="create-poi-btn create-poi-btn--ghost"
                             onClick={() => navigate("/")}
                             disabled={loading}
                         >
                             Cancelar
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

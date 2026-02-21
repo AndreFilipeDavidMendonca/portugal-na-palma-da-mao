@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 import { fetchSearch, type SearchItem } from "@/lib/api";
 import "./TopDistrictFilter.scss";
+import Button from "@/components/Button/Button";
 
 type Props = {
     onPick: (item: SearchItem) => void;
@@ -157,7 +158,7 @@ export default function TopDistrictFilter({
                 />
 
                 {hasValue && (
-                    <button
+                    <Button
                         type="button"
                         className="tdf-clear"
                         aria-label="Limpar pesquisa"
@@ -165,7 +166,7 @@ export default function TopDistrictFilter({
                         onClick={clearQuery}
                     >
                         ×
-                    </button>
+                    </Button>
                 )}
 
                 {open && results.length > 0 && (

@@ -2,6 +2,7 @@
 import React from "react";
 import "./DistrictAsidePanel.scss";
 import { toast } from "@/components/Toastr/toast";
+import Button from "@/components/Button/Button";
 
 type Props = {
     showGallery: boolean;
@@ -101,40 +102,40 @@ export default function DistrictAsidePanel({
                         {showGallery && isAdmin && (
                             editing ? (
                                 <>
-                                    <button
+                                    <Button
                                         type="button"
                                         className="district-btn district-btn--ghost"
                                         onClick={onCancel}
                                         disabled={saving}
                                     >
                                         Cancelar
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
                                         className="district-btn district-btn--primary"
                                         onClick={onSave}
                                         disabled={saving}
                                     >
                                         {saving ? "A guardar..." : "Guardar"}
-                                    </button>
+                                    </Button>
                                 </>
                             ) : (
-                                <button
+                                <Button
                                     type="button"
                                     className="district-btn district-btn--ghost"
                                     onClick={onEdit}
                                 >
                                     Editar
-                                </button>
+                                </Button>
                             )
                         )}
                     </div>
                 </div>
 
                 <div className="district-header-subrow">
-                    <button type="button" className="district-videos-toggle" onClick={onToggleGallery}>
+                    <Button type="button" className="district-videos-toggle" onClick={onToggleGallery}>
                         {showGallery ? "Fechar galeria" : "Galeria"}
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="district-info">

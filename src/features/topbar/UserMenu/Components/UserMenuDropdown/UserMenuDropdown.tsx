@@ -2,6 +2,7 @@ import type { CurrentUserDto } from "@/lib/api";
 import UserMenuHeader from "../UserMenuHeader/UserMenuHeader";
 import "./UserMenuDropdown.scss";
 import {toast} from "@/components/Toastr/toast";
+import Button from "@/components/Button/Button";
 
 type Props = {
     user: CurrentUserDto | null;
@@ -30,29 +31,29 @@ export default function UserMenuDropdown({
                 <>
                     <UserMenuHeader email={user.email ?? null} role={user.role ?? null} />
 
-                    <button
+                    <Button
                         type="button"
                         className={`user-menu__section ${favOpen ? "is-open" : ""}`}
                         onClick={onToggleFavorites}
                     >
                         <span className="user-menu__chev" aria-hidden="true">◂</span>
                         <span className="user-menu__section-title">Favoritos</span>
-                    </button>
+                    </Button>
 
                     {isBusiness && (
-                        <button
+                        <Button
                             type="button"
                             className={`user-menu__section ${myPoisOpen ? "is-open" : ""}`}
                             onClick={onToggleMyPois}
                         >
                             <span className="user-menu__chev" aria-hidden="true">◂</span>
                             <span className="user-menu__section-title">Os meus POIs</span>
-                        </button>
+                        </Button>
                     )}
 
                     <div className="user-menu__divider" />
 
-                    <button
+                    <Button
                         type="button"
                         className="user-menu__item user-menu__item--danger"
                         onClick={() => {
@@ -62,17 +63,17 @@ export default function UserMenuDropdown({
                         role="menuitem"
                     >
                         Logout
-                    </button>
+                    </Button>
                 </>
             ) : (
-                <button
+                <Button
                     type="button"
                     className="user-menu__item user-menu__item--primary"
                     onClick={onLogin}
                     role="menuitem"
                 >
                     Login
-                </button>
+                </Button>
             )}
         </div>
     );

@@ -2,6 +2,7 @@
 import React from "react";
 import type { PoiCommentDto } from "@/lib/api";
 import "./PoiComments.scss";
+import Button from "@/components/Button/Button";
 
 type Props = {
     user: any;
@@ -44,9 +45,9 @@ export default function PoiComments({
               disabled={sending}
               rows={2}
           />
-                    <button type="button" onClick={onAdd} disabled={sending || !body.trim()}>
+                    <Button type="button" onClick={onAdd} disabled={sending || !body.trim()}>
                         {sending ? "A enviar…" : "Publicar"}
-                    </button>
+                    </Button>
                 </div>
             ) : (
                 <div className="poi-comments__empty">Faz login para comentar.</div>
