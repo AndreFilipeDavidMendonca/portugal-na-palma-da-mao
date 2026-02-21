@@ -3,6 +3,8 @@ import React from "react";
 import "./DistrictAsidePanel.scss";
 import { toast } from "@/components/Toastr/toast";
 import Button from "@/components/Button/Button";
+import Input from "@/components/Input/Input";
+import Textarea from "@/components/Input/Textarea";
 
 type Props = {
     showGallery: boolean;
@@ -86,8 +88,10 @@ export default function DistrictAsidePanel({
                 <div className="district-header">
                     <div className="district-header-main">
                         {editing && isAdmin ? (
-                            <input
-                                className="district-name-input"
+                            <Input
+                                variant="title"
+                                size="md"
+                                fullWidth={false}
                                 value={distName}
                                 onChange={(e) => setDistName(e.target.value)}
                             />
@@ -149,8 +153,10 @@ export default function DistrictAsidePanel({
                         <div>
                             <strong>População:</strong>{" "}
                             {editing && isAdmin ? (
-                                <input
-                                    className="district-meta-input"
+                                <Input
+                                    size="xs"
+                                    pill
+                                    css={{ minWidth: 60 }}
                                     value={distPopulation}
                                     onChange={(e) => setDistPopulation(e.target.value)}
                                 />
@@ -162,8 +168,10 @@ export default function DistrictAsidePanel({
                         <div>
                             <strong>Concelhos:</strong>{" "}
                             {editing && isAdmin ? (
-                                <input
-                                    className="district-meta-input"
+                                <Input
+                                    size="xs"
+                                    pill
+                                    css={{ minWidth: 60 }}
                                     value={distMunicipalities}
                                     onChange={(e) => setDistMunicipalities(e.target.value)}
                                 />
@@ -175,8 +183,10 @@ export default function DistrictAsidePanel({
                         <div>
                             <strong>Freguesias:</strong>{" "}
                             {editing && isAdmin ? (
-                                <input
-                                    className="district-meta-input"
+                                <Input
+                                    size="xs"
+                                    pill
+                                    css={{ minWidth: 60 }}
                                     value={distParishes}
                                     onChange={(e) => setDistParishes(e.target.value)}
                                 />
@@ -188,8 +198,10 @@ export default function DistrictAsidePanel({
                         <div>
                             <strong>Habitado desde:</strong>{" "}
                             {editing && isAdmin ? (
-                                <input
-                                    className="district-meta-input"
+                                <Input
+                                    size="xs"
+                                    pill
+                                    css={{ minWidth: 60 }}
                                     value={distInhabitedSince}
                                     onChange={(e) => setDistInhabitedSince(e.target.value)}
                                 />
@@ -203,16 +215,18 @@ export default function DistrictAsidePanel({
                         {editing && isAdmin ? (
                             <>
                                 <label className="district-label">Descrição</label>
-                                <textarea
-                                    className="district-textarea"
+                                <Textarea
+                                    variant="panel"
+                                    size="sm"
                                     rows={4}
                                     value={distDescription}
                                     onChange={(e) => setDistDescription(e.target.value)}
                                 />
 
                                 <label className="district-label">História</label>
-                                <textarea
-                                    className="district-textarea"
+                                <Textarea
+                                    variant="panel"
+                                    size="sm"
                                     rows={6}
                                     value={distHistory}
                                     onChange={(e) => setDistHistory(e.target.value)}

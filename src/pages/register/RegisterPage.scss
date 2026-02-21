@@ -81,21 +81,6 @@
   }
 }
 
-.register-input {
-  width: 100%;
-  padding: 14px;
-  border-radius: 14px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--gold);
-  box-sizing: border-box;
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
-  }
-}
 
 .register-grid {
   display: grid;
@@ -103,10 +88,6 @@
   grid-template-columns: 1fr 1fr;
 }
 
-.is-invalid {
-  border: 1.6px solid rgba(235, 85, 85, 0.9) !important;
-  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16) !important;
-}
 
 .register-actions {
   display: flex;

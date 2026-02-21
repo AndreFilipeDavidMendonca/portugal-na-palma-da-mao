@@ -55,22 +55,6 @@
     letter-spacing: .5px;
     text-transform: capitalize;
   }
-
-  .district-name-input {
-    width: 70%;
-    font-size: 2.2rem;
-    font-weight: 600;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 4px 12px;
-    color: var(--gold);
-    outline: none;
-
-    &:focus {
-      border-color: var(--border-2);
-      box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-    }
   }
 
   .district-header-actions {
@@ -100,39 +84,6 @@
       font-weight: 600;
     }
 
-    .district-meta-input {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: 0.8rem;
-      color: var(--gold);
-      min-width: 60px;
-
-      &:focus {
-        outline: none;
-        border-color: var(--border-2);
-        box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-      }
-    }
-
-    .district-textarea {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--bg-panel-2);
-      color: var(--gold);
-      font-size: 0.88rem;
-      padding: 6px 8px;
-      resize: vertical;
-      margin-bottom: 8px;
-
-      &:focus {
-        outline: none;
-        border-color: var(--border-2);
-        box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-      }
-    }
 
     .district-description {
       margin: 6px 0 10px;
@@ -145,4 +96,3 @@
       color: var(--muted);
     }
   }
-}

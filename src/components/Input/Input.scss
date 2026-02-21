@@ -1,0 +1,106 @@
+/* Reusable Input / Textarea primitives (local, no global tokens yet) */
+
+.ui-input,
+.ui-textarea {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 14px;
+  border-radius: 14px;
+
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--gold);
+  font-family: var(--font-body), serif;
+
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--border-2);
+    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+}
+
+/* Variants */
+.ui-input--panel,
+.ui-textarea--panel {
+  background: var(--bg-panel-2);
+}
+
+.ui-input--inline {
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ui-input--title {
+  width: 70%;
+  font-size: 2.2rem;
+  font-weight: 600;
+  background: transparent;
+  border-radius: 999px;
+  padding: 4px 12px;
+
+  &:focus {
+    border-color: var(--border-2);
+    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+  }
+}
+
+/* Sizes */
+.ui-input--xs,
+.ui-textarea--xs {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.ui-input--sm,
+.ui-textarea--sm {
+  padding: 12px 12px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.ui-input--md,
+.ui-textarea--md {
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 1rem;
+}
+
+.ui-input--lg,
+.ui-textarea--lg {
+  padding: 16px 16px;
+  border-radius: 16px;
+  font-size: 1.05rem;
+}
+
+/* Shape */
+.ui-input--pill,
+.ui-textarea--pill {
+  border-radius: 999px;
+}
+
+.ui-input--full,
+.ui-textarea--full {
+  width: 100%;
+}
+
+/* Invalid */
+.ui-input--invalid,
+.ui-textarea--invalid {
+  border: 1.6px solid rgba(235, 85, 85, 0.9) !important;
+  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16) !important;
+}
+
+/* Textarea specifics */
+.ui-textarea {
+  resize: vertical;
+}

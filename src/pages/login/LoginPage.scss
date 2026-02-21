@@ -57,22 +57,6 @@
 
 .login-form { display: grid; gap: 14px; }
 
-.login-input {
-  padding: 14px 14px;
-  border-radius: 14px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--gold);
-  font-family: var(--font-body), serif;
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-  }
-
-  &:disabled { opacity: 0.65; }
-}
 
 .login-error {
   padding: 10px 12px;

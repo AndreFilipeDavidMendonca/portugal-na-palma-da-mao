@@ -7,6 +7,7 @@ import logo from "@/assets/logo.png";
 import { toast } from "@/components/Toastr/toast";
 import "./LoginPage.scss";
 import Button from "@/components/Button/Button";
+import Input from "@/components/Input/Input";
 
 type FieldKey = "email" | "password";
 type FieldErrors = Partial<Record<FieldKey, string>>;
@@ -131,10 +132,10 @@ export default function LoginPage() {
                 <p className="login-subtitle">Introduza os seus dados</p>
 
                 <form onSubmit={onSubmit} className="login-form">
-                    <input
-                        className={`login-input ${isInvalid("email") ? "is-invalid" : ""}`}
+                    <Input
                         placeholder="Email"
                         value={email}
+                        invalid={isInvalid("email")}
                         onBlur={() => touch("email")}
                         onChange={(e) => {
                             setEmail(e.target.value);
@@ -144,11 +145,11 @@ export default function LoginPage() {
                         disabled={loading}
                     />
 
-                    <input
-                        className={`login-input ${isInvalid("password") ? "is-invalid" : ""}`}
+                    <Input
                         placeholder="Password"
                         type="password"
                         value={password}
+                        invalid={isInvalid("password")}
                         onBlur={() => touch("password")}
                         onChange={(e) => {
                             setPassword(e.target.value);

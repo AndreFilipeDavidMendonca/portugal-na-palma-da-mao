@@ -1,6 +1,7 @@
 import React from "react";
 import "./PoiHeader.scss";
 import Button from "@/components/Button/Button";
+import Input from "@/components/Input/Input";
 
 type Props = {
     title: string;
@@ -55,11 +56,14 @@ export default function PoiHeader({
             <div className="poi-title-wrap">
                 <h2 className="poi-title">
                     {editing && canEdit ? (
-                        <input
-                            className="poi-edit-input"
+                        <Input
+                            variant="inline"
+                            size="xs"
                             value={titleInput}
                             onChange={(e) => setTitleInput(e.target.value)}
                             placeholder="Título do ponto de interesse"
+                            fullWidth={false}
+                            css={{ width: "90%" }}
                         />
                     ) : (
                         <span className="poi-title-row">

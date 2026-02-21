@@ -6,6 +6,7 @@ import logo from "@/assets/logo.png";
 import "./RegisterPage.scss";
 import { toast } from "@/components/Toastr/toast";
 import Button from "@/components/Button/Button";
+import Input from "@/components/Input/Input";
 
 type RegisterRole = "USER" | "BUSINESS";
 
@@ -182,37 +183,34 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="register-grid">
-                        <input
-                            className={`register-input ${isInvalid("firstName") ? "is-invalid" : ""}`}
+                        <Input
                             placeholder="Primeiro nome"
                             value={firstName}
+                            invalid={isInvalid("firstName")}
                             onBlur={() => touch("firstName")}
                             onChange={(e) => {
                                 setFirstName(e.target.value);
                                 clearFieldError("firstName");
                             }}
-                            autoComplete="given-name"
                             disabled={loading}
                         />
 
-                        <input
-                            className={`register-input ${isInvalid("lastName") ? "is-invalid" : ""}`}
+                        <Input
                             placeholder="Último nome"
                             value={lastName}
+                            invalid={isInvalid("lastName")}
                             onBlur={() => touch("lastName")}
                             onChange={(e) => {
                                 setLastName(e.target.value);
                                 clearFieldError("lastName");
                             }}
-                            autoComplete="family-name"
                             disabled={loading}
                         />
 
-                        <input
-                            className={`register-input ${isInvalid("age") ? "is-invalid" : ""}`}
+                        <Input
                             placeholder="Idade"
-                            inputMode="numeric"
                             value={age}
+                            invalid={isInvalid("age")}
                             onBlur={() => touch("age")}
                             onChange={(e) => {
                                 setAge(e.target.value.replace(/[^\d]/g, ""));
@@ -221,10 +219,10 @@ export default function RegisterPage() {
                             disabled={loading}
                         />
 
-                        <input
-                            className={`register-input ${isInvalid("nationality") ? "is-invalid" : ""}`}
+                        <Input
                             placeholder="Nacionalidade (ex: PT)"
                             value={nationality}
+                            invalid={isInvalid("nationality")}
                             onBlur={() => touch("nationality")}
                             onChange={(e) => {
                                 setNationality(e.target.value);
@@ -233,61 +231,57 @@ export default function RegisterPage() {
                             disabled={loading}
                         />
 
-                        <input
-                            className={`register-input ${isInvalid("phone") ? "is-invalid" : ""}`}
+                        <Input
                             placeholder="Telefone"
                             value={phone}
+                            invalid={isInvalid("phone")}
                             onBlur={() => touch("phone")}
                             onChange={(e) => {
                                 setPhone(e.target.value);
                                 clearFieldError("phone");
                             }}
-                            autoComplete="tel"
                             disabled={loading}
                         />
 
-                        <input
-                            className={`register-input ${isInvalid("email") ? "is-invalid" : ""}`}
+                        <Input
                             placeholder="Email"
                             value={email}
+                            invalid={isInvalid("email")}
                             onBlur={() => touch("email")}
                             onChange={(e) => {
                                 setEmail(e.target.value);
                                 clearFieldError("email");
                             }}
-                            autoComplete="email"
                             disabled={loading}
                         />
                     </div>
 
-                    <input
-                        className={`register-input ${isInvalid("password") ? "is-invalid" : ""}`}
-                        placeholder="Password"
-                        type="password"
-                        value={password}
-                        onBlur={() => touch("password")}
-                        onChange={(e) => {
-                            setPassword(e.target.value);
-                            clearFieldError("password");
-                            if (touched.confirm) clearFieldError("confirm");
-                        }}
-                        autoComplete="new-password"
-                        disabled={loading}
-                    />
+                    <Input
+                            type="password"
+                            placeholder="Password"
+                            value={password}
+                            invalid={isInvalid("password")}
+                            onBlur={() => touch("password")}
+                            onChange={(e) => {
+                                setPassword(e.target.value);
+                                clearFieldError("password");
+                                if (touched.confirm) clearFieldError("confirm");
+                            }}
+                            disabled={loading}
+                        />
 
-                    <input
-                        className={`register-input ${isInvalid("confirm") ? "is-invalid" : ""}`}
-                        placeholder="Confirmar password"
-                        type="password"
-                        value={confirm}
-                        onBlur={() => touch("confirm")}
-                        onChange={(e) => {
-                            setConfirm(e.target.value);
-                            clearFieldError("confirm");
-                        }}
-                        autoComplete="new-password"
-                        disabled={loading}
-                    />
+                    <Input
+                            type="password"
+                            placeholder="Confirmar password"
+                            value={confirm}
+                            invalid={isInvalid("confirm")}
+                            onBlur={() => touch("confirm")}
+                            onChange={(e) => {
+                                setConfirm(e.target.value);
+                                clearFieldError("confirm");
+                            }}
+                            disabled={loading}
+                        />
 
                     <div className="register-actions">
                         <Button variant="primary" pill strong type="submit" disabled={loading}>
