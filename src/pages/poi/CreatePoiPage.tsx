@@ -339,7 +339,8 @@ export default function CreatePoiPage() {
                                 clearFieldError("images");
                                 setFieldTouched("images");
                             }}
-                            mode="image"
+                            mode="media"
+                            maxItems={10}
                         />
                     </div>
 

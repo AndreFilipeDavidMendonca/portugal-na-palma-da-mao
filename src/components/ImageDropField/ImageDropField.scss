@@ -1,98 +1,128 @@
 .imgdrop {
+  /* tokens */
+  --pad: clamp(0.6rem, 1.2vw, 0.9rem);
+  --gap: clamp(0.45rem, 0.9vw, 0.7rem);
+  --radius: 0.9rem;
+  --border: 1px dashed rgba(255, 255, 255, 0.18);
+  --bg: rgba(0, 0, 0, 0.22);
+
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--gap);
+  padding: var(--pad);
+
   color: #f6f3d9;
+  min-height: 0; /* ✅ importante: deixa o pai controlar a altura */
+}
 
-  &__label {
-    font-size: 13px;
-    color: #f6f3d9;
-  }
+.imgdrop__label {
+  font-size: 0.82rem;
+  color: #f6f3d9;
+}
 
-  &__zone {
-    position: relative;
-    border-radius: 14px;
-    border: 1px dashed rgba(255, 255, 255, 0.18);
-    background: rgba(0, 0, 0, 0.22);
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+.imgdrop__zone {
+  position: relative;
+  border-radius: var(--radius);
+  border: var(--border);
+  background: var(--bg);
+  padding: clamp(0.7rem, 1.4vw, 1rem);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
 
-    &--hover {
-      border-color: #ffd54f;
-      background: rgba(255, 213, 79, 0.08);
-    }
-  }
+.imgdrop__zone--hover {
+  border-color: #ffd54f;
+  background: rgba(255, 213, 79, 0.08);
+}
 
-  &__input {
-    display: none;
-  }
+.imgdrop__input {
+  display: none;
+}
 
-  &__content {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+.imgdrop__content {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 1vw, 0.85rem);
+}
 
-  &__icon {
-    font-size: 20px;
-  }
+.imgdrop__icon {
+  font-size: 1.2rem;
+}
 
-  &__text {
-    font-size: 13px;
-    font-weight: 500;
-  }
+.imgdrop__text {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
 
-  &__hint {
-    font-size: 11px;
-    opacity: 0.8;
-    margin-top: 2px;
-  }
+.imgdrop__hint {
+  font-size: 0.72rem;
+  opacity: 0.8;
+  margin-top: 0.15rem;
+}
 
-  &__exts {
-    margin-left: auto;
-    font-size: 11px;
-    opacity: 0.7;
-    white-space: nowrap;
-  }
+.imgdrop__exts {
+  margin-left: auto;
+  font-size: 0.72rem;
+  opacity: 0.7;
+  white-space: nowrap;
+}
 
-  &__list {
-    list-style: none;
-    padding: 0;
-    margin: 6px 0 0;
-    max-height: 140px;
-    overflow: auto;
-  }
+/* ✅ default: lista “curta” quando o componente aparece noutros sítios */
+.imgdrop__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 
-  &__item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 4px 6px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.28);
-    font-size: 12px;
-    margin-bottom: 2px;
-  }
+  max-block-size: clamp(6rem, 18vh, 10rem);
+  overflow: auto;
+}
 
-  &__name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.imgdrop__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 
-  &__remove {
-    border: none;
-    background: transparent;
-    color: #ffcc80;
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
-    padding: 0 4px;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.65rem;
+  background: rgba(0, 0, 0, 0.28);
 
-    &:hover {
-      color: #ffab40;
-    }
-  }
+  font-size: 0.78rem;
+  margin-block: 0.2rem;
+}
+
+.imgdrop__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imgdrop__remove {
+  border: none;
+  background: transparent;
+  color: #ffcc80;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.3rem;
+}
+
+.imgdrop__remove:hover {
+  color: #ffab40;
+}
+
+/* ✅ override: quando está dentro do editor do MediaStack, o imgdrop passa a “encher” */
+.media-stack__editor .imgdrop {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ✅ aqui é o ponto-chave: a lista deixa de ter max-height e ocupa o resto */
+.media-stack__editor .imgdrop__list {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  max-block-size: none;
+  overflow: auto;
+  margin-top: var(--gap);
 }

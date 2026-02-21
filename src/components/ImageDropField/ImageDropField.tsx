@@ -1,23 +1,28 @@
 import React, { useCallback, useRef, useState } from "react";
 import "./ImageDropField.scss";
-import {toast} from "@/components/Toastr/toast";
+import { toast } from "@/components/Toastr/toast";
 
 type Mode = "image" | "video" | "media";
+type Store = "objectUrl" | "dataUrl";
 
 type Props = {
     label?: string;
-    images: string[];
+    images?: string[];
     onChange: (items: string[]) => void;
     mode?: Mode;
+    maxItems?: number;
+    store?: Store; // ✅ NOVO
 };
 
 const IMAGE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const VIDEO_EXT = [".mp4", ".webm", ".mov", ".mkv", ".ogg", ".m4v"];
 
-function extListForMode(mode: Mode): string[] {
-    if (mode === "image") return IMAGE_EXT;
-    if (mode === "video") return VIDEO_EXT;
-    return [...IMAGE_EXT, ...VIDEO_EXT];
+function isVideoUrl(s: string): boolean {
+    if (!s) return false;
+    if (s.startsWith("data:video/")) return true;
+    const base = s.split("#")[0];
+    const lower = base.toLowerCase();
+    return VIDEO_EXT.some((ext) => lower.endsWith(ext)) || lower.startsWith("blob:");
 }
 
 function prettyName(s: string): string {
@@ -28,28 +33,58 @@ function prettyName(s: string): string {
         return decodeURIComponent(last || s);
     } catch {
         if (s.startsWith("data:")) {
-            const comma = s.indexOf(",");
-            return comma > 0 ? s.slice(5, comma) : "data-url";
+            // tenta manter nome no hash se existir
+            const idx = s.indexOf("#name=");
+            if (idx >= 0) return decodeURIComponent(s.slice(idx + "#name=".length));
+            return "ficheiro";
         }
         return s;
     }
 }
 
+function appendNameToUrl(url: string, name: string) {
+    const safe = encodeURIComponent(name || "ficheiro");
+    return `${url}#name=${safe}`;
+}
+
+function matchesMode(file: File, mode: Mode) {
+    if (mode === "media") return true;
+
+    const type = (file.type || "").toLowerCase();
+    if (mode === "image") {
+        if (type.startsWith("image/")) return true;
+        const n = file.name.toLowerCase();
+        return IMAGE_EXT.some((ext) => n.endsWith(ext));
+    }
+
+    if (type.startsWith("video/")) return true;
+    const n = file.name.toLowerCase();
+    return VIDEO_EXT.some((ext) => n.endsWith(ext));
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+    return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Falha ao ler ficheiro."));
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.readAsDataURL(file);
+    });
+}
+
 export default function ImageDropField({
                                            label = "Imagens / vídeos",
-                                           images,
+                                           images = [],
                                            onChange,
                                            mode = "image",
+                                           maxItems,
+                                           store = "objectUrl", // ✅ default mantém comportamento atual
                                        }: Props) {
     const [hovering, setHovering] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const acceptAttr =
-        mode === "image" ? "image/*" : mode === "video" ? "video/*" : "image/*,video/*";
-
-    const labelText =
-        mode === "image" ? label : mode === "video" ? label.replace(/Imagens/i, "Vídeos") : label;
+    const acceptAttr = mode === "image" ? "image/*" : mode === "video" ? "video/*" : "image/*,video/*";
+    const labelText = mode === "image" ? label : mode === "video" ? label.replace(/Imagens/i, "Vídeos") : label;
 
     const onOpenPicker = () => fileInputRef.current?.click();
 
@@ -57,65 +92,71 @@ export default function ImageDropField({
         async (files: FileList | null) => {
             if (!files || files.length === 0) return;
 
-            const exts = extListForMode(mode);
             const all = Array.from(files);
-
-            const filtered = all.filter((file) => {
-                const lowerName = file.name.toLowerCase();
-                return exts.some((ext) => lowerName.endsWith(ext));
-            });
-
+            const filtered = all.filter((file) => matchesMode(file, mode));
             const rejectedCount = all.length - filtered.length;
 
             if (filtered.length === 0) {
                 toast.error("Nenhum ficheiro compatível foi selecionado.");
+                if (fileInputRef.current) fileInputRef.current.value = "";
                 return;
             }
 
-            if (rejectedCount > 0) {
-                toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`);
+            if (rejectedCount > 0) toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`);
+
+            const currentCount = images.length;
+            const limit = typeof maxItems === "number" && maxItems > 0 ? maxItems : undefined;
+
+            if (limit && currentCount >= limit) {
+                toast.info("Já atingiu o limite de ficheiros.");
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                return;
             }
 
             setUploading(true);
 
-            const next = [...images];
-            let pending = filtered.length;
-            let added = 0;
+            try {
+                const next = [...images];
+                let added = 0;
 
-            filtered.forEach((file) => {
-                const reader = new FileReader();
+                for (const file of filtered) {
+                    if (limit && next.length >= limit) break;
 
-                reader.onload = () => {
-                    const result = reader.result;
-                    if (typeof result === "string") {
-                        if (!next.includes(result)) {
-                            next.push(result);
+                    if (store === "dataUrl") {
+                        const dataUrl = await fileToDataUrl(file);
+                        const urlWithName = appendNameToUrl(dataUrl, file.name);
+
+                        if (!next.includes(urlWithName)) {
+                            next.push(urlWithName);
                             added += 1;
                         }
-                    }
-                    pending -= 1;
-                    if (pending === 0) {
-                        onChange(next);
-                        setUploading(false);
+                    } else {
+                        const objUrl = URL.createObjectURL(file);
+                        const urlWithName = appendNameToUrl(objUrl, file.name);
 
-                        if (added > 0) toast.success(`${added} ficheiro(s) adicionado(s).`);
-                        else toast.info("Nenhum ficheiro novo foi adicionado.");
+                        if (!next.includes(urlWithName)) {
+                            next.push(urlWithName);
+                            added += 1;
+                        } else {
+                            URL.revokeObjectURL(objUrl);
+                        }
                     }
-                };
+                }
 
-                reader.onerror = () => {
-                    pending -= 1;
-                    if (pending === 0) {
-                        onChange(next);
-                        setUploading(false);
-                        toast.error("Falha ao ler um ou mais ficheiros.");
-                    }
-                };
+                onChange(next);
 
-                reader.readAsDataURL(file);
-            });
+                if (added > 0) toast.success(`${added} ficheiro(s) adicionado(s).`);
+                else toast.info("Nenhum ficheiro novo foi adicionado.");
+
+                if (limit && next.length >= limit && filtered.length > added) {
+                    toast.info("Já atingiu o limite de ficheiros.");
+                }
+            } finally {
+                setUploading(false);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }
         },
-        [images, onChange, mode]
+        [images, onChange, mode, maxItems, store]
     );
 
     const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -138,8 +179,12 @@ export default function ImageDropField({
     };
 
     const removeItem = (i: number) => {
+        if (!images?.length) return; // ✅ guard
+
         const url = images[i];
-        if (url?.startsWith("blob:")) URL.revokeObjectURL(url.split("#")[0]);
+        const base = url?.split("#")[0];
+
+        if (base?.startsWith("blob:")) URL.revokeObjectURL(base);
 
         const next = images.slice();
         next.splice(i, 1);
@@ -148,11 +193,7 @@ export default function ImageDropField({
     };
 
     const extsLabel =
-        mode === "image"
-            ? "JPG · PNG · WEBP · GIF"
-            : mode === "video"
-                ? "MP4 · WEBM · MOV · MKV"
-                : "JPG · PNG · MP4 · WEBM · MOV";
+        mode === "image" ? "JPG · PNG · WEBP · GIF" : mode === "video" ? "MP4 · WEBM · MOV · MKV" : "JPG · PNG · MP4 · WEBM · MOV";
 
     return (
         <div className="imgdrop">
@@ -190,14 +231,16 @@ export default function ImageDropField({
 
             {images.length > 0 && (
                 <ul className="imgdrop__list gold-scroll">
-                    {images.map((it, idx) => (
-                        <li key={idx} className="imgdrop__item">
-                            <span className="imgdrop__name">{prettyName(it)}</span>
-                            <button type="button" className="imgdrop__remove" onClick={() => removeItem(idx)}>
-                                ×
-                            </button>
-                        </li>
-                    ))}
+                    {images.map((it, idx) => {
+                        const name = prettyName(it);
+                        const isVid = isVideoUrl(it);
+                        return (
+                            <li key={idx} className="imgdrop__item">
+                                <span className="imgdrop__name">{isVid ? "🎬 " : "🖼️ "}{name}</span>
+                                <button type="button" className="imgdrop__remove" onClick={() => removeItem(idx)}>×</button>
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
         </div>

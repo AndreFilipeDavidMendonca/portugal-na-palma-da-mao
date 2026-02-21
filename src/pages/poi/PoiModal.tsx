@@ -1,10 +1,12 @@
 // src/pages/poi/PoiModal.tsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
+import "./PoiModal.scss";
+
 import type { PoiInfo } from "@/lib/poiInfo";
 import { useAuth } from "@/auth/AuthContext";
 import { updatePoi } from "@/lib/api";
-import "./PoiModal.scss";
+import { toast } from "@/components/Toastr/toast";
 
 import usePoiFavorite from "@/hooks/usePoiFavorite";
 import usePoiComments from "@/hooks/usePoiComments";
@@ -14,9 +16,6 @@ import PoiMedia from "@/components/PoiMedia/PoiMedia";
 import PoiSide from "@/components/PoiSide/PoiSide";
 import PoiComments from "@/components/PoiComment/PoiComments";
 
-import { toast } from "@/components/Toastr/toast";
-
-// ✅ NOVO: resolver media (BD + Wikimedia temporário)
 import { resolvePoiMedia10, shouldUseWikiImages } from "@/lib/poiMedia";
 
 type Props = {
@@ -35,21 +34,31 @@ type Props = {
     isAdmin?: boolean;
 };
 
-export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = false }: Props) {
+const uniqStrings = (arr: string[]) =>
+    Array.from(new Set((arr ?? []).filter(Boolean)));
+
+function pickPoiId(poi: any): number | null {
+    const id = poi?.properties?.id;
+    return typeof id === "number" && Number.isFinite(id) ? id : null;
+}
+
+function pickOwnerId(poi: any): string | null {
+    const v = poi?.properties?.ownerId;
+    return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+export default function PoiModal({
+                                     open,
+                                     onClose,
+                                     info,
+                                     poi,
+                                     onSaved,
+                                     isAdmin = false,
+                                 }: Props) {
     const { user } = useAuth();
 
-    /* =====================
-       IDs & Permissões
-    ===================== */
-
-    const poiId = useMemo<number | null>(() => {
-        return typeof poi?.properties?.id === "number" ? poi.properties.id : null;
-    }, [poi]);
-
-    const poiOwnerId = useMemo<string | null>(() => {
-        const v = poi?.properties?.ownerId;
-        return typeof v === "string" && v.trim() ? v.trim() : null;
-    }, [poi]);
+    const poiId = useMemo(() => pickPoiId(poi), [poi]);
+    const poiOwnerId = useMemo(() => pickOwnerId(poi), [poi]);
 
     const isOwner = useMemo(() => {
         if (!user?.id || !poiOwnerId) return false;
@@ -62,7 +71,6 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
     /* =====================
        Local state
     ===================== */
-
     const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -72,12 +80,10 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
     const [imagesList, setImagesList] = useState<string[]>([]);
 
     const [loadingMedia, setLoadingMedia] = useState(false);
-    const wikiTriedRef = React.useRef<Record<number, boolean>>({});
-    const wikiInflightRef = React.useRef<Record<number, boolean>>({});
-    /* =====================
-       Sync info → local state
-    ===================== */
 
+    /* =====================
+       Sync info → local
+    ===================== */
     useEffect(() => {
         setLocalInfo(info);
         setEditing(false);
@@ -94,85 +100,80 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
 
-        const gal = Array.from(new Set([info.image ?? "", ...(info.images ?? [])].filter(Boolean)));
+        const gal = uniqStrings([info.image ?? "", ...(info.images ?? [])]).slice(
+            0,
+            10
+        );
         setImagesList(gal);
     }, [info]);
 
     /* =====================
-       Enriquecer imagens via Wikimedia (TEMP)
-       - Só quando abre
-       - Só se não houver fotos suficientes na BD
-       - Comerciais não chamam (shouldUseWikiImages)
+       Wikimedia enrich (1x por POI)
+       - só quando abre
+       - só se precisa (poucas fotos)
+       - não mexe no draft se estiveres a editar
     ===================== */
+    const wikiTried = useRef<Set<number>>(new Set());
+    const wikiInflight = useRef<Set<number>>(new Set());
 
     useEffect(() => {
         let alive = true;
 
         if (!open) return;
         if (!poiId) return;
-        if (!localInfo?.label?.trim()) return;
 
-        // não chama para POIs que não devem usar wiki (ex: business)
+        const label = localInfo?.label?.trim();
+        if (!label) return;
+
         if (!shouldUseWikiImages(poi)) return;
 
-        // ✅ garante que só tentamos 1 vez por poiId
-        if (wikiTriedRef.current[poiId]) return;
-        if (wikiInflightRef.current[poiId]) return;
+        if (wikiTried.current.has(poiId)) return;
+        if (wikiInflight.current.has(poiId)) return;
 
-        // base vindo da BD/props, mas sem pôr isto em deps
-        const base = Array.from(
-            new Set([localInfo.image ?? "", ...(localInfo.images ?? [])].filter(Boolean))
-        ).slice(0, 10);
+        const base = uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])]).slice(
+            0,
+            10
+        );
 
-        // se já tens fotos suficientes, marca como "tentado" e não faz nada
+        // já tem “suficiente”
         if (base.length >= 3) {
-            wikiTriedRef.current[poiId] = true;
+            wikiTried.current.add(poiId);
             return;
         }
 
-        wikiInflightRef.current[poiId] = true;
+        wikiInflight.current.add(poiId);
 
         (async () => {
             setLoadingMedia(true);
             try {
                 const merged = await resolvePoiMedia10({
-                    label: localInfo.label!,
-                    baseImage: localInfo.image ?? null,
-                    baseImages: localInfo.images ?? [],
+                    label,
+                    baseImage: localInfo?.image ?? null,
+                    baseImages: localInfo?.images ?? [],
                     allowWikiFor: poi,
                     limit: 10,
                 });
 
                 if (!alive) return;
 
-                // ✅ marca que já tentámos, mesmo que venha vazio
-                wikiTriedRef.current[poiId] = true;
+                wikiTried.current.add(poiId);
 
-                // ✅ se não veio nada, não faças setLocalInfo que alimenta loops
                 if (!merged || merged.length === 0) return;
 
                 const primary = merged[0] ?? null;
 
                 setLocalInfo((prev) =>
                     prev
-                        ? {
-                            ...prev,
-                            image: primary ?? prev.image ?? null,
-                            images: merged,
-                        }
+                        ? { ...prev, image: primary ?? prev.image ?? null, images: merged }
                         : prev
                 );
 
-                // se não estás a editar, também atualiza o "draft" da lista
-                setImagesList((prev) => {
-                    if (editing) return prev;
-                    return merged;
-                });
+                // só atualiza o draft se não estiveres a editar
+                setImagesList((prev) => (editing ? prev : merged));
             } catch {
-                // ✅ mesmo em erro, marca como tentado para não ficar em loop
-                wikiTriedRef.current[poiId] = true;
+                wikiTried.current.add(poiId);
             } finally {
-                wikiInflightRef.current[poiId] = false;
+                wikiInflight.current.delete(poiId);
                 if (alive) setLoadingMedia(false);
             }
         })();
@@ -180,31 +181,38 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         return () => {
             alive = false;
         };
-        // ✅ deps minimizadas: não incluir localInfo.image/images
-    }, [open, poiId, localInfo?.label, poi, editing]);
+        // ⚠️ Não metas localInfo.image/images aqui, para não virar “loop”
+    }, [open, poiId, localInfo?.label, poi, editing, localInfo?.image, localInfo?.images]);
 
     /* =====================
        Derived
     ===================== */
-
-    const title = useMemo(() => localInfo?.label ?? "Ponto de interesse", [localInfo?.label]);
+    const title = useMemo(
+        () => localInfo?.label ?? "Ponto de interesse",
+        [localInfo?.label]
+    );
 
     const mediaUrls = useMemo(() => {
-        const base = editing ? imagesList : [localInfo?.image ?? "", ...(localInfo?.images ?? [])];
-        return Array.from(new Set(base.filter(Boolean)));
+        // em edição: o draft (imagesList)
+        if (editing) return uniqStrings(imagesList);
+
+        // fora: o que estiver em localInfo
+        return uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])]);
     }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
     /* =====================
        Hooks
     ===================== */
-
-    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({ open, poiId, user });
+    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
+        open,
+        poiId,
+        user,
+    });
     const commentsState = usePoiComments({ open, poiId, user });
 
     /* =====================
        Guards
     ===================== */
-
     const requireCanEdit = useCallback(() => {
         if (!poiId) {
             toast.error("Não foi possível identificar o POI.");
@@ -220,14 +228,12 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
     /* =====================
        Save
     ===================== */
-
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!requireCanEdit()) return;
 
         const primaryImage = imagesList[0] ?? null;
 
         setSaving(true);
-
         try {
             const updated = await updatePoi(poiId!, {
                 name: titleInput || null,
@@ -237,6 +243,7 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                 images: imagesList.length ? imagesList : null,
             });
 
+            // Atualiza UI imediata
             setLocalInfo((prev) =>
                 prev
                     ? {
@@ -248,6 +255,10 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                     }
                     : prev
             );
+
+            // ✅ Importantíssimo: manter o draft coerente com a resposta do BE
+            // (para não ficar “preso” com blob/draft antigo)
+            setImagesList(uniqStrings([updated.image ?? "", ...(updated.images ?? [])]).slice(0, 10));
 
             setEditing(false);
 
@@ -266,13 +277,18 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         } finally {
             setSaving(false);
         }
-    };
+    }, [requireCanEdit, poiId, titleInput, descInput, imagesList, onSaved]);
 
     if (!canRender || !localInfo) return null;
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
-            <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div
+                className="poi-card"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+            >
                 <PoiHeader
                     title={title}
                     titleInput={titleInput}
@@ -306,7 +322,6 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                             imagesList={imagesList}
                             setImagesList={setImagesList}
                         />
-                        {/* opcional: um hint quando está a ir buscar */}
                         {!editing && loadingMedia && (
                             <div className="poi-media__hint">A carregar fotos (Wikimedia)…</div>
                         )}

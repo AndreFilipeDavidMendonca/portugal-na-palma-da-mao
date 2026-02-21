@@ -19,21 +19,26 @@
 
   .modal-content {
     display: grid;
-    grid-template-columns: 1fr clamp(420px, 28vw, 560px);
+
+    /* ✅ Desktop: divide ao meio */
+    grid-template-columns: 3fr 2fr;
+
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .left-pane,
+  .right-pane {
     min-height: 0;
     min-width: 0;
   }
 
   .left-pane {
     position: relative;
-    min-height: 0;
-    min-width: 0;
     overflow: hidden;
   }
 
   .right-pane {
-    min-height: 0;
-    min-width: 0;
     overflow: hidden;
     display: flex;
   }
@@ -45,57 +50,43 @@
   }
 }
 
+/* =========================
+   Mobile / Tablet
+   ========================= */
 @media (max-width: 1024px) {
   .district-modal.theme-dark {
     height: 100dvh;
+
+    /* ✅ scroll no container principal */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+
+    /* ✅ em mobile querias padding 0 */
+    padding: 0;
   }
 
   .district-modal.theme-dark .modal-content {
     display: flex;
     flex-direction: column;
+
     min-height: auto;
     overflow: visible;
   }
 
   .district-modal.theme-dark .left-pane {
     flex: 0 0 auto;
+
+    /* ✅ altura do bloco do mapa/galeria em mobile */
+    height: clamp(52vh, 60vh, 72vh);
     overflow: hidden;
-  }
 
-  .district-modal.theme-dark .right-pane {
-    flex: 0 0 auto;
-    height: auto;
-    overflow: visible;
-    display: block;
-  }
-
-  .poi-filter--top {
-    display: none;
-  }
-}
-
-@media (max-width: 1024px) {
-  .district-modal.theme-dark {
-    height: 100dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  .district-modal.theme-dark .modal-content {
-    display: flex;
-    flex-direction: column;
-    min-height: auto;
-    overflow: visible;
-  }
-
-  .district-modal.theme-dark .left-pane {
-    flex: 0 0 auto;
-    height: clamp(52vh, 60vh, 72vh); /* ✅ faltava isto */
-    overflow: hidden;
+    /* ✅ se for gallery, permite scroll dentro da left pane (para editor/lista) */
+    &:has(.district-gallery-pane) {
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: clamp(0.75rem, 2vh, 1.25rem);
+    }
   }
 
   .district-modal.theme-dark .right-pane {
@@ -112,6 +103,6 @@
 
 @media (max-width: 600px) {
   .district-modal.theme-dark .left-pane {
-    height: clamp(45vh, 10vh, 78vh);
+    height: clamp(45vh, 60vh, 78vh);
   }
 }

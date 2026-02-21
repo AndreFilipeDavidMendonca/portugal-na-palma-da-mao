@@ -1,18 +1,20 @@
 .media-stack {
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   gap: 14px;
 
-  /* tokens via inline style */
   --ms-frame-h: clamp(320px, 52vh, 680px);
   --ms-frame-h-m: clamp(240px, 42vh, 520px);
   --ms-max-w: 920px;
 }
 
-/* ✅ centra e dá largura “boa” ao slideshow */
 .media-stack__slideshow {
+  /* ✅ não pode crescer, só ocupa o frame */
+  flex: 0 0 auto;
+  min-height: 0;
+
   width: 100%;
   display: grid;
   place-items: center;
@@ -20,36 +22,38 @@
 
 .media-stack__slideshow-inner {
   width: min(var(--ms-max-w), 100%);
+  min-height: 0;
+  padding-bottom: clamp(0.5rem, 1.6vh, 1rem);
 }
 
-/* ✅ força altura estável do frame (em vez de encolher) */
 .media-stack__slideshow-inner .slideshow__frame {
   height: var(--ms-frame-h);
-  aspect-ratio: auto; /* mata o 16/9 se estiver ativo */
+  aspect-ratio: auto;
 }
 
-/* garante que media ocupa tudo */
-.media-stack__slideshow-inner .slideshow__media {
+/* se precisares garantir que ocupa o frame */
+.media-stack__slideshow-inner .slideshow__media,
+.media-stack__slideshow-inner img,
+.media-stack__slideshow-inner video {
   height: 100%;
+  width: 100%;
+  object-fit: cover;
 }
 
-/* editor: scroll próprio (ex: ImageDropField) */
 .media-stack__editor {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 0;        /* ✅ crucial */
   overflow: auto;
 
-  padding-top: 10px;
+  padding: clamp(0.5rem, 1vw, 0.8rem);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* below: conteúdo normal (pode ter o seu próprio scroll interno se quiseres) */
 .media-stack__below {
   flex: 0 0 auto;
   min-height: 0;
 }
 
-/* mobile */
 @media (max-width: 980px) {
   .media-stack__slideshow-inner .slideshow__frame {
     height: var(--ms-frame-h-m);

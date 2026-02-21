@@ -69,7 +69,8 @@
 
 /* Dots */
 .slideshow__dots {
-  margin-top: 6px;
+  margin-top: clamp(0.45rem, 1.2vh, 0.85rem);
+  padding-bottom: clamp(0.25rem, 0.9vh, 0.65rem);
   display: flex;
   justify-content: center;
   align-items: center;

@@ -4,9 +4,11 @@ import L from "leaflet";
 
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
 import { normalizeCat } from "@/utils/poiCategory";
-import { fetchPoisLiteBbox, fetchPoiById, type PoiDto } from "@/lib/api";
+import { fetchPoisLiteBbox, fetchPoiById, type PoiDto, updateDistrict } from "@/lib/api";
 import { type PoiInfo, fetchPoiInfo } from "@/lib/poiInfo";
 import { type DistrictInfo, fetchDistrictInfoById } from "@/lib/districtInfo";
+
+import { toast } from "@/components/Toastr/toast";
 
 import PoiModal from "@/pages/poi/PoiModal";
 import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
@@ -45,9 +47,10 @@ type Props = {
 };
 
 type PoiCacheEntry = { info: PoiInfo; updatedAt: number };
-const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] as any[] };
+
+const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
 const pickPoiId = (feature: any): number | null => {
     const id = feature?.properties?.id;
@@ -153,6 +156,7 @@ export default function DistrictModal({
 
     // Aside fields
     const [editingDistrict, setEditingDistrict] = useState(false);
+    const [savingDistrict, setSavingDistrict] = useState(false);
     const [districtError, setDistrictError] = useState<string | null>(null);
 
     const [distName, setDistName] = useState("");
@@ -182,34 +186,20 @@ export default function DistrictModal({
 
     const navMode: "home" | "back" = showGallery ? "back" : "home";
 
-    // Reset “session” quando abre / muda distrito
-    useEffect(() => {
-        if (!open) return;
+    const districtNameFallback = useMemo(() => {
+        return (
+            districtFeature?.properties?.name ||
+            districtFeature?.properties?.NAME ||
+            "Distrito"
+        );
+    }, [districtFeature]);
 
-        setSelectedTypes(new Set()); // podes manter ou não; eu deixei para UX consistente
-        setPoiBase(EMPTY_FC);
-        setDistrictError(null);
-        setEditingDistrict(false);
-        setShowGallery(false);
+    const applyDistrictInfo = useCallback(
+        (info: DistrictInfo | null) => {
+            setDistrictInfo(info);
 
-        setSelectedPoi(null);
-        setPoiInfo(null);
-        setShowPoiModal(false);
-
-        setRenderNonce((n) => n + 1);
-    }, [open, districtId]);
-
-    // 1) Load district info
-    useEffect(() => {
-        let alive = true;
-
-        (async () => {
-            if (!open) return;
-
-            if (!districtId) {
-                setDistrictInfo(null);
-                const fallback = districtFeature?.properties?.name || districtFeature?.properties?.NAME || "Distrito";
-                setDistName(fallback);
+            if (!info) {
+                setDistName(districtNameFallback);
                 setDistMedia([]);
                 setDistPopulation("");
                 setDistMunicipalities("");
@@ -220,22 +210,56 @@ export default function DistrictModal({
                 return;
             }
 
+            setDistName(info.namePt ?? info.name ?? districtNameFallback);
+            setDistMedia((info.files ?? []).slice(0, 10));
+            setDistPopulation(info.population != null ? String(info.population) : "");
+            setDistMunicipalities(info.municipalities != null ? String(info.municipalities) : "");
+            setDistParishes(info.parishes != null ? String(info.parishes) : "");
+            setDistInhabitedSince(info.inhabited_since ?? "");
+            setDistDescription(info.description ?? "");
+            setDistHistory(info.history ?? "");
+        },
+        [districtNameFallback]
+    );
+
+    // Reset “session”
+    useEffect(() => {
+        if (!open) return;
+
+        setSelectedTypes(new Set());
+        setPoiBase(EMPTY_FC);
+
+        setDistrictError(null);
+        setEditingDistrict(false);
+        setSavingDistrict(false);
+        setShowGallery(false);
+
+        setSelectedPoi(null);
+        setPoiInfo(null);
+        setShowPoiModal(false);
+        setLoadingPoi(false);
+        setLoadingGallery(false);
+
+        setRenderNonce((n) => n + 1);
+    }, [open, districtId]);
+
+    // Load district info
+    useEffect(() => {
+        let alive = true;
+
+        (async () => {
+            if (!open) return;
+
+            if (!districtId) {
+                if (!alive) return;
+                applyDistrictInfo(null);
+                return;
+            }
+
             try {
                 const info = await fetchDistrictInfoById(districtId);
                 if (!alive) return;
-
-                setDistrictInfo(info);
-
-                if (info) {
-                    setDistName(info.namePt ?? info.name ?? "Distrito");
-                    setDistMedia(info.files ?? []);
-                    setDistPopulation(info.population != null ? String(info.population) : "");
-                    setDistMunicipalities(info.municipalities != null ? String(info.municipalities) : "");
-                    setDistParishes(info.parishes != null ? String(info.parishes) : "");
-                    setDistInhabitedSince(info.inhabited_since ?? "");
-                    setDistDescription(info.description ?? "");
-                    setDistHistory(info.history ?? "");
-                }
+                applyDistrictInfo(info);
             } catch (e) {
                 console.error("[DistrictModal] erro a carregar distrito:", e);
                 if (!alive) return;
@@ -246,9 +270,9 @@ export default function DistrictModal({
         return () => {
             alive = false;
         };
-    }, [open, districtId, districtFeature]);
+    }, [open, districtId, applyDistrictInfo]);
 
-    // 2) Fetch POIs base (uma vez por distrito/bbox)
+    // Fetch POIs base
     useEffect(() => {
         if (!open) return;
 
@@ -263,8 +287,6 @@ export default function DistrictModal({
         (async () => {
             try {
                 const limit = 5000;
-
-                // ✅ SEMPRE sem category: queremos universo completo do bbox (depois recortamos pelo polígono)
                 const res = await fetchPoisLiteBbox(activeBbox, { limit, signal: controller.signal });
                 if (poisReqRef.current !== reqId) return;
 
@@ -280,39 +302,31 @@ export default function DistrictModal({
         return () => controller.abort();
     }, [open, activeBbox]);
 
-    // 3) Normalize + Spatial clip (tesoura) (sempre no universo completo)
+    // Normalize + clip
     const clippedPoints = useMemo(() => {
         const normalized = normalizePoints(poiBase);
         return filterPointsInsideDistrict(normalized, districtFeature);
     }, [poiBase, districtFeature]);
 
-    // 4) Counts fixos (do universo clipped) + pontos para mapa (dependem do filtro)
+    // Counts + filtered points
     const { countsByCat, filteredPoints } = useMemo(() => {
         const counts = Object.create(null) as Record<PoiCategory, number>;
         const allCats = Object.keys(POI_LABELS) as PoiCategory[];
         for (const c of allCats) counts[c] = 0;
 
         const featsAll = (clippedPoints?.features ?? []) as any[];
-
-        // ✅ BUG FIX: counts nunca dependem de selectedTypes
         for (const f of featsAll) {
             const cat = (f?.properties as any)?.__cat as PoiCategory | undefined;
             if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
         }
 
         const hasFilter = selectedTypes.size > 0;
-
-        // 👇 escolhe o comportamento que queres:
-        // A) sem filtros: não mostrar nada (mantém o teu UX anterior)
         const featsForMap = !hasFilter
             ? []
             : featsAll.filter((f) => {
                 const cat = (f?.properties as any)?.__cat as PoiCategory | undefined;
                 return cat ? selectedTypes.has(cat) : false;
             });
-
-        // B) alternativa: sem filtros mostrar tudo
-        // const featsForMap = !hasFilter ? featsAll : featsAll.filter(...)
 
         return {
             countsByCat: counts,
@@ -322,7 +336,7 @@ export default function DistrictModal({
 
     const filterKey = useMemo(() => Array.from(selectedTypes).sort().join("|"), [selectedTypes]);
 
-    // 5) POI Modal logic (igual, só mais estável)
+    // POI modal logic
     useEffect(() => {
         let alive = true;
 
@@ -397,17 +411,81 @@ export default function DistrictModal({
         if (showGallery) setShowGallery(false);
     }, [showGallery]);
 
+    const handleCancel = useCallback(() => {
+        setEditingDistrict(false);
+        setDistrictError(null);
+        applyDistrictInfo(districtInfo); // ✅ sem repetição
+    }, [districtInfo, applyDistrictInfo]);
+
+    const buildPayload = useCallback(() => {
+        return {
+            namePt: distName || null,
+            name: distName || null,
+            population: distPopulation ? Number(distPopulation) : null,
+            municipalities: distMunicipalities ? Number(distMunicipalities) : null,
+            parishes: distParishes ? Number(distParishes) : null,
+            inhabited_since: distInhabitedSince || null,
+            description: distDescription || null,
+            history: distHistory || null,
+            files: (distMedia ?? []).slice(0, 10),
+        };
+    }, [
+        distName,
+        distPopulation,
+        distMunicipalities,
+        distParishes,
+        distInhabitedSince,
+        distDescription,
+        distHistory,
+        distMedia,
+    ]);
+
+    const handleSave = useCallback(async () => {
+        if (!districtId) {
+            toast.error("Distrito inválido.");
+            return;
+        }
+
+        setSavingDistrict(true);
+        setDistrictError(null);
+
+        try {
+            const payload = buildPayload();
+            const updated = await updateDistrict(districtId, payload);
+
+            // Atualiza estado local (para UI imediata)
+            setDistrictInfo((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        ...updated,
+                        files: (updated?.files ?? payload.files ?? prev.files ?? []).slice(0, 10),
+                    }
+                    : prev
+            );
+
+            setDistMedia((updated?.files ?? payload.files ?? distMedia ?? []).slice(0, 10));
+
+            toast.success("Distrito guardado.");
+            setEditingDistrict(false);
+        } catch (e: any) {
+            const msg = e?.message || "Falha ao guardar o distrito.";
+            setDistrictError(msg);
+            toast.error(msg);
+        } finally {
+            setSavingDistrict(false);
+        }
+    }, [districtId, buildPayload, distMedia]);
+
     if (!open) return null;
 
     const districtNameForGallery =
         distName ||
         districtInfo?.namePt ||
         districtInfo?.name ||
-        districtFeature?.properties?.name ||
-        districtFeature?.properties?.NAME ||
-        "Distrito";
+        districtNameFallback;
 
-    const districtBaseUrls = (districtInfo?.files ?? distMedia) || [];
+    const districtBaseUrls = (distMedia?.length ? distMedia : districtInfo?.files ?? []).slice(0, 10);
 
     return (
         <div className="district-modal theme-dark">
@@ -457,6 +535,10 @@ export default function DistrictModal({
                             baseUrls={districtBaseUrls}
                             onClose={() => setShowGallery(false)}
                             setLoading={setLoadingGallery}
+                            editing={editingDistrict}
+                            isAdmin={isAdmin}
+                            distMedia={distMedia}
+                            setDistMedia={setDistMedia}
                         />
                     )}
                 </div>
@@ -467,16 +549,12 @@ export default function DistrictModal({
                         onToggleGallery={() => setShowGallery((prev) => !prev)}
                         isAdmin={isAdmin}
                         editing={editingDistrict}
-                        saving={false}
+                        saving={savingDistrict}
                         error={districtError}
                         onEdit={() => isAdmin && setEditingDistrict(true)}
-                        onCancel={() => {
-                            setEditingDistrict(false);
-                            setDistrictError(null);
-                        }}
-                        onSave={async () => {
-                            // liga aqui o updateDistrict quando quiseres
-                        }}
+                        onCancel={handleCancel}
+                        onSave={handleSave}
+
                         districtNameFallback={distName}
                         distName={distName}
                         setDistName={setDistName}
@@ -492,6 +570,8 @@ export default function DistrictModal({
                         setDistDescription={setDistDescription}
                         distHistory={distHistory}
                         setDistHistory={setDistHistory}
+                        distMedia={distMedia}
+                        setDistMedia={setDistMedia}
                     />
                 </div>
             </div>
@@ -508,7 +588,12 @@ export default function DistrictModal({
                 isAdmin={isAdmin}
             />
 
-            {(loadingPoi || loadingGallery) && <SpinnerOverlay open={loadingPoi || loadingGallery} message="A carregar…" />}
+            {(loadingPoi || loadingGallery || savingDistrict) && (
+                <SpinnerOverlay
+                    open={loadingPoi || loadingGallery || savingDistrict}
+                    message="A carregar…"
+                />
+            )}
         </div>
     );
 }

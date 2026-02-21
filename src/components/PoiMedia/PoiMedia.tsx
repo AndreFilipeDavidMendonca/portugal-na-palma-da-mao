@@ -28,6 +28,7 @@ export default function PoiMedia({
                 label="Imagens / vídeos"
                 images={imagesList}
                 onChange={setImagesList}
+                maxItems={10}
                 mode="media"
             />
         </div>

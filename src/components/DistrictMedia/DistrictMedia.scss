@@ -1,0 +1,48 @@
+/* src/components/DistrictMedia/DistrictMedia.scss */
+
+.district-media__root {
+  height: 100%;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* garante que o MediaStack pode encolher e gerir scroll interno */
+.district-media__root > * {
+  min-height: 0;
+}
+
+.district-media__uploader {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 1vh, 0.8rem);
+}
+
+/* ✅ Só quando estamos mesmo a editar:
+   queremos que o ImageDropField ocupe o editor todo
+   e que a lista possa crescer até ao fim. */
+.district-media__root.is-editing .district-media__uploader .imgdrop {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* zona (drop) fica natural (não forçar flex aqui) */
+.district-media__root.is-editing .district-media__uploader .imgdrop__zone {
+  flex: 0 0 auto;
+}
+
+/* ✅ aqui sim: a lista passa a ocupar o espaço restante */
+.district-media__root.is-editing .district-media__uploader .imgdrop__list {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  max-height: none; /* remove o teto de 140px */
+  overflow: auto;
+}

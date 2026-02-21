@@ -1,9 +1,8 @@
-// src/components/DistrictGalleryPane/DistrictGalleryPane.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import "./DistrictGalleryPane.scss";
 
 import { resolveDistrictMedia10 } from "@/lib/poiMedia";
-import MediaStack from "@/components/MediaStack/MediaStack";
+import DistrictMedia from "@/components/DistrictMedia/DistrictMedia";
 
 type Props = {
     open: boolean;
@@ -11,6 +10,12 @@ type Props = {
     baseUrls: string[];
     onClose: () => void;
     setLoading?: React.Dispatch<React.SetStateAction<boolean>>;
+
+    editing: boolean;
+    isAdmin: boolean;
+
+    distMedia: string[];
+    setDistMedia: (v: string[]) => void;
 };
 
 const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
@@ -25,11 +30,32 @@ function toUrlList(input: any): string[] {
         .filter((s: any) => typeof s === "string" && s.trim().length > 0);
 }
 
-export default function DistrictGalleryPane({ open, districtName, baseUrls, onClose, setLoading }: Props) {
-    const [urls, setUrls] = useState<string[]>([]);
+export default function DistrictGalleryPane({
+                                                open,
+                                                districtName,
+                                                baseUrls,
+                                                onClose,
+                                                setLoading,
+
+                                                editing,
+                                                isAdmin,
+                                                distMedia,
+                                                setDistMedia,
+                                            }: Props) {
+    const [wikiResolved, setWikiResolved] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
 
-    const base = useMemo(() => uniqStrings(toUrlList(baseUrls)).slice(0, 10), [baseUrls]);
+    const isEditing = Boolean(editing && isAdmin);
+
+    // base do "DB" (props)
+    const baseFromDb = useMemo(() => {
+        return uniqStrings(toUrlList(baseUrls)).slice(0, 10);
+    }, [baseUrls]);
+
+    // UI final: distMedia (user) -> wikiResolved -> baseFromDb
+    const displayItems = useMemo(() => {
+        return uniqStrings([...(distMedia ?? []), ...(wikiResolved ?? []), ...baseFromDb]).slice(0, 10);
+    }, [distMedia, wikiResolved, baseFromDb]);
 
     useEffect(() => {
         let alive = true;
@@ -42,7 +68,7 @@ export default function DistrictGalleryPane({ open, districtName, baseUrls, onCl
             try {
                 const raw = await resolveDistrictMedia10({
                     name: districtName,
-                    baseUrls: base,
+                    baseUrls: baseFromDb,
                     allowWiki: true,
                     limit: 10,
                 });
@@ -50,10 +76,10 @@ export default function DistrictGalleryPane({ open, districtName, baseUrls, onCl
                 if (!alive) return;
 
                 const merged = uniqStrings(toUrlList(raw)).slice(0, 10);
-                setUrls(merged);
+                setWikiResolved(merged);
             } catch (e: any) {
                 if (!alive) return;
-                setUrls(base);
+                setWikiResolved([]);
                 setError(e?.message || "Falha ao carregar galeria.");
             } finally {
                 if (alive) setLoading?.(false);
@@ -64,26 +90,26 @@ export default function DistrictGalleryPane({ open, districtName, baseUrls, onCl
             alive = false;
             setLoading?.(false);
         };
-    }, [open, districtName, base, setLoading]);
+    }, [open, districtName, baseFromDb, setLoading]);
 
     if (!open) return null;
 
-    const merged = urls.length ? urls : base;
-
     return (
-        <section className="district-gallery-pane">
+        <section className={`district-gallery-pane ${isEditing ? "is-editing" : ""}`}>
             <div className="district-gallery-pane__body">
                 {error && <div className="district-gallery-pane__error">{error}</div>}
 
-                {merged.length === 0 ? (
-                    <div className="district-gallery-pane__empty">Sem fotos encontradas (ainda).</div>
+                {displayItems.length === 0 ? (
+                    <div className="district-gallery-pane__empty">Sem media encontrado (ainda).</div>
                 ) : (
-                    <MediaStack
-                        title={districtName}
-                        items={merged}
-                        frameHeight="clamp(360px, 56vh, 740px)"
-                        frameHeightMobile="clamp(260px, 44vh, 560px)"
-                        maxWidth="980px"
+                    <DistrictMedia
+                        districtName={districtName}
+                        items={displayItems}
+                        editing={editing}
+                        canEdit={isAdmin}
+                        mediaList={distMedia}
+                        setMediaList={setDistMedia}
+                        maxItems={10}
                     />
                 )}
             </div>

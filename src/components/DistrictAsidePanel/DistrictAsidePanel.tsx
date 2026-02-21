@@ -1,6 +1,8 @@
+// src/components/DistrictAsidePanel/DistrictAsidePanel.tsx
 import React from "react";
 import "./DistrictAsidePanel.scss";
-import {toast} from "@/components/Toastr/toast";
+import { toast } from "@/components/Toastr/toast";
+import ImageDropField from "@/components/ImageDropField/ImageDropField";
 
 type Props = {
     showGallery: boolean;
@@ -19,6 +21,10 @@ type Props = {
 
     distName: string;
     setDistName: (v: string) => void;
+
+    /** ✅ NOVO */
+    distMedia: string[];
+    setDistMedia: (v: string[]) => void;
 
     distPopulation: string;
     setDistPopulation: (v: string) => void;
@@ -52,6 +58,10 @@ export default function DistrictAsidePanel({
                                                districtNameFallback,
                                                distName,
                                                setDistName,
+
+                                               distMedia,
+                                               setDistMedia,
+
                                                distPopulation,
                                                setDistPopulation,
                                                distMunicipalities,
@@ -65,7 +75,7 @@ export default function DistrictAsidePanel({
                                                distHistory,
                                                setDistHistory,
                                            }: Props) {
-    // ✅ erro via toast (em vez de bloco na UI)
+
     const lastErrRef = React.useRef<string | null>(null);
     React.useEffect(() => {
         if (!error) return;
@@ -211,7 +221,9 @@ export default function DistrictAsidePanel({
                                 {distDescription && <p className="district-description">{distDescription}</p>}
                                 {distHistory && <p className="district-history">{distHistory}</p>}
                                 {!distDescription && !distHistory && (
-                                    <p className="district-description">Sem informação detalhada para este distrito (ainda).</p>
+                                    <p className="district-description">
+                                        Sem informação detalhada para este distrito (ainda).
+                                    </p>
                                 )}
                             </>
                         )}
