@@ -1,0 +1,15 @@
+/* Base reusable chip (keeps feature-specific classes like .poi-chip working) */
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chip-gap, 0.5rem);
+
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ui-chip:disabled {
+  cursor: not-allowed;
+}
