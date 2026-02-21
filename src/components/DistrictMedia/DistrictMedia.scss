@@ -22,9 +22,6 @@
   gap: clamp(0.5rem, 1vh, 0.8rem);
 }
 
-/* ✅ Só quando estamos mesmo a editar:
-   queremos que o ImageDropField ocupe o editor todo
-   e que a lista possa crescer até ao fim. */
 .district-media__root.is-editing .district-media__uploader .imgdrop {
   flex: 1 1 auto;
   min-height: 0;
