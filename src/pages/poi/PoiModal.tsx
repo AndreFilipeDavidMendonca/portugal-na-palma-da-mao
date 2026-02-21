@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import ReactDOM from "react-dom";
 import "./PoiModal.scss";
 
-import type { PoiInfo } from "@/lib/poiInfo";
-import { useAuth } from "@/auth/AuthContext";
-import { updatePoi } from "@/lib/api";
-import { toast } from "@/components/Toastr/toast";
+import type {PoiInfo} from "@/lib/poiInfo";
+import {useAuth} from "@/auth/AuthContext";
+import {updatePoi} from "@/lib/api";
+import {toast} from "@/components/Toastr/toast";
 
 import usePoiFavorite from "@/hooks/usePoiFavorite";
 import usePoiComments from "@/hooks/usePoiComments";
@@ -15,7 +15,7 @@ import PoiMedia from "@/components/PoiMedia/PoiMedia";
 import PoiSide from "@/components/PoiSide/PoiSide";
 import PoiComments from "@/components/PoiComment/PoiComments";
 
-import { resolvePoiMedia10, shouldUseWikiImages } from "@/lib/poiMedia";
+import {resolvePoiMedia10, shouldUseWikiImages} from "@/lib/poiMedia";
 
 type Props = {
     open: boolean;
@@ -37,17 +37,12 @@ function uniqStrings(arr: string[]) {
     return Array.from(new Set((arr ?? []).filter(Boolean)));
 }
 
-function isBlobUrl(u: string) {
-    return typeof u === "string" && u.startsWith("blob:");
-}
-
 function sanitizePersistableMedia(list: string[]) {
-    // ✅ só permitimos URLs persistentes: http(s) e data:
     return (list ?? []).filter((u) => {
         if (!u) return false;
         if (u.startsWith("data:")) return true;
-        if (u.startsWith("http://") || u.startsWith("https://")) return true;
-        return false;
+        return u.startsWith("http://") || u.startsWith("https://");
+
     });
 }
 
@@ -209,11 +204,9 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         }
 
         // Fora: BD-first, sem blob
-        const base = sanitizePersistableMedia(
+        return sanitizePersistableMedia(
             uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])])
         );
-
-        return base;
     }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
     /* =====================

@@ -163,7 +163,6 @@ export default function CreatePoiPage() {
                 // só marca erro no campo se o user já tocou ou se já tentou submeter
                 setErrors((p) => ({ ...p, latlon: "Morada não localizada." }));
             } finally {
-                if (!aliveRef.current) return;
                 setGeoLoading(false);
             }
         }, 900);
