@@ -6,7 +6,7 @@ import logo from "@/assets/logo.png";
 import "./RegisterPage.scss";
 import { toast } from "@/components/Toastr/toast";
 import Button from "@/components/Button/Button";
-import Input from "@/components/Input/Input";
+import Input from "@/components/Input/TextField/Input";
 
 type RegisterRole = "USER" | "BUSINESS";
 

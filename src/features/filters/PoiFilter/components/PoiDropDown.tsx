@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { PoiCategory } from "@/utils/constants";
 import type { PoiDropdownItem } from "../PoiFilter";
 import Chip from "@/components/Chip/Chip";
+import Checkbox from "@/components/Input/Checkbox/Checkbox";
 
 type Props = {
     items: PoiDropdownItem[];
@@ -40,15 +41,13 @@ export default function PoiDropdown({ items, selected, onToggle, onClose }: Prop
                         onMouseDown={(e) => e.preventDefault()}
                         title={c.label}
                     >
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             checked={checked}
                             onChange={() => {
                                 onToggle(c.key);
-                                // ✅ garante fechar imediatamente após escolher
-                                onClose();
+                                onClose(); // fecha imediatamente
                             }}
-                            style={{ accentColor: c.color || "#777" }}
+                            accent={c.color}
                         />
 
                         {c.svg && <span className="poi-chip__icon" style={{ color: c.color }} dangerouslySetInnerHTML={{ __html: c.svg }} />}

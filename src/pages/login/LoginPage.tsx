@@ -7,7 +7,7 @@ import logo from "@/assets/logo.png";
 import { toast } from "@/components/Toastr/toast";
 import "./LoginPage.scss";
 import Button from "@/components/Button/Button";
-import Input from "@/components/Input/Input";
+import Input from "@/components/Input/TextField/Input";
 
 type FieldKey = "email" | "password";
 type FieldErrors = Partial<Record<FieldKey, string>>;

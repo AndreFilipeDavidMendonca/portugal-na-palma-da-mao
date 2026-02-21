@@ -33,7 +33,7 @@ export default function MyPoisFlyout({
                 </Button>
             </div>
 
-            <div className="user-menu__favorites">
+            <div className="user-menu__favorites gold-scroll">
                 <Button type="button" className="user-menu__item user-menu__item--primary user-menu__item--full" onClick={onCreatePoi}>
                     + Criar POI
                 </Button>

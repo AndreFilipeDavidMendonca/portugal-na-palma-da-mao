@@ -6,8 +6,9 @@ import { toast } from "@/components/Toastr/toast";
 import "./CreatePoiPage.scss";
 import {createPoi, DistrictDto, fetchDistricts, geocodeAddress, GeocodeRequestDto} from "@/lib/api";
 import Button from "@/components/Button/Button";
-import Input from "@/components/Input/Input";
-import Textarea from "@/components/Input/Textarea";
+import Input from "@/components/Input/TextField/Input";
+import Textarea from "@/components/Input/TextArea/Textarea";
+import Select from "@/components/Input/Select/Select";
 
 type Category = "event" | "crafts" | "gastronomy" | "accommodation";
 
@@ -220,7 +221,7 @@ export default function CreatePoiPage() {
     console.log("creating poi images:", images);
     return (
         <div className="create-poi-page">
-            <div className="create-poi-card">
+            <div className="create-poi-card gold-scroll">
                 <h2 className="create-poi-title">Criar ponto Comercial</h2>
 
                 <form onSubmit={onSubmit} className="create-poi-form">
@@ -239,16 +240,18 @@ export default function CreatePoiPage() {
                         size="md"
                     />
 
-                    <select
-                        className="create-poi-input"
+                    <Select
+                        variant="panel"
                         value={category}
                         onChange={(e) => setCategory(e.target.value as Category)}
                         disabled={loading}
                     >
-                        {CATEGORY_OPTIONS.map(o => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
+                        {CATEGORY_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                                {o.label}
+                            </option>
                         ))}
-                    </select>
+                    </Select>
 
                     <Textarea
                         placeholder="Descrição"
@@ -259,8 +262,9 @@ export default function CreatePoiPage() {
                         size="md"
                     />
 
-                    <select
-                        className={`create-poi-input ${isInvalid("districtId") ? "is-invalid" : ""}`}
+                    <Select
+                        variant="panel"
+                        invalid={isInvalid("districtId")}
                         value={districtId}
                         onBlur={() => setFieldTouched("districtId")}
                         onChange={(e) => {
@@ -275,7 +279,7 @@ export default function CreatePoiPage() {
                                 {d.namePt ?? d.name}
                             </option>
                         ))}
-                    </select>
+                    </Select>
 
                     <div className="create-poi-grid">
                         <Input

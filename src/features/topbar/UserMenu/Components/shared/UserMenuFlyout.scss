@@ -1,8 +1,6 @@
 .user-menu__flyout {
   position: absolute;
   top: var(--um-top);
-
-  /* ✅ cola o flyout à esquerda da dropdown (que está em right:0) */
   right: calc(var(--um-w) + var(--um-gap));
   left: auto;
 
@@ -33,30 +31,22 @@
     color: rgba(212, 175, 55, 0.95);
     font-weight: 500;
     letter-spacing: 0.04em;
-    font-size: 14px;
+    font-size: 16px;
   }
 }
 
 .user-menu__flyout-close {
-  width: 30px;
-  height: 30px;
   border-radius: 999px;
-  border: 2px solid var(--gold-dark);
-  background: var(--gold);
-  color: var(--bg-panel);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
+  padding: 4px 12px;
+  border: 1px solid #e0b15a;
+  background: #1f1a10;
+  color: #f7e3b5;
   cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: transform .12s ease, filter .12s ease;
+  font-size: 0.8rem;
 
   &:hover {
-    transform: scale(1.04);
-    filter: brightness(1.05);
+    background: #2b2113;
   }
-  &:active { transform: scale(1.0); }
 }
 
 .user-menu__favorites {
@@ -80,15 +70,21 @@
   border: 1px solid rgba(255, 80, 80, 0.22);
 }
 
-.user-menu__fav-list { list-style: none; margin: 0; padding: 0; }
+.user-menu__fav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+}
 
 .user-menu__fav-item {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 12px 0;
+  padding: 12px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: left;
 
   &:last-child { border-bottom: 0; }
 }
@@ -100,7 +96,7 @@
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   text-align: left;
-
+  justify-content: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -122,8 +118,8 @@
 }
 
 .user-menu__fav-name {
-  font-weight: 500;
-  font-size: 16px;
+  font-weight: 300;
+  font-size: 14px;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;

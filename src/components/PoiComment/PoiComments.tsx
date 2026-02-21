@@ -3,6 +3,7 @@ import React from "react";
 import type { PoiCommentDto } from "@/lib/api";
 import "./PoiComments.scss";
 import Button from "@/components/Button/Button";
+import Textarea from "@/components/Input/TextArea/Textarea";
 
 type Props = {
     user: any;
@@ -38,12 +39,13 @@ export default function PoiComments({
             {/* composer só com login */}
             {user ? (
                 <div className="poi-comments__composer">
-          <textarea
+          <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Escreve um comentário…"
               disabled={sending}
               rows={2}
+              variant="panel"
           />
                     <Button type="button" onClick={onAdd} disabled={sending || !body.trim()}>
                         {sending ? "A enviar…" : "Publicar"}

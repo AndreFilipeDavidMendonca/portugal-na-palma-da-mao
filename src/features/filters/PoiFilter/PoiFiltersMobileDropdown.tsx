@@ -8,6 +8,7 @@ import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 import Chip from "@/components/Chip/Chip";
 
 import "./PoiFiltersMobileDropdown.scss";
+import Button from "@/components/Button/Button";
 
 type NavMode = "home" | "back";
 
@@ -107,7 +108,10 @@ export default function PoiFiltersMobileDropdown({
 
     return (
         <div className="poi-filters-mobile" ref={wrapRef}>
-            <button
+            <Button
+                variant="ghost"
+                size="xs"
+                pill
                 className="gold-close gold-close--left poi-filters-mobile__home"
                 onPointerDown={(e) => {
                     e.preventDefault();
@@ -120,7 +124,7 @@ export default function PoiFiltersMobileDropdown({
                 type="button"
             >
                 {navIcon}
-            </button>
+            </Button>
 
             <Chip
                 variant="poi"
@@ -153,9 +157,9 @@ export default function PoiFiltersMobileDropdown({
                             <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                         )}
 
-                        <button type="button" className="btn-clear poi-filters-mobile__clear" onClick={handleClear}>
+                        <Button type="button" variant="ghost" size="sm" pill className="btn-clear poi-filters-mobile__clear" onClick={handleClear}>
                             Limpar
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}

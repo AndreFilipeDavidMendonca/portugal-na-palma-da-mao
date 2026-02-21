@@ -1,7 +1,7 @@
 import React from "react";
 import "./PoiHeader.scss";
 import Button from "@/components/Button/Button";
-import Input from "@/components/Input/Input";
+import Input from "@/components/Input/TextField/Input";
 
 type Props = {
     title: string;

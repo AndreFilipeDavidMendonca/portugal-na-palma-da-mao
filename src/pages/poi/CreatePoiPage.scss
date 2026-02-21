@@ -33,42 +33,10 @@
     gap: 14px;
   }
 
-    select {
-    width: 100%;
-    padding: 14px;
-    border-radius: 14px;
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--gold);
-    box-sizing: border-box;
-
-    &:focus {
-      outline: none;
-      border-color: var(--border-2);
-      box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
-    }
-  }
-
   .create-poi-grid {
     display: grid;
     gap: 12px;
     grid-template-columns: 1fr 1fr;
-
-    input,
-    select {
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--gold);
-      box-sizing: border-box;
-
-      &:focus {
-        outline: none;
-        border-color: var(--border-2);
-        box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
-      }
-    }
   }
 
   .create-poi-geo {
@@ -127,13 +95,6 @@
 
     .create-poi-form {
       gap: 10px;
-    }
-
-    .create-poi-input,
-    select {
-      padding: 10px 12px;
-      border-radius: 12px;
-      font-size: 0.95rem;
     }
 
     .create-poi-grid {

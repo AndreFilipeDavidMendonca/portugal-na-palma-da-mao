@@ -1,0 +1,64 @@
+@use "@/styles/base.scss" as *;
+
+.ui-cb {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  color: var(--gold);
+}
+
+.ui-cb__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-cb__box {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.ui-cb__label {
+  font-size: 0.95rem;
+  line-height: 1.2;
+  color: var(--gold);
+}
+
+/* checked */
+.ui-cb__input:checked + .ui-cb__box {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--cb-accent, var(--gold)) 18%, transparent);
+}
+
+.ui-cb__input:checked + .ui-cb__box::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid var(--cb-accent, var(--gold));
+  border-bottom: 2px solid var(--cb-accent, var(--gold));
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+/* focus */
+.ui-cb__input:focus-visible + .ui-cb__box {
+  outline: none;
+  border-color: var(--border-2);
+  box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+}
+
+/* disabled */
+.ui-cb__input:disabled + .ui-cb__box,
+.ui-cb__input:disabled ~ .ui-cb__label {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

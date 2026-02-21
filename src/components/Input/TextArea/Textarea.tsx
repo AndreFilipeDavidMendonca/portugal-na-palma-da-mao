@@ -1,7 +1,7 @@
-import React from "react";
-import "./Input.scss";
+import React, { forwardRef } from "react";
+import "../TextField/Input.scss";
 
-export type TextareaVariant = "default" | "panel";
+export type TextareaVariant = "default" | "panel" | "inline";
 export type TextareaSize = "xs" | "sm" | "md" | "lg";
 
 type Props = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "style"> & {
@@ -16,17 +16,20 @@ type Props = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "style"> & 
   style?: React.CSSProperties;
 };
 
-export default function Textarea({
-  variant = "default",
-  size = "md",
-  pill = false,
-  fullWidth = true,
-  invalid = false,
-  className = "",
-  css,
-  style,
-  ...rest
-}: Props) {
+const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea(
+  {
+    variant = "default",
+    size = "md",
+    pill = false,
+    fullWidth = true,
+    invalid = false,
+    className = "",
+    css,
+    style,
+    ...rest
+  },
+  ref
+) {
   const cls = [
     "ui-textarea",
     variant !== "default" ? `ui-textarea--${variant}` : "",
@@ -42,5 +45,7 @@ export default function Textarea({
   const mergedStyle: React.CSSProperties | undefined =
     css || style ? { ...(style || {}), ...(css || {}) } : undefined;
 
-  return <textarea {...rest} className={cls} style={mergedStyle} />;
-}
+  return <textarea {...rest} ref={ref} className={cls} style={mergedStyle} />;
+});
+
+export default Textarea;

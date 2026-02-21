@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
+import Input from "@/components/Input/TextField/Input";
 import { fetchSearch, type SearchItem } from "@/lib/api";
 import "./TopDistrictFilter.scss";
 import Button from "@/components/Button/Button";
@@ -144,7 +145,7 @@ export default function TopDistrictFilter({
             <span className="tdf-label">Pesquisar</span>
 
             <div className="tdf-inputbox">
-                <input
+                <Input
                     ref={inputRef}
                     className="tdf-input"
                     value={typedQuery}
@@ -155,6 +156,9 @@ export default function TopDistrictFilter({
                     }}
                     onFocus={() => setOpen(true)}
                     onKeyDown={onKeyDown}
+                    variant="inline"
+                    size="sm"
+                    pill
                 />
 
                 {hasValue && (
