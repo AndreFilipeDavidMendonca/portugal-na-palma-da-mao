@@ -80,6 +80,9 @@
 /* Desktop: em edit, comments ocupam a largura toda (fica mais natural) */
 @media (min-width: 901px) {
   .poi-body.is-editing {
+    /* 🔥 damos mais largura à galeria */
+    grid-template-columns: 1.2fr 320px;
+
     grid-template-areas:
       "media side"
       "comments comments";
@@ -92,17 +95,21 @@
   }
 }
 
-/* Desktop: dá espaço real ao media para evitar overlap */
 .poi-media {
   min-height: clamp(270px, 50vh, 560px);
   overflow: hidden;
   border-radius: 16px;
 }
 
-/* Garante que o conteúdo do slideshow ocupa e conta para a altura */
-.poi-media > * {
+.poi-media.is-editing {
+  overflow: hidden; /* 🔥 nunca visible */
+  min-height: clamp(520px, 78vh, 980px);
+}
+
+.poi-media.is-editing > * {
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 0;
 }
 
 .poi-side {
@@ -178,14 +185,21 @@
     min-width: 0;
   }
 
-  .poi-body.is-editing .poi-media {
-    max-height: 36vh; /* mais alto em edição */
+  .poi-media.is-editing {
+    aspect-ratio: auto;
+    max-height: none;
+    min-height: clamp(520px, 86vh, 980px);
+    overflow: hidden;
   }
 
-  /* garante que o componente interno acompanha o container */
-  .poi-media > * {
+  .poi-media:not(.is-editing) > * {
     width: 100%;
     height: 100%;
+  }
+
+  .poi-media.is-editing > * {
+    width: 100%;
+    height: auto;
   }
 
   .poi-media img,

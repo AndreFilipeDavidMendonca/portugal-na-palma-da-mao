@@ -324,8 +324,8 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
                     onClose={onClose}
                 />
 
-                <div className="poi-body">
-                    <section className="poi-media" aria-label="Galeria">
+                <div className='poi-body'>
+                    <section className={`poi-media ${editing ? "is-editing" : ""}`} aria-label="Galeria">
                         <PoiMedia
                             title={title}
                             mediaUrls={mediaUrls}
