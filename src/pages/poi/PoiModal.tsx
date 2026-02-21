@@ -1,4 +1,3 @@
-// src/pages/poi/PoiModal.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import "./PoiModal.scss";
@@ -34,8 +33,23 @@ type Props = {
     isAdmin?: boolean;
 };
 
-const uniqStrings = (arr: string[]) =>
-    Array.from(new Set((arr ?? []).filter(Boolean)));
+function uniqStrings(arr: string[]) {
+    return Array.from(new Set((arr ?? []).filter(Boolean)));
+}
+
+function isBlobUrl(u: string) {
+    return typeof u === "string" && u.startsWith("blob:");
+}
+
+function sanitizePersistableMedia(list: string[]) {
+    // ✅ só permitimos URLs persistentes: http(s) e data:
+    return (list ?? []).filter((u) => {
+        if (!u) return false;
+        if (u.startsWith("data:")) return true;
+        if (u.startsWith("http://") || u.startsWith("https://")) return true;
+        return false;
+    });
+}
 
 function pickPoiId(poi: any): number | null {
     const id = poi?.properties?.id;
@@ -47,14 +61,7 @@ function pickOwnerId(poi: any): string | null {
     return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
-export default function PoiModal({
-                                     open,
-                                     onClose,
-                                     info,
-                                     poi,
-                                     onSaved,
-                                     isAdmin = false,
-                                 }: Props) {
+export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = false }: Props) {
     const { user } = useAuth();
 
     const poiId = useMemo(() => pickPoiId(poi), [poi]);
@@ -83,6 +90,7 @@ export default function PoiModal({
 
     /* =====================
        Sync info → local
+       (BD-first)
     ===================== */
     useEffect(() => {
         setLocalInfo(info);
@@ -100,18 +108,20 @@ export default function PoiModal({
         setTitleInput(info.label ?? "");
         setDescInput(info.description ?? "");
 
-        const gal = uniqStrings([info.image ?? "", ...(info.images ?? [])]).slice(
-            0,
-            10
-        );
-        setImagesList(gal);
+        // ✅ BD-first: só coisas persistentes (nada de blob)
+        const dbBase = sanitizePersistableMedia(
+            uniqStrings([info.image ?? "", ...(info.images ?? [])])
+        ).slice(0, 10);
+
+        setImagesList(dbBase);
     }, [info]);
 
     /* =====================
        Wikimedia enrich (1x por POI)
        - só quando abre
-       - só se precisa (poucas fotos)
-       - não mexe no draft se estiveres a editar
+       - só se precisa
+       - BD-first, wiki-fill
+       - NÃO mexe no draft se estiveres a editar
     ===================== */
     const wikiTried = useRef<Set<number>>(new Set());
     const wikiInflight = useRef<Set<number>>(new Set());
@@ -126,17 +136,16 @@ export default function PoiModal({
         if (!label) return;
 
         if (!shouldUseWikiImages(poi)) return;
-
         if (wikiTried.current.has(poiId)) return;
         if (wikiInflight.current.has(poiId)) return;
 
-        const base = uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])]).slice(
-            0,
-            10
-        );
+        // ✅ base do BE (persistente)
+        const baseFromBe = sanitizePersistableMedia(
+            uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])])
+        ).slice(0, 10);
 
-        // já tem “suficiente”
-        if (base.length >= 3) {
+        // se já tens suficiente, não chama
+        if (baseFromBe.length >= 3) {
             wikiTried.current.add(poiId);
             return;
         }
@@ -146,10 +155,12 @@ export default function PoiModal({
         (async () => {
             setLoadingMedia(true);
             try {
+                // resolvePoiMedia10 já sabe ir buscar wiki,
+                // mas nós garantimos BD-first ao reconstruir o merge final.
                 const merged = await resolvePoiMedia10({
                     label,
-                    baseImage: localInfo?.image ?? null,
-                    baseImages: localInfo?.images ?? [],
+                    baseImage: baseFromBe[0] ?? null,
+                    baseImages: baseFromBe,
                     allowWikiFor: poi,
                     limit: 10,
                 });
@@ -158,18 +169,20 @@ export default function PoiModal({
 
                 wikiTried.current.add(poiId);
 
-                if (!merged || merged.length === 0) return;
+                const wikiOnly = sanitizePersistableMedia(uniqStrings(merged ?? []));
 
-                const primary = merged[0] ?? null;
+                // ✅ BD-first then wiki-fill
+                const finalList = uniqStrings([...baseFromBe, ...wikiOnly]).slice(0, 10);
+                if (finalList.length === 0) return;
+
+                const primary = finalList[0] ?? null;
 
                 setLocalInfo((prev) =>
-                    prev
-                        ? { ...prev, image: primary ?? prev.image ?? null, images: merged }
-                        : prev
+                    prev ? { ...prev, image: primary ?? prev.image ?? null, images: finalList } : prev
                 );
 
-                // só atualiza o draft se não estiveres a editar
-                setImagesList((prev) => (editing ? prev : merged));
+                // só atualiza o draft se não estás a editar
+                setImagesList((prev) => (editing ? prev : finalList));
             } catch {
                 wikiTried.current.add(poiId);
             } finally {
@@ -181,33 +194,32 @@ export default function PoiModal({
         return () => {
             alive = false;
         };
-        // ⚠️ Não metas localInfo.image/images aqui, para não virar “loop”
-    }, [open, poiId, localInfo?.label, poi, editing, localInfo?.image, localInfo?.images]);
+        // ✅ deps minimizadas (sem image/images para não virar loop)
+    }, [open, poiId, localInfo?.label, poi, editing]);
 
     /* =====================
        Derived
     ===================== */
-    const title = useMemo(
-        () => localInfo?.label ?? "Ponto de interesse",
-        [localInfo?.label]
-    );
+    const title = useMemo(() => localInfo?.label ?? "Ponto de interesse", [localInfo?.label]);
 
     const mediaUrls = useMemo(() => {
-        // em edição: o draft (imagesList)
-        if (editing) return uniqStrings(imagesList);
+        if (editing) {
+            // Em edição mostramos o draft (pode ter data:)
+            return uniqStrings(imagesList ?? []);
+        }
 
-        // fora: o que estiver em localInfo
-        return uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])]);
+        // Fora: BD-first, sem blob
+        const base = sanitizePersistableMedia(
+            uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])])
+        );
+
+        return base;
     }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
     /* =====================
        Hooks
     ===================== */
-    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
-        open,
-        poiId,
-        user,
-    });
+    const { isFav, favLoading, toggleFavorite } = usePoiFavorite({ open, poiId, user });
     const commentsState = usePoiComments({ open, poiId, user });
 
     /* =====================
@@ -231,7 +243,9 @@ export default function PoiModal({
     const handleSave = useCallback(async () => {
         if (!requireCanEdit()) return;
 
-        const primaryImage = imagesList[0] ?? null;
+        // ✅ Nunca enviar blobs para o BE
+        const persistable = sanitizePersistableMedia(imagesList ?? []).slice(0, 10);
+        const primaryImage = persistable[0] ?? null;
 
         setSaving(true);
         try {
@@ -240,25 +254,28 @@ export default function PoiModal({
                 namePt: titleInput || null,
                 description: descInput || null,
                 image: primaryImage,
-                images: imagesList.length ? imagesList : null,
+                images: persistable.length ? persistable : null,
             });
 
             // Atualiza UI imediata
+            const updatedList = sanitizePersistableMedia(
+                uniqStrings([updated.image ?? "", ...(updated.images ?? [])])
+            ).slice(0, 10);
+
             setLocalInfo((prev) =>
                 prev
                     ? {
                         ...prev,
                         label: updated.namePt ?? updated.name ?? prev.label,
                         description: updated.description ?? prev.description,
-                        image: updated.image ?? primaryImage ?? prev.image ?? null,
-                        images: updated.images ?? imagesList,
+                        image: updated.image ?? updatedList[0] ?? prev.image ?? null,
+                        images: updated.images ?? updatedList,
                     }
                     : prev
             );
 
-            // ✅ Importantíssimo: manter o draft coerente com a resposta do BE
-            // (para não ficar “preso” com blob/draft antigo)
-            setImagesList(uniqStrings([updated.image ?? "", ...(updated.images ?? [])]).slice(0, 10));
+            // mantém draft coerente com o BE
+            setImagesList(updatedList);
 
             setEditing(false);
 
@@ -283,12 +300,7 @@ export default function PoiModal({
 
     return ReactDOM.createPortal(
         <div className="poi-overlay" onClick={onClose}>
-            <div
-                className="poi-card"
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-            >
+            <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
                 <PoiHeader
                     title={title}
                     titleInput={titleInput}
@@ -319,7 +331,7 @@ export default function PoiModal({
                             mediaUrls={mediaUrls}
                             editing={editing}
                             canEdit={canEdit}
-                            imagesList={imagesList}
+                            imagesList={imagesList ?? []}
                             setImagesList={setImagesList}
                         />
                         {!editing && loadingMedia && (

@@ -26,10 +26,11 @@ export default function PoiMedia({
         <div className="poi-media__uploader">
             <ImageDropField
                 label="Imagens / vídeos"
-                images={imagesList}
-                onChange={setImagesList}
+                images={imagesList ?? []}
+                onChange={(next) => setImagesList((next ?? []).slice(0, 10))}
                 maxItems={10}
                 mode="media"
+                store="dataUrl" // ✅ FIX: nunca mais blob URLs
             />
         </div>
     ) : null;
@@ -41,7 +42,7 @@ export default function PoiMedia({
     );
 
     const frameHeightMobile = useMemo(
-        () => (showEditor ? "clamp(220px, 34vh, 420px)" : "clamp(260px, 44vh, 560px)"),
+        () => (showEditor ? "clamp(240px, 44vh, 620px)" : "clamp(260px, 46vh, 620px)"),
         [showEditor]
     );
 
@@ -49,7 +50,7 @@ export default function PoiMedia({
         <div className={`poi-media__root ${showEditor ? "is-editing" : ""}`}>
             <MediaStack
                 title={title}
-                items={mediaUrls}
+                items={mediaUrls ?? []}
                 editor={editor}
                 frameHeight={frameHeight}
                 frameHeightMobile={frameHeightMobile}
