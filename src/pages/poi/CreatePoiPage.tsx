@@ -339,13 +339,15 @@ export default function CreatePoiPage() {
                     </div>
 
                     <div className="create-poi-actions">
-                        <Button className="create-poi-btn create-poi-btn--primary" disabled={loading || geoLoading}>
+                        <Button variant="primary" pill strong disabled={loading || geoLoading}>
                             {loading ? "A criar…" : "Criar"}
                         </Button>
 
                         <Button
                             type="button"
-                            className="create-poi-btn create-poi-btn--ghost"
+                            variant="ghost"
+                            pill
+                            strong
                             onClick={() => navigate("/")}
                             disabled={loading}
                         >

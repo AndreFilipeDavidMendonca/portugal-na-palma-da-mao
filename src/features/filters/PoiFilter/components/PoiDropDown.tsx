@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PoiCategory } from "@/utils/constants";
 import type { PoiDropdownItem } from "../PoiFilter";
+import Chip from "@/components/Chip/Chip";
 
 type Props = {
     items: PoiDropdownItem[];
@@ -30,7 +31,8 @@ export default function PoiDropdown({ items, selected, onToggle, onClose }: Prop
                 const checked = selected.has(c.key);
 
                 return (
-                    <label
+                    <Chip
+                        as="label"
                         key={c.key}
                         className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
                         onMouseDown={(e) => e.preventDefault()}
@@ -51,7 +53,7 @@ export default function PoiDropdown({ items, selected, onToggle, onClose }: Prop
 
                         <span className="poi-chip__label">{c.label}</span>
                         <em className="poi-chip__count">{c.count}</em>
-                    </label>
+                    </Chip>
                 );
             })}
         </div>

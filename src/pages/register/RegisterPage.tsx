@@ -290,12 +290,14 @@ export default function RegisterPage() {
                     />
 
                     <div className="register-actions">
-                        <Button className="register-btn register-btn--primary" type="submit" disabled={loading}>
+                        <Button variant="primary" pill strong type="submit" disabled={loading}>
                             {loading ? "A criar…" : "Criar conta"}
                         </Button>
 
                         <Button
-                            className="register-btn register-btn--ghost"
+                            variant="ghost"
+                            pill
+                            strong
                             type="button"
                             onClick={() => navigate("/login", { state: { from }, replace: true })}
                             disabled={loading}

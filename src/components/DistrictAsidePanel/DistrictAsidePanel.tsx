@@ -104,7 +104,9 @@ export default function DistrictAsidePanel({
                                 <>
                                     <Button
                                         type="button"
-                                        className="district-btn district-btn--ghost"
+                                        variant="ghost"
+                                        size="xs"
+                                        pill
                                         onClick={onCancel}
                                         disabled={saving}
                                     >
@@ -112,7 +114,9 @@ export default function DistrictAsidePanel({
                                     </Button>
                                     <Button
                                         type="button"
-                                        className="district-btn district-btn--primary"
+                                        variant="primary"
+                                        size="xs"
+                                        pill
                                         onClick={onSave}
                                         disabled={saving}
                                     >
@@ -122,7 +126,9 @@ export default function DistrictAsidePanel({
                             ) : (
                                 <Button
                                     type="button"
-                                    className="district-btn district-btn--ghost"
+                                    variant="ghost"
+                                    size="xs"
+                                    pill
                                     onClick={onEdit}
                                 >
                                     Editar
@@ -133,7 +139,7 @@ export default function DistrictAsidePanel({
                 </div>
 
                 <div className="district-header-subrow">
-                    <Button type="button" className="district-videos-toggle" onClick={onToggleGallery}>
+                    <Button type="button" variant="ghost" size="xs" pill onClick={onToggleGallery}>
                         {showGallery ? "Fechar galeria" : "Galeria"}
                     </Button>
                 </div>

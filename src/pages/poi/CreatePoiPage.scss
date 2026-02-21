@@ -96,24 +96,7 @@
     gap: 10px;
   }
 
-  .create-poi-btn {
-    border-radius: 999px;
-    padding: 10px 18px;
-    font-weight: 900;
-    border: 1px solid transparent;
-    cursor: pointer;
-  }
-
-  .create-poi-btn--primary {
-    background: var(--gold);
-    color: var(--bg-deep);
-  }
-
-  .create-poi-btn--ghost {
-    background: var(--bg-panel-2);
-    color: var(--gold);
-    border: 1px solid var(--gold-dark);
-  }
+  /* Button visuals are handled by the shared Button component */
 
   .is-invalid {
     border: 1.6px solid rgba(235, 85, 85, 0.9) !important;
@@ -176,9 +159,9 @@
       gap: 8px;
     }
 
-    .create-poi-btn {
+    .create-poi-actions .ui-btn {
       width: 100%;
-      padding: 12px;
+      --btn-pad: 12px;
       font-size: 1rem;
     }
 

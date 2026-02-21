@@ -5,17 +5,32 @@
   justify-content: center;
   gap: 0.5rem;
 
-  border-radius: 12px;
-  padding: 10px 14px;
+  border-radius: var(--btn-radius, 12px);
+  padding: var(--btn-pad, 10px 14px);
   border: 1px solid var(--btn-border, rgba(255, 255, 255, 0.18));
   background: var(--btn-bg, rgba(255, 255, 255, 0.06));
   color: var(--btn-fg, inherit);
+
+  font-weight: var(--btn-fw, 600);
 
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 
-  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
+  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease,
+    background 150ms ease, border-color 150ms ease, color 150ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--btn-bg-hover, var(--btn-bg, rgba(255, 255, 255, 0.06)));
+    border-color: var(--btn-border-hover, var(--btn-border, rgba(255, 255, 255, 0.18)));
+    color: var(--btn-fg-hover, var(--btn-fg, inherit));
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--btn-focus-border, var(--border-2, rgba(255, 255, 255, 0.28)));
+    box-shadow: 0 0 0 3px var(--btn-ring, rgba(215, 178, 90, 0.15));
+  }
 
   &:active {
     transform: translateY(1px);
@@ -32,32 +47,54 @@
   width: 100%;
 }
 
+.ui-btn--pill {
+  --btn-radius: 999px;
+}
+
+.ui-btn--strong {
+  --btn-fw: 900;
+}
+
+.ui-btn--xs {
+  --btn-pad: 4px 12px;
+  font-size: 0.78rem;
+}
+
 .ui-btn--sm {
-  padding: 8px 12px;
+  --btn-pad: 8px 12px;
   font-size: 0.9rem;
 }
 
 .ui-btn--md {
-  padding: 10px 14px;
+  --btn-pad: 10px 14px;
   font-size: 1rem;
 }
 
 .ui-btn--lg {
-  padding: 12px 16px;
+  --btn-pad: 12px 16px;
   font-size: 1.05rem;
 }
 
-.ui-btn--default {}
+/* Default: subtle surface button */
+.ui-btn--default {
+  --btn-bg: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
+  --btn-border: var(--border, rgba(255, 255, 255, 0.18));
+  --btn-fg: var(--gold, inherit);
+}
 
+/* Primary: gold solid (project theme) */
 .ui-btn--primary {
-  --btn-bg: rgba(60, 120, 255, 0.22);
-  --btn-border: rgba(60, 120, 255, 0.45);
-  --btn-fg: white;
+  --btn-bg: var(--gold, rgba(215, 178, 90, 1));
+  --btn-border: var(--gold-dark, rgba(215, 178, 90, 0.45));
+  --btn-fg: var(--bg-deep, #0b0b0b);
+  --btn-bg-hover: var(--gold-strong, rgba(215, 178, 90, 0.9));
+  --btn-border-hover: var(--gold, rgba(215, 178, 90, 1));
 }
 
 .ui-btn--gold {
   --btn-bg: rgba(215, 178, 90, 0.22);
   --btn-border: rgba(215, 178, 90, 0.45);
+  --btn-fg: var(--gold, inherit);
 }
 
 .ui-btn--danger {
@@ -67,6 +104,10 @@
 }
 
 .ui-btn--ghost {
-  --btn-bg: transparent;
-  --btn-border: transparent;
+  --btn-bg: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
+  --btn-border: var(--gold-dark, rgba(215, 178, 90, 0.45));
+  --btn-fg: var(--gold, inherit);
+  --btn-bg-hover: var(--bg-panel, rgba(0, 0, 0, 0.18));
+  --btn-border-hover: var(--gold, rgba(215, 178, 90, 1));
+  --btn-fg-hover: var(--gold-strong, var(--gold, inherit));
 }

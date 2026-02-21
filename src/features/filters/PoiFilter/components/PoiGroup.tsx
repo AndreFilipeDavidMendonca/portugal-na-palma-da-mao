@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { PoiCategory } from "@/utils/constants";
 import type { PoiDropdownItem } from "../PoiFilter";
 import PoiDropdown from "@/features/filters/PoiFilter/components/PoiDropDown";
-import Button from "@/components/Button/Button";
+import Chip from "@/components/Chip/Chip";
 
 type Props = {
     label: string;
@@ -30,10 +30,10 @@ export default function PoiGroup({ label, items, selected, onToggle, closeSignal
 
     return (
         <div className="poi-group">
-            <Button type="button" className={`poi-chip poi-chip--group ${open ? "poi-chip--group-open" : ""}`} onClick={() => setOpen((v) => !v)}>
+            <Chip className={`poi-chip poi-chip--group ${open ? "poi-chip--group-open" : ""}`} onClick={() => setOpen((v) => !v)}>
                 <span className="poi-chip__label">{label}</span>
                 <span className="poi-chip__arrow">▾</span>
-            </Button>
+            </Chip>
 
             {open && (
                 <PoiDropdown

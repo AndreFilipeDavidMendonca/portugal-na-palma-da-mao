@@ -80,54 +80,6 @@
     flex-shrink: 0;
   }
 
-  .district-btn {
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--gold);
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-    &--ghost {
-      border-color: var(--gold-dark);
-      background: var(--bg-panel-2);
-
-      &:hover { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
-    }
-
-    &--primary {
-      border-color: var(--gold-dark);
-      background: var(--gold);
-      color: var(--bg-deep);
-
-      &:hover { background: var(--gold-strong); border-color: var(--gold); }
-    }
-
-    &:focus {
-      outline: none;
-      border-color: var(--border-2);
-      box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-    }
-
-    &:disabled { opacity: 0.7; cursor: default; }
-  }
-
-  .district-videos-toggle {
-    border-radius: 999px;
-    padding: 3px 10px;
-    font-size: 0.78rem;
-    border: 1px solid var(--gold-dark);
-    background: var(--bg-panel-2);
-    color: var(--gold);
-    cursor: pointer;
-    letter-spacing: 0.02em;
-
-    &:hover { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
-    &:focus { outline: none; border-color: var(--border-2); box-shadow: 0 0 0 3px rgba(215,178,90,.15); }
-  }
-
   .district-error {
     margin-top: 6px;
     padding: 6px 10px;

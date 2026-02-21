@@ -115,29 +115,7 @@
   margin-top: 6px;
 }
 
-.register-btn {
-  border-radius: 999px;
-  padding: 10px 18px;
-  font-weight: 900;
-  border: 1px solid transparent;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.7;
-    cursor: default;
-  }
-}
-
-.register-btn--primary {
-  background: var(--gold);
-  color: var(--bg-deep);
-}
-
-.register-btn--ghost {
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  border: 1px solid var(--gold-dark);
-}
+/* Button visuals are handled by the shared Button component */
 
 @media (max-width: 600px) {
   .register-page {
@@ -187,8 +165,8 @@
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 
-  .register-btn {
-    padding: 12px 18px;
+  .register-actions .ui-btn {
+    --btn-pad: 12px 18px;
   }
 }
 

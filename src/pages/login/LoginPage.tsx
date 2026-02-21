@@ -159,12 +159,14 @@ export default function LoginPage() {
                     />
 
                     <div className="login-actions">
-                        <Button className="login-btn login-btn--primary" type="submit" disabled={loading}>
+                        <Button variant="primary" pill strong type="submit" disabled={loading}>
                             {loading ? "A entrar…" : "Entrar"}
                         </Button>
 
                         <Button
-                            className="login-btn login-btn--ghost"
+                            variant="ghost"
+                            pill
+                            strong
                             type="button"
                             onClick={() => navigate("/", { replace: true })}
                             disabled={loading}
@@ -177,7 +179,10 @@ export default function LoginPage() {
                         <span className="login-footer__text">Ainda não tens conta?</span>
                         <Button
                             type="button"
-                            className="login-link"
+                            variant="ghost"
+                            pill
+                            size="xs"
+                            strong
                             disabled={loading}
                             onClick={() => navigate("/register", { state: { from }, replace: true })}
                         >

@@ -91,40 +91,7 @@
   margin-top: 10px;
 }
 
-/* ✅ Botões pill no padrão district */
-.login-btn {
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-weight: 900;
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--gold);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-  }
-
-  &:disabled { opacity: 0.6; cursor: default; }
-}
-
-.login-btn--primary {
-  border-color: var(--gold-dark);
-  background: var(--gold);
-  color: var(--bg-deep);
-
-  &:hover:not(:disabled) { background: var(--gold-strong); border-color: var(--gold); }
-}
-
-.login-btn--ghost {
-  border-color: var(--gold-dark);
-  background: var(--bg-panel-2);
-
-  &:hover:not(:disabled) { background: var(--bg-panel); border-color: var(--gold); color: var(--gold-strong); }
-}
+/* Button visuals are handled by the shared Button component */
 
 /* ✅ Footer + botão Criar conta (condizente com o tema) */
 .login-footer {
@@ -136,30 +103,7 @@
   color: var(--muted);
 }
 
-.login-link {
-  border-radius: 999px;
-  padding: 6px 12px;
-  border: 1px solid var(--gold-dark);
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  font-weight: 900;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
-  &:hover:not(:disabled) {
-    background: var(--bg-panel);
-    border-color: var(--gold);
-    color: var(--gold-strong);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215,178,90,.15);
-  }
-
-  &:disabled { opacity: 0.65; cursor: default; }
-}
 
 /* ===========================
    Mobile fix: não cortar + subir card + suportar teclado
@@ -212,10 +156,10 @@
     margin-top: 6px;
   }
 
-  .login-btn {
+  .login-actions .ui-btn {
     width: 100%;
     justify-content: center;
-    padding: 12px 16px;
+    --btn-pad: 12px 16px;
   }
 
   .login-footer {
