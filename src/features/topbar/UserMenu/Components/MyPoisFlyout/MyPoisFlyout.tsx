@@ -1,4 +1,5 @@
 import '../shared/UserMenuFlyout.scss';
+import Button from "@/components/Button/Button";
 
 type MyPoiDto = { id: number; name: string; image: string | null };
 
@@ -27,15 +28,15 @@ export default function MyPoisFlyout({
         <div className="user-menu__flyout" role="region" aria-label="Os meus POIs">
             <div className="user-menu__flyout-header">
                 <span>Os meus POIs</span>
-                <button type="button" className="user-menu__flyout-close" onClick={onClose} aria-label="Fechar" title="Fechar">
+                <Button type="button" className="user-menu__flyout-close" onClick={onClose} aria-label="Fechar" title="Fechar">
                     ×
-                </button>
+                </Button>
             </div>
 
             <div className="user-menu__favorites">
-                <button type="button" className="user-menu__item user-menu__item--primary user-menu__item--full" onClick={onCreatePoi}>
+                <Button type="button" className="user-menu__item user-menu__item--primary user-menu__item--full" onClick={onCreatePoi}>
                     + Criar POI
-                </button>
+                </Button>
 
                 {loading && <div className="user-menu__hint">A carregar…</div>}
                 {error && <div className="user-menu__error">{error}</div>}
@@ -52,7 +53,7 @@ export default function MyPoisFlyout({
 
                             return (
                                 <li key={p.id} className="user-menu__fav-item">
-                                    <button
+                                    <Button
                                         type="button"
                                         className="user-menu__fav-link"
                                         onClick={(e) => {
@@ -68,7 +69,7 @@ export default function MyPoisFlyout({
                       </span>
                                         )}
                                         <span className="user-menu__fav-name">{p.name}</span>
-                                    </button>
+                                    </Button>
 
                                     <span
                                         className={`user-menu__fav-x ${busyDel ? "is-disabled" : ""}`}

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { dismissToast, subscribeToToasts, type ToastItem } from "./toast";
 import "./toast.scss";
+import Button from "@/components/Button/Button";
 
 type Props = {
     position?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
@@ -38,13 +39,13 @@ function ToastCard({ t }: { t: ToastItem }) {
                 {t.message}
             </div>
 
-            <button
+            <Button
                 className="toast__close"
                 onClick={() => dismissToast(t.id)}
                 aria-label="Fechar"
             >
                 ×
-            </button>
+            </Button>
         </div>
     );
 }

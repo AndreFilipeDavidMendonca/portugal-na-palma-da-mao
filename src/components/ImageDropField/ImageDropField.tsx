@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import "./ImageDropField.scss";
 import { toast } from "@/components/Toastr/toast";
+import Button from "@/components/Button/Button";
 
 type Mode = "image" | "video" | "media";
 type Store = "objectUrl" | "dataUrl";
@@ -237,7 +238,7 @@ export default function ImageDropField({
                         return (
                             <li key={idx} className="imgdrop__item">
                                 <span className="imgdrop__name">{isVid ? "🎬 " : "🖼️ "}{name}</span>
-                                <button type="button" className="imgdrop__remove" onClick={() => removeItem(idx)}>×</button>
+                                <Button type="button" className="imgdrop__remove" onClick={() => removeItem(idx)}>×</Button>
                             </li>
                         );
                     })}

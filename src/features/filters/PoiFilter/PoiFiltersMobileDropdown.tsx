@@ -7,6 +7,7 @@ import type { PoiDropdownItem } from "./PoiFilter";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 
 import "./PoiFiltersMobileDropdown.scss";
+import Button from "@/components/Button/Button";
 
 type NavMode = "home" | "back";
 
@@ -106,7 +107,7 @@ export default function PoiFiltersMobileDropdown({
 
     return (
         <div className="poi-filters-mobile" ref={wrapRef}>
-            <button
+            <Button
                 className="gold-close gold-close--left poi-filters-mobile__home"
                 onPointerDown={(e) => {
                     e.preventDefault();
@@ -119,9 +120,9 @@ export default function PoiFiltersMobileDropdown({
                 type="button"
             >
                 {navIcon}
-            </button>
+            </Button>
 
-            <button
+            <Button
                 type="button"
                 className={`poi-chip poi-chip--group poi-filters-mobile__btn poi-filters-mobile__btn--parent ${
                     open ? "poi-chip--group-open" : ""
@@ -133,7 +134,7 @@ export default function PoiFiltersMobileDropdown({
             >
                 <span className="poi-chip__label">Filtros</span>
                 <span className="poi-chip__arrow">▾</span>
-            </button>
+            </Button>
 
             <div className="poi-spacer poi-filters-mobile__spacer" />
             <TopRightUserMenu />
@@ -151,9 +152,9 @@ export default function PoiFiltersMobileDropdown({
                             <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                         )}
 
-                        <button type="button" className="btn-clear poi-filters-mobile__clear" onClick={handleClear}>
+                        <Button type="button" className="btn-clear poi-filters-mobile__clear" onClick={handleClear}>
                             Limpar
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}

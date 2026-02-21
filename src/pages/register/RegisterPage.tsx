@@ -5,6 +5,7 @@ import { useAuth } from "@/auth/AuthContext";
 import logo from "@/assets/logo.png";
 import "./RegisterPage.scss";
 import { toast } from "@/components/Toastr/toast";
+import Button from "@/components/Button/Button";
 
 type RegisterRole = "USER" | "BUSINESS";
 
@@ -160,23 +161,23 @@ export default function RegisterPage() {
                         <div className="register-role-label">Tipo de conta</div>
 
                         <div className="register-role-toggle">
-                            <button
+                            <Button
                                 type="button"
                                 className={`register-role-btn ${role === "USER" ? "is-active" : ""}`}
                                 onClick={() => setRole("USER")}
                                 disabled={loading}
                             >
                                 Particular
-                            </button>
+                            </Button>
 
-                            <button
+                            <Button
                                 type="button"
                                 className={`register-role-btn ${role === "BUSINESS" ? "is-active" : ""}`}
                                 onClick={() => setRole("BUSINESS")}
                                 disabled={loading}
                             >
                                 Empresarial
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
@@ -289,18 +290,18 @@ export default function RegisterPage() {
                     />
 
                     <div className="register-actions">
-                        <button className="register-btn register-btn--primary" type="submit" disabled={loading}>
+                        <Button className="register-btn register-btn--primary" type="submit" disabled={loading}>
                             {loading ? "A criar…" : "Criar conta"}
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
                             className="register-btn register-btn--ghost"
                             type="button"
                             onClick={() => navigate("/login", { state: { from }, replace: true })}
                             disabled={loading}
                         >
                             Já tenho conta
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

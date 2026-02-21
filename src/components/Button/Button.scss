@@ -1,0 +1,72 @@
+/* Base reusable button */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  border-radius: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--btn-border, rgba(255, 255, 255, 0.18));
+  background: var(--btn-bg, rgba(255, 255, 255, 0.06));
+  color: var(--btn-fg, inherit);
+
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+.ui-btn--full {
+  width: 100%;
+}
+
+.ui-btn--sm {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.ui-btn--md {
+  padding: 10px 14px;
+  font-size: 1rem;
+}
+
+.ui-btn--lg {
+  padding: 12px 16px;
+  font-size: 1.05rem;
+}
+
+.ui-btn--default {}
+
+.ui-btn--primary {
+  --btn-bg: rgba(60, 120, 255, 0.22);
+  --btn-border: rgba(60, 120, 255, 0.45);
+  --btn-fg: white;
+}
+
+.ui-btn--gold {
+  --btn-bg: rgba(215, 178, 90, 0.22);
+  --btn-border: rgba(215, 178, 90, 0.45);
+}
+
+.ui-btn--danger {
+  --btn-bg: rgba(255, 70, 70, 0.18);
+  --btn-border: rgba(255, 70, 70, 0.45);
+  --btn-fg: white;
+}
+
+.ui-btn--ghost {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+}

@@ -1,5 +1,6 @@
 import type { FavoriteDto } from "@/lib/api";
 import "../shared/UserMenuFlyout.scss";
+import Button from "@/components/Button/Button";
 
 type Props = {
     loading: boolean;
@@ -25,9 +26,9 @@ export default function FavoritesFlyout({
         <div className="user-menu__flyout" role="region" aria-label="Favoritos">
             <div className="user-menu__flyout-header">
                 <span>Favoritos</span>
-                <button type="button" className="user-menu__flyout-close" onClick={onClose} aria-label="Fechar" title="Fechar">
+                <Button type="button" className="user-menu__flyout-close" onClick={onClose} aria-label="Fechar" title="Fechar">
                     ×
-                </button>
+                </Button>
             </div>
 
             <div className="user-menu__favorites">
@@ -46,7 +47,7 @@ export default function FavoritesFlyout({
 
                             return (
                                 <li key={f.poiId} className="user-menu__fav-item">
-                                    <button
+                                    <Button
                                         type="button"
                                         className="user-menu__fav-link"
                                         onClick={(e) => {
@@ -63,7 +64,7 @@ export default function FavoritesFlyout({
           </span>
                                         )}
                                         <span className="user-menu__fav-name">{f.name}</span>
-                                    </button>
+                                    </Button>
 
                                     <span
                                         className={`user-menu__fav-x ${busy ? "is-disabled" : ""}`}
