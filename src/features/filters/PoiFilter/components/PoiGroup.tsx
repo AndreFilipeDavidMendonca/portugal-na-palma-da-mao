@@ -30,7 +30,13 @@ export default function PoiGroup({ label, items, selected, onToggle, closeSignal
 
     return (
         <div className="poi-group">
-            <Chip className={`poi-chip poi-chip--group ${open ? "poi-chip--group-open" : ""}`} onClick={() => setOpen((v) => !v)}>
+            <Chip
+                variant="poi"
+                pill={false}
+                group
+                open={open}
+                onClick={() => setOpen((v) => !v)}
+            >
                 <span className="poi-chip__label">{label}</span>
                 <span className="poi-chip__arrow">▾</span>
             </Chip>

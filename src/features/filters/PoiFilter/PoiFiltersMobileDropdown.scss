@@ -10,7 +10,7 @@
     position: relative;
   }
 
-  .poi-filters-mobile__btn--parent.poi-chip {
+  .poi-filters-mobile__btn--parent.ui-chip {
     flex: 0 1 auto;
     max-width: 70vw;
     --chip-px: 18px;
@@ -65,11 +65,11 @@
 
   /* ✅ no painel, grupos ocupam 100% (sem mexer em tamanhos de chip) */
   .poi-filters-mobile__panel .poi-group,
-  .poi-filters-mobile__panel .poi-chip--group {
+  .poi-filters-mobile__panel .ui-chip--group {
     width: 100%;
   }
 
-  .poi-filters-mobile__panel .poi-chip--group {
+  .poi-filters-mobile__panel .ui-chip--group {
     justify-content: space-between;
   }
 

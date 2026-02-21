@@ -1,4 +1,13 @@
-/* Base reusable chip (keeps feature-specific classes like .poi-chip working) */
+/*
+  Reusable Chip
+
+  - Base styles live here (not in feature parents)
+  - Variants allow different chip "skins" while keeping markup simple
+
+  Notes:
+  - We keep the existing inner class names (.poi-chip__*) to avoid touching markup too much.
+*/
+
 .ui-chip {
   display: inline-flex;
   align-items: center;
@@ -8,8 +17,180 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    transform: none;
+  }
 }
 
-.ui-chip:disabled {
-  cursor: not-allowed;
+.ui-chip--full {
+  width: 100%;
+}
+
+.ui-chip--pill {
+  border-radius: 999px;
+}
+
+/* -----------------------------
+   Size
+------------------------------ */
+.ui-chip--sm {
+  --chip-fs: 0.92rem;
+  --chip-px: 10px;
+  --chip-py: 4px;
+  --chip-gap: 8px;
+  --chip-minh: 30px;
+}
+
+.ui-chip--md {
+  --chip-fs: 1rem;
+  --chip-px: 12px;
+  --chip-py: 6px;
+  --chip-gap: 9px;
+  --chip-minh: 36px;
+}
+
+/* -----------------------------
+   Default variant (neutral)
+------------------------------ */
+.ui-chip--default {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  background: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
+  color: var(--gold, #d7b25a);
+  padding: var(--chip-py) var(--chip-px);
+  min-height: var(--chip-minh);
+}
+
+/* -----------------------------
+   POI variant (was .poi-chip styles)
+------------------------------ */
+.ui-chip--poi {
+  /* keep responsive sizing via CSS vars */
+  --chip-fs: clamp(14px, 1.5vw, 17px);
+  --chip-px: clamp(7px, 0.9vw, 12px);
+  --chip-py: clamp(2px, 0.6vw, 5px);
+  --chip-gap: clamp(5px, 0.8vw, 9px);
+  --chip-minh: clamp(30px, 3.8vh, 38px);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chip-gap);
+  padding: var(--chip-py) var(--chip-px);
+  min-height: var(--chip-minh);
+
+  border: 1.3px solid var(--gold-dark);
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--bg-panel);
+
+  font-family: var(--font-title, "Cormorant Garamond", serif), serif;
+  font-size: var(--chip-fs);
+  font-weight: 600;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .poi-chip__icon {
+    width: 1.2em;
+    height: 1.2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-1.5px);
+
+    svg {
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+    }
+
+    svg [fill] {
+      fill: currentColor !important;
+    }
+    svg [stroke] {
+      stroke: currentColor !important;
+    }
+  }
+
+  .poi-chip__label {
+    line-height: 1;
+    display: inline-block;
+    transform: translateY(-1px);
+  }
+
+  .poi-chip__text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .poi-chip__count {
+    margin-left: 3px;
+    font-style: normal;
+    font-size: clamp(13px, 1.3vw, 16px);
+    line-height: 1;
+    opacity: 0.95;
+    font-weight: 500;
+    transform: translateY(-1px);
+  }
+
+  &:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+    border-color: var(--gold-strong);
+  }
+}
+
+.ui-chip--poi.ui-chip--selected {
+  background: var(--gold-strong);
+  border: 1.3px solid var(--gold-dark);
+  box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179, 143, 59, 0.28);
+}
+
+/* Group chips (Cultura ▾) */
+.ui-chip--poi.ui-chip--group {
+  .poi-chip__arrow {
+    margin-left: 6px;
+    font-size: 0.9em;
+    transform: translateY(-1px);
+  }
+}
+
+.ui-chip--poi.ui-chip--open {
+  background: var(--gold-strong);
+}
+
+/* Dropdown list tweaks (previously nested under .poi-group-dropdown in feature scss) */
+.poi-group-dropdown {
+  .ui-chip--poi {
+    margin: 0;
+    padding: 4px 10px;
+    min-height: 30px;
+    border-radius: 10px;
+
+    font-size: 0.95rem;
+    --chip-fs: 0.95rem;
+
+    justify-content: flex-start;
+    box-shadow: none;
+  }
+
+  .ui-chip--poi.ui-chip--selected {
+    box-shadow: none;
+  }
+
+  .ui-chip--poi .poi-chip__count {
+    font-size: 0.8rem;
+  }
 }

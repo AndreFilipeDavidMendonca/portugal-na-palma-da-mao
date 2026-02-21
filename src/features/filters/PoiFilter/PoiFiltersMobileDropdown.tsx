@@ -123,9 +123,11 @@ export default function PoiFiltersMobileDropdown({
             </button>
 
             <Chip
-                className={`poi-chip poi-chip--group poi-filters-mobile__btn poi-filters-mobile__btn--parent ${
-                    open ? "poi-chip--group-open" : ""
-                }`}
+                variant="poi"
+                pill={false}
+                group
+                open={open}
+                className="poi-filters-mobile__btn poi-filters-mobile__btn--parent"
                 onPointerDown={(e) => {
                     e.stopPropagation();
                     setOpen((v) => !v);

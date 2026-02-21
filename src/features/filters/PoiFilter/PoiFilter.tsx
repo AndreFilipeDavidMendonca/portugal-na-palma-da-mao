@@ -142,7 +142,9 @@ export default function PoiFilter({
                             <Chip
                                 as="label"
                                 key={k}
-                                className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
+                                variant="poi"
+                                pill={false}
+                                selected={checked}
                                 title={label}
                                 onMouseDown={(e) => e.preventDefault()}
                             >

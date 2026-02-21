@@ -34,7 +34,9 @@ export default function PoiDropdown({ items, selected, onToggle, onClose }: Prop
                     <Chip
                         as="label"
                         key={c.key}
-                        className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
+                        variant="poi"
+                        pill={false}
+                        selected={checked}
                         onMouseDown={(e) => e.preventDefault()}
                         title={c.label}
                     >
