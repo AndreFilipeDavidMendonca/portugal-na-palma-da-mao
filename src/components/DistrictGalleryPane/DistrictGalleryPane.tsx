@@ -34,9 +34,7 @@ export default function DistrictGalleryPane({
                                                 open,
                                                 districtName,
                                                 baseUrls,
-                                                onClose,
                                                 setLoading,
-
                                                 editing,
                                                 isAdmin,
                                                 distMedia,

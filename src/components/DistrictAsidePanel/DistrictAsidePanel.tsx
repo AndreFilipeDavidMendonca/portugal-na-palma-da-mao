@@ -2,7 +2,6 @@
 import React from "react";
 import "./DistrictAsidePanel.scss";
 import { toast } from "@/components/Toastr/toast";
-import ImageDropField from "@/components/ImageDropField/ImageDropField";
 
 type Props = {
     showGallery: boolean;
@@ -58,10 +57,6 @@ export default function DistrictAsidePanel({
                                                districtNameFallback,
                                                distName,
                                                setDistName,
-
-                                               distMedia,
-                                               setDistMedia,
-
                                                distPopulation,
                                                setDistPopulation,
                                                distMunicipalities,

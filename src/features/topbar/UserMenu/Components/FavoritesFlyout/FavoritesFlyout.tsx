@@ -17,7 +17,7 @@ export default function FavoritesFlyout({
                                             favorites,
                                             busyPoiIds,
                                             onClose,
-                                            onOpenPoi,
+
                                             onToggleFavorite,
                                         }: Props) {
 
