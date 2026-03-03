@@ -2,13 +2,11 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { POI_CATEGORIES, type PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
 
-import PoiGroup from "./components/PoiGroup";
-import type { PoiDropdownItem } from "./PoiFilter";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
 import Chip from "@/components/Chip/Chip";
+import Button from "@/components/Button/Button";
 
 import "./PoiFiltersMobileDropdown.scss";
-import Button from "@/components/Button/Button";
 
 type NavMode = "home" | "back";
 
@@ -21,13 +19,20 @@ type Props = {
     navMode: NavMode;
     onNav: () => void;
 
-    // ✅ “clicar num filtro fecha dropdown e volta ao mapa/fecha galeria”
     onAnySelection?: () => void;
 };
+
+type TabKey = "culture" | "nature" | "commercial";
 
 const CULTURE_SET: ReadonlySet<PoiCategory> = new Set(["castle", "palace", "monument", "ruins", "church"]);
 const NATURE_SET: ReadonlySet<PoiCategory> = new Set(["viewpoint", "park", "trail"]);
 const COMMERCIAL_SET: ReadonlySet<PoiCategory> = new Set(["gastronomy", "crafts", "accommodation", "event"]);
+
+function setEquals(a: ReadonlySet<any>, b: ReadonlySet<any>) {
+    if (a.size !== b.size) return false;
+    for (const x of a) if (!b.has(x)) return false;
+    return true;
+}
 
 export default function PoiFiltersMobileDropdown({
                                                      selected,
@@ -41,21 +46,38 @@ export default function PoiFiltersMobileDropdown({
     const [open, setOpen] = useState(false);
     const wrapRef = useRef<HTMLDivElement | null>(null);
 
-    const [closeSignal, setCloseSignal] = useState(0);
+    // ✅ tab active
+    const [activeTab, setActiveTab] = useState<TabKey>("culture");
 
-    const closeAll = useCallback(() => {
+    // ✅ staging (draft)
+    const [draft, setDraft] = useState<Set<PoiCategory>>(new Set(selected));
+
+    // abre = clona seleção atual para draft
+    const openPanel = useCallback(() => {
+        setDraft(new Set(selected));
+        setOpen(true);
+    }, [selected]);
+
+    // fecha com cancel (reverte)
+    const closeCancel = useCallback(() => {
         setOpen(false);
-        setCloseSignal((n) => n + 1);
+        setDraft(new Set(selected));
+    }, [selected]);
+
+    const closeApply = useCallback(() => {
+        setOpen(false);
     }, []);
 
     useEffect(() => {
         const onClickOutside = (e: Event) => {
+            if (!open) return;
             if (!wrapRef.current) return;
-            if (!wrapRef.current.contains(e.target as Node)) closeAll();
+            if (!wrapRef.current.contains(e.target as Node)) closeCancel();
         };
 
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") closeAll();
+            if (!open) return;
+            if (e.key === "Escape") closeCancel();
         };
 
         document.addEventListener("pointerdown", onClickOutside);
@@ -64,43 +86,64 @@ export default function PoiFiltersMobileDropdown({
             document.removeEventListener("pointerdown", onClickOutside);
             document.removeEventListener("keydown", onKey);
         };
-    }, [closeAll]);
+    }, [open, closeCancel]);
 
     const grouped = useMemo(() => {
-        const culture: PoiDropdownItem[] = [];
-        const nature: PoiDropdownItem[] = [];
-        const commercial: PoiDropdownItem[] = [];
+        const culture: PoiCategory[] = [];
+        const nature: PoiCategory[] = [];
+        const commercial: PoiCategory[] = [];
 
         for (const c of POI_CATEGORIES) {
             const key = c.key as PoiCategory;
-
-            const item: PoiDropdownItem = {
-                key,
-                label: c.label,
-                svg: POI_ICON_SVG_RAW[key] ?? null,
-                count: countsByCat[key] ?? 0,
-                color: CATEGORY_COLORS[key] || "#777",
-            };
-
-            if (CULTURE_SET.has(key)) culture.push(item);
-            else if (NATURE_SET.has(key)) nature.push(item);
-            else if (COMMERCIAL_SET.has(key)) commercial.push(item);
+            if (CULTURE_SET.has(key)) culture.push(key);
+            else if (NATURE_SET.has(key)) nature.push(key);
+            else if (COMMERCIAL_SET.has(key)) commercial.push(key);
         }
-
         return { culture, nature, commercial };
-    }, [countsByCat]);
+    }, []);
 
-    const handleClear = () => {
-        onClear();
-        onAnySelection?.();
-        closeAll();
+    const itemsForTab: PoiCategory[] = useMemo(() => {
+        if (activeTab === "culture") return grouped.culture;
+        if (activeTab === "nature") return grouped.nature;
+        return grouped.commercial;
+    }, [activeTab, grouped]);
+
+    const tabLabel = (t: TabKey) => (t === "culture" ? "Culture" : t === "nature" ? "Nature" : "Commercial");
+
+    const toggleDraft = (k: PoiCategory) => {
+        setDraft((prev) => {
+            const next = new Set(prev);
+            if (next.has(k)) next.delete(k);
+            else next.add(k);
+            return next;
+        });
     };
 
-    // ✅ ao escolher categoria: fecha painel + fecha grupos + volta ao mapa (se quiseres)
-    const handleToggle = (k: PoiCategory) => {
-        onToggle(k);
+    const handleClear = () => {
+        setDraft(new Set());
+    };
+
+    // ✅ aplica diferenças (mantém a tua API onToggle)
+    const handleApply = () => {
+        // se quiseres: se nada mudou, só fecha
+        if (setEquals(draft, selected)) {
+            closeApply();
+            return;
+        }
+
+        // aplicar diffs com onToggle
+        const next = draft;
+        const cur = selected;
+
+        for (const k of cur) {
+            if (!next.has(k)) onToggle(k);
+        }
+        for (const k of next) {
+            if (!cur.has(k)) onToggle(k);
+        }
+
         onAnySelection?.();
-        closeAll();
+        closeApply();
     };
 
     const navLabel = navMode === "home" ? "Voltar à Home" : "Voltar ao mapa";
@@ -116,7 +159,7 @@ export default function PoiFiltersMobileDropdown({
                 onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    closeAll();
+                    setOpen(false);
                     onNav();
                 }}
                 aria-label={navLabel}
@@ -126,6 +169,7 @@ export default function PoiFiltersMobileDropdown({
                 {navIcon}
             </Button>
 
+            {/* botão parent */}
             <Chip
                 variant="poi"
                 pill={false}
@@ -134,7 +178,8 @@ export default function PoiFiltersMobileDropdown({
                 className="poi-filters-mobile__btn poi-filters-mobile__btn--parent"
                 onPointerDown={(e) => {
                     e.stopPropagation();
-                    setOpen((v) => !v);
+                    if (open) closeCancel();
+                    else openPanel();
                 }}
             >
                 <span className="poi-chip__label">Filtros</span>
@@ -145,21 +190,91 @@ export default function PoiFiltersMobileDropdown({
             <TopRightUserMenu />
 
             {open && (
-                <div className="poi-filters-mobile__panel">
-                    <div className="poi-filters-mobile__panel-inner">
-                        {grouped.culture.length > 0 && (
-                            <PoiGroup label="Cultura" items={grouped.culture} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
-                        )}
-                        {grouped.nature.length > 0 && (
-                            <PoiGroup label="Natureza" items={grouped.nature} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
-                        )}
-                        {grouped.commercial.length > 0 && (
-                            <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
-                        )}
+                <div className="poi-filters-modal" role="dialog" aria-label="Filters">
+                    {/* header */}
+                    <div className="poi-filters-modal__header">
+                        <button
+                            type="button"
+                            className="poi-filters-modal__x"
+                            onPointerDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                closeCancel();
+                            }}
+                            aria-label="Close"
+                            title="Close"
+                        >
+                            ✕
+                        </button>
 
-                        <Button type="button" variant="ghost" size="sm" pill className="btn-clear poi-filters-mobile__clear" onClick={handleClear}>
-                            Limpar
-                        </Button>
+                        <div className="poi-filters-modal__title">Filters</div>
+
+                        <span className="poi-filters-modal__spacer" />
+                    </div>
+
+                    {/* segmented tabs */}
+                    <div className="poi-filters-modal__tabs" role="tablist" aria-label="Filter categories">
+                        {(["culture", "nature", "commercial"] as TabKey[]).map((t) => {
+                            const active = activeTab === t;
+                            return (
+                                <button
+                                    key={t}
+                                    type="button"
+                                    className={["poi-tab", active ? "poi-tab--active" : ""].filter(Boolean).join(" ")}
+                                    onClick={() => setActiveTab(t)}
+                                    role="tab"
+                                    aria-selected={active}
+                                >
+                                    {tabLabel(t)}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* list */}
+                    <div className="poi-filters-modal__list">
+                        {itemsForTab.map((k) => {
+                            const cat = POI_CATEGORIES.find((c) => (c.key as PoiCategory) === k);
+                            const label = cat?.label ?? String(k);
+                            const count = countsByCat[k] ?? 0;
+                            const color = CATEGORY_COLORS[k] || "var(--gold)";
+                            const svg = POI_ICON_SVG_RAW[k] ?? null;
+
+                            const checked = draft.has(k);
+
+                            return (
+                                <button
+                                    key={k}
+                                    type="button"
+                                    className={["poi-row", checked ? "poi-row--selected" : ""].filter(Boolean).join(" ")}
+                                    onClick={() => toggleDraft(k)}
+                                >
+                  <span className="poi-row__left">
+                    <span className="poi-row__icon" style={{ color }} aria-hidden="true">
+                      {svg ? <span dangerouslySetInnerHTML={{ __html: svg }} /> : null}
+                    </span>
+                    <span className="poi-row__label">{label}</span>
+                  </span>
+
+                                    <span className="poi-row__badge">{count}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* footer */}
+                    <div className="poi-filters-modal__footer">
+                        <button type="button" className="poi-btn-clear" onClick={handleClear}>
+                            Clear Filters
+                        </button>
+
+                        <button
+                            type="button"
+                            className="poi-btn-apply"
+                            onClick={handleApply}
+                        >
+                            Apply Filters
+                        </button>
                     </div>
                 </div>
             )}
