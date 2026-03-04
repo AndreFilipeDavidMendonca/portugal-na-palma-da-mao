@@ -27,7 +27,7 @@ export default function FavoritesFlyout({
             <div className="user-menu__flyout-header">
                 <span>Favoritos</span>
                 <Button type="button" className="user-menu__flyout-close" onClick={onClose} aria-label="Fechar" title="Fechar">
-                    ×
+                    x
                 </Button>
             </div>
 
@@ -40,7 +40,7 @@ export default function FavoritesFlyout({
                 )}
 
                 {!loading && !error && favorites.length > 0 && (
-                    <ul className="user-menu__fav-list">
+                    <ul className="user-menu__fav-list gold-scroll">
                         {favorites.map((f) => {
                             const busy = busyPoiIds.has(f.poiId);
                             const hasImage = Boolean(f.image);

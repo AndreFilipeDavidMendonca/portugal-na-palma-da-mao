@@ -4,9 +4,11 @@ import { POI_ICON_SVG_RAW } from "@/utils/icons";
 
 import PoiGroup from "./components/PoiGroup";
 import TopRightUserMenu from "@/features/topbar/TopRightUserMenu";
+import Chip from "@/components/Chip/Chip";
+import Button from "@/components/Button/Button";
+import Checkbox from "@/components/Input/Checkbox/Checkbox";
 
 import "./poiFilter.scss";
-import Button from "@/components/Button/Button";
 
 type NavMode = "home" | "back";
 
@@ -139,13 +141,16 @@ export default function PoiFilter({
                         const svg = POI_ICON_SVG_RAW[k];
 
                         return (
-                            <label
+                            <Chip
+                                as="label"
                                 key={k}
-                                className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
+                                variant="poi"
+                                pill={false}
+                                selected={checked}
                                 title={label}
                                 onMouseDown={(e) => e.preventDefault()}
                             >
-                                <input type="checkbox" checked={checked} onChange={() => handleToggle(k)} style={{ accentColor: color }} />
+                                <Checkbox checked={checked} onChange={() => handleToggle(k)} accent={color} />
 
                                 {svg && <span className="poi-chip__icon" style={{ color }} dangerouslySetInnerHTML={{ __html: svg }} />}
 
@@ -153,11 +158,11 @@ export default function PoiFilter({
                   <span className="poi-chip__label">{label}</span>
                   <em className="poi-chip__count">{count}</em>
                 </span>
-                            </label>
+                            </Chip>
                         );
                     })}
 
-                    <Button type="button" className="btn-clear" onClick={handleClear}>
+                    <Button type="button" variant="ghost" size="sm" pill className="btn-clear" onClick={handleClear}>
                         Limpar
                     </Button>
                 </div>
@@ -173,7 +178,7 @@ export default function PoiFilter({
     return (
         <div className="poi-filter poi-filter--top" data-poi-filter="top" ref={wrapRef}>
             <div className="poi-filter__inner">
-                <Button className="gold-close gold-close--left" onClick={onNav} aria-label={navLabel} title={navLabel} type="button">
+                <Button type="button" variant="ghost" size="xs" pill className="gold-close gold-close--left" onClick={onNav} aria-label={navLabel} title={navLabel}>
                     {navMode === "home" ? <HomeIcon /> : <BackIcon />}
                 </Button>
 
@@ -187,9 +192,9 @@ export default function PoiFilter({
                     <PoiGroup label="Comercial" items={grouped.commercial} selected={selected} onToggle={handleToggle} closeSignal={closeSignal} />
                 )}
 
-                <Button type="button" className="btn-clear" onClick={handleClear}>
-                    Limpar
-                </Button>
+                <Button type="button" variant="ghost" size="sm" pill className="btn-clear" onClick={handleClear}>
+                        Limpar
+                    </Button>
 
                 <div className="poi-spacer" />
                 <TopRightUserMenu />

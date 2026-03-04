@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { PoiCategory } from "@/utils/constants";
 import type { PoiDropdownItem } from "../PoiFilter";
+import Chip from "@/components/Chip/Chip";
+import Checkbox from "@/components/Input/Checkbox/Checkbox";
 
 type Props = {
     items: PoiDropdownItem[];
@@ -30,28 +32,29 @@ export default function PoiDropdown({ items, selected, onToggle, onClose }: Prop
                 const checked = selected.has(c.key);
 
                 return (
-                    <label
+                    <Chip
+                        as="label"
                         key={c.key}
-                        className={`poi-chip ${checked ? "poi-chip--on" : ""}`}
+                        variant="poi"
+                        pill={false}
+                        selected={checked}
                         onMouseDown={(e) => e.preventDefault()}
                         title={c.label}
                     >
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             checked={checked}
                             onChange={() => {
                                 onToggle(c.key);
-                                // ✅ garante fechar imediatamente após escolher
-                                onClose();
+                                onClose(); // fecha imediatamente
                             }}
-                            style={{ accentColor: c.color || "#777" }}
+                            accent={c.color}
                         />
 
                         {c.svg && <span className="poi-chip__icon" style={{ color: c.color }} dangerouslySetInnerHTML={{ __html: c.svg }} />}
 
                         <span className="poi-chip__label">{c.label}</span>
                         <em className="poi-chip__count">{c.count}</em>
-                    </label>
+                    </Chip>
                 );
             })}
         </div>

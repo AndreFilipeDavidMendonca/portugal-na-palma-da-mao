@@ -182,7 +182,7 @@ export default function UserMenu() {
     };
 
     return (
-        <div className="user-menu" ref={wrapRef}>
+        <div className="user-menu gold-scroll" ref={wrapRef}>
             <UserMenuButton email={user?.email ?? null} isOpen={open} onToggle={() => setOpen((v) => !v)} />
 
             {open && (

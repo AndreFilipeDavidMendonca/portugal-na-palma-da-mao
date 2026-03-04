@@ -1,5 +1,6 @@
 import React from "react";
 import "./PoiSide.scss";
+import Textarea from "@/components/Input/TextArea/Textarea";
 
 type Props = {
     coords?: { lat: number; lon: number } | null;
@@ -33,11 +34,12 @@ export default function PoiSide({
             {editing && canEdit ? (
                 <>
                     <label className="poi-edit-label">Descrição</label>
-                    <textarea
+                    <Textarea
                         className="poi-edit-textarea"
                         rows={10}
                         value={descInput}
                         onChange={(e) => setDescInput(e.target.value)}
+                        variant="panel"
                     />
                 </>
             ) : (

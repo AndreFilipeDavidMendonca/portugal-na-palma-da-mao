@@ -7,6 +7,7 @@ import logo from "@/assets/logo.png";
 import { toast } from "@/components/Toastr/toast";
 import "./LoginPage.scss";
 import Button from "@/components/Button/Button";
+import Input from "@/components/Input/TextField/Input";
 
 type FieldKey = "email" | "password";
 type FieldErrors = Partial<Record<FieldKey, string>>;
@@ -131,10 +132,10 @@ export default function LoginPage() {
                 <p className="login-subtitle">Introduza os seus dados</p>
 
                 <form onSubmit={onSubmit} className="login-form">
-                    <input
-                        className={`login-input ${isInvalid("email") ? "is-invalid" : ""}`}
+                    <Input
                         placeholder="Email"
                         value={email}
+                        invalid={isInvalid("email")}
                         onBlur={() => touch("email")}
                         onChange={(e) => {
                             setEmail(e.target.value);
@@ -144,11 +145,11 @@ export default function LoginPage() {
                         disabled={loading}
                     />
 
-                    <input
-                        className={`login-input ${isInvalid("password") ? "is-invalid" : ""}`}
+                    <Input
                         placeholder="Password"
                         type="password"
                         value={password}
+                        invalid={isInvalid("password")}
                         onBlur={() => touch("password")}
                         onChange={(e) => {
                             setPassword(e.target.value);
@@ -159,12 +160,14 @@ export default function LoginPage() {
                     />
 
                     <div className="login-actions">
-                        <Button className="login-btn login-btn--primary" type="submit" disabled={loading}>
+                        <Button variant="primary" pill strong type="submit" disabled={loading}>
                             {loading ? "A entrar…" : "Entrar"}
                         </Button>
 
                         <Button
-                            className="login-btn login-btn--ghost"
+                            variant="ghost"
+                            pill
+                            strong
                             type="button"
                             onClick={() => navigate("/", { replace: true })}
                             disabled={loading}
@@ -177,7 +180,10 @@ export default function LoginPage() {
                         <span className="login-footer__text">Ainda não tens conta?</span>
                         <Button
                             type="button"
-                            className="login-link"
+                            variant="ghost"
+                            pill
+                            size="xs"
+                            strong
                             disabled={loading}
                             onClick={() => navigate("/register", { state: { from }, replace: true })}
                         >
