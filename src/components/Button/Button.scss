@@ -22,13 +22,19 @@
 
   &:hover:not(:disabled) {
     background: var(--btn-bg-hover, var(--btn-bg, rgba(255, 255, 255, 0.06)));
-    border-color: var(--btn-border-hover, var(--btn-border, rgba(255, 255, 255, 0.18)));
+    border-color: var(
+      --btn-border-hover,
+      var(--btn-border, rgba(255, 255, 255, 0.18))
+    );
     color: var(--btn-fg-hover, var(--btn-fg, inherit));
   }
 
   &:focus {
     outline: none;
-    border-color: var(--btn-focus-border, var(--border-2, rgba(255, 255, 255, 0.28)));
+    border-color: var(
+      --btn-focus-border,
+      var(--border-2, rgba(255, 255, 255, 0.28))
+    );
     box-shadow: 0 0 0 3px var(--btn-ring, rgba(215, 178, 90, 0.15));
   }
 
@@ -110,4 +116,34 @@
   --btn-bg-hover: var(--bg-panel, rgba(0, 0, 0, 0.18));
   --btn-border-hover: var(--gold, rgba(215, 178, 90, 1));
   --btn-fg-hover: var(--gold-strong, var(--gold, inherit));
+}
+
+/* ✅ Icon: only the icon (no box) */
+.ui-btn--icon {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+  --btn-bg-hover: transparent;
+  --btn-border-hover: transparent;
+
+  /* sem padding “de botão”, mas com hit-area decente */
+  --btn-pad: 2px;
+  --btn-radius: 999px;
+
+  color: var(--gold-dark, currentColor);
+
+  /* remove o hover base que mexe em background/border */
+  &:hover:not(:disabled) {
+    color: var(--gold-strong, currentColor);
+    transform: scale(1.08);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 3px var(--btn-ring, rgba(215, 178, 90, 0.18));
+  }
+
+  &:active {
+    transform: scale(1.02);
+  }
 }

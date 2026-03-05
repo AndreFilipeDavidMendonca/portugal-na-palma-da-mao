@@ -37,9 +37,18 @@
 }
 
 @keyframes spinner-rotate {
+  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
+.spinner-gold {
+  animation: spinner-rotate 0.9s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .spinner-gold { animation: none; }
+  .spinner-gold {
+    animation-duration: 2.5s;
+  }
 }
