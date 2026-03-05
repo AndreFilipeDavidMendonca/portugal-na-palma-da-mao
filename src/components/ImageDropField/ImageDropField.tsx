@@ -221,8 +221,8 @@ export default function ImageDropField({
         <div className="imgdrop__content">
           <div className="imgdrop__icon">{uploading ? "⏳" : "⬆️"}</div>
           <div>
-            <div className="imgdrop__text">{uploading ? "A processar ficheiros…" : "Arrasta ficheiros para aqui"}</div>
-            {!uploading && <div className="imgdrop__hint">…ou clica para escolher ficheiros</div>}
+            <div className="imgdrop__text">{uploading ? "A processar ficheiros…" : "Adicione ficheiros media"}</div>
+            {!uploading && <div className="imgdrop__hint"></div>}
           </div>
           <div className="imgdrop__exts">{extsLabel}</div>
         </div>
