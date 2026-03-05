@@ -1,11 +1,8 @@
 /*
   Reusable Chip
-
-  - Base styles live here (not in feature parents)
-  - Variants allow different chip "skins" while keeping markup simple
-
-  Notes:
-  - We keep the existing inner class names (.poi-chip__*) to avoid touching markup too much.
+  - Base styles live here
+  - Variants define skins
+  - No checkbox visuals (only selected glow)
 */
 
 .ui-chip {
@@ -18,16 +15,35 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 
-  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  /* nunca mostrar “checkbox ring” */
+  appearance: none;
+  -webkit-appearance: none;
+
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease,
+    filter 0.15s ease;
 
   &:active {
     transform: translateY(1px);
   }
 
-  &:disabled {
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* quando renderiza como <button> */
+  &:disabled,
+  &[aria-disabled="true"] {
     cursor: not-allowed;
     opacity: 0.65;
     transform: none;
+    pointer-events: none;
   }
 }
 
@@ -62,28 +78,26 @@
    Default variant (neutral)
 ------------------------------ */
 .ui-chip--default {
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  background: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
-  color: var(--gold, #d7b25a);
   padding: var(--chip-py) var(--chip-px);
   min-height: var(--chip-minh);
+
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--chip-radius, 12px);
+  background: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
+  color: var(--gold, #d7b25a);
 }
 
 /* -----------------------------
-   POI variant (was .poi-chip styles)
+   POI variant
 ------------------------------ */
 .ui-chip--poi {
-  /* keep responsive sizing via CSS vars */
+  /* responsive sizing via vars */
   --chip-fs: clamp(14px, 1.5vw, 17px);
   --chip-px: clamp(7px, 0.9vw, 12px);
   --chip-py: clamp(2px, 0.6vw, 5px);
   --chip-gap: clamp(5px, 0.8vw, 9px);
   --chip-minh: clamp(30px, 3.8vh, 38px);
 
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--chip-gap);
   padding: var(--chip-py) var(--chip-px);
   min-height: var(--chip-minh);
 
@@ -96,19 +110,20 @@
   font-size: var(--chip-fs);
   font-weight: 600;
 
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+  &:hover {
+    border-color: var(--gold-strong);
+    filter: brightness(1.02);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
   }
 
+  /* icon */
   .poi-chip__icon {
     width: 1.2em;
     height: 1.2em;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transform: translateY(-1.5px);
+    transform: translateY(-1px);
 
     svg {
       width: 100% !important;
@@ -116,24 +131,14 @@
       display: block !important;
     }
 
-    svg [fill] {
-      fill: currentColor !important;
-    }
-    svg [stroke] {
-      stroke: currentColor !important;
-    }
+    svg [fill] { fill: currentColor !important; }
+    svg [stroke] { stroke: currentColor !important; }
   }
 
   .poi-chip__label {
     line-height: 1;
     display: inline-block;
     transform: translateY(-1px);
-  }
-
-  .poi-chip__text {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
   }
 
   .poi-chip__count {
@@ -145,17 +150,14 @@
     font-weight: 500;
     transform: translateY(-1px);
   }
-
-  &:hover {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
-    border-color: var(--gold-strong);
-  }
 }
 
+/* selected */
 .ui-chip--poi.ui-chip--selected {
   background: var(--gold-strong);
-  border: 1.3px solid var(--gold-dark);
-  box-shadow: 0 0 0 2px var(--gold-dark), 0 0 6px rgba(179, 143, 59, 0.28);
+  border-color: var(--gold-dark);
+  box-shadow: 0 0 6px rgba(179, 143, 59, 0.28);
+  filter: drop-shadow(0 0 6px rgba(215,178,90,0.18));
 }
 
 /* Group chips (Cultura ▾) */
@@ -171,19 +173,22 @@
   background: var(--gold-strong);
 }
 
-/* Dropdown list tweaks (previously nested under .poi-group-dropdown in feature scss) */
+/* -----------------------------
+   Dropdown list tweaks
+------------------------------ */
 .poi-group-dropdown {
+  display: grid;
+  gap: 8px;
+
   .ui-chip--poi {
-    margin: 0;
     padding: 4px 10px;
     min-height: 30px;
     border-radius: 10px;
 
     font-size: 0.95rem;
-    --chip-fs: 0.95rem;
+    box-shadow: none;
 
     justify-content: flex-start;
-    box-shadow: none;
   }
 
   .ui-chip--poi.ui-chip--selected {
