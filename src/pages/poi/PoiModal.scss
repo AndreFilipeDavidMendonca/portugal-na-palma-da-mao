@@ -77,10 +77,8 @@
 .poi-media {
   grid-area: media;
 
-  /* dimensões */
   min-height: clamp(270px, 48vh, 560px);
 
-  /* aparência */
   border-radius: 16px;
   overflow: hidden;
 
@@ -92,12 +90,9 @@
     0 18px 40px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
-
-  /* ✅ centra o viewport (o slideshow) */
   display: flex;
   justify-content: center;
 
-  /* evita “escape” por conteúdo interno */
   min-width: 0;
   margin-bottom: 30px;
 }
@@ -167,38 +162,47 @@
 
 /* =========================
    Mobile
-   ✅ media centrado + sem overflow lateral
+   ✅ dots não cortam
+   ✅ remove scroll no mobile
 ========================= */
 @media (max-width: 900px) {
+  /* ✅ remove scroll do modal em mobile */
+  .poi-card {
+    max-height: none;
+    height: calc(100vh - var(--poi-top) - var(--poi-gap) - var(--safe-bottom));
+  }
+
   .poi-body {
     display: flex;
     flex-direction: column;
     gap: 14px;
 
     padding: 14px;
-    margin-bottom: 30px;
+    margin-bottom: 0;
 
-    overflow-x: hidden; /* cinto de segurança */
+  scrollbar-width: none;
+    -webkit-overflow-scrolling: auto;
   }
 
   .poi-body.is-editing {
     padding-top: 18px;
     padding-bottom: 18px;
     gap: 14px;
-    margin-bottom: 44px;
+    margin-bottom: 0;
   }
 
-.poi-media {
-    width: calc(100% + 12px);   /* compensa o padding do poi-body */
+  .poi-media {
+    width: calc(100% + 12px);
     margin-left: -6px;
     margin-right: -6px;
 
-    max-width: none;            /* remove o limite artificial */
-
+    max-width: none;
     border-radius: 16px;
 
     aspect-ratio: 16 / 9;
 
+    /* ✅ dá “respiro” para os dots */
+    padding-bottom: 14px;
   }
 
   .poi-media.is-editing {
@@ -207,13 +211,17 @@
     min-height: clamp(520px, 86vh, 980px);
   }
 
+  /* ✅ garante espaço dentro do viewport para indicadores/dots */
   .poi-media__viewport {
     width: 100%;
     height: 100%;
     box-sizing: border-box;
+
+    /* 🔥 isto resolve 90% dos “dots cortados” */
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
   }
 
-  /* ✅ impedir que tracks internos imponham largura */
+  /* ✅ impedir que tracks internos imponham largura/altura estranhas */
   .poi-media,
   .poi-media__viewport,
   .poi-media__viewport > *,
@@ -222,7 +230,6 @@
     box-sizing: border-box;
   }
 
-  /* ✅ aside volta ao fluxo normal */
   .poi-side {
     position: static !important;
     width: 100%;
@@ -231,13 +238,16 @@
   }
 
   .poi-comments-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     margin-top: 8px;
     padding-top: 18px;
     padding-bottom: 14px;
     border-top: 1px solid rgba(215, 178, 90, 0.34);
   }
 
-  /* cinto extra: nada sai do card */
+  /* cinto extra */
   .poi-card {
     overflow: hidden;
     max-width: 100%;
