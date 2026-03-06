@@ -112,7 +112,10 @@ function useMapZoom() {
   React.useEffect(() => {
     const onZoom = () => setZoom(map.getZoom());
     map.on("zoomend", onZoom);
-    return () => map.off("zoomend", onZoom);
+
+    return () => {
+      map.off("zoomend", onZoom);
+    };
   }, [map]);
 
   return zoom;
