@@ -380,7 +380,6 @@ export default function CreatePoiPage() {
           </div>
 
           <div className="create-poi-actions">
-            {/* ✅ type submit (senão nunca chama o endpoint) */}
             <Button type="submit" variant="primary" pill strong disabled={!formReady}>
               {loading ? "A criar…" : imagesUploading ? "A processar imagens…" : geoLoading ? "A localizar…" : "Criar"}
             </Button>

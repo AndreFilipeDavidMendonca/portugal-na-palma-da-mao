@@ -223,7 +223,7 @@ export function PoiPointsLayer({
   const MIN_ZOOM_TOOLTIPS_DESKTOP = 13;
   const MIN_ZOOM_TOOLTIPS_MOBILE = 13;
 
-  const MAX_OPEN = 5;
+  const MAX_OPEN = 1;
 
   const showIcons = zoom >= MIN_ZOOM_ICONS;
 

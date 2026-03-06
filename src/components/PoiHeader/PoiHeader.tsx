@@ -51,8 +51,14 @@ export default function PoiHeader({
   onSave,
   onClose,
 }: Props) {
+  const favTitle = user
+    ? isFav
+      ? "Remover dos Favoritos"
+      : "Adicionar aos Favoritos"
+    : "Adicionar aos Favoritos";
+
   return (
-    <header className="poi-header">
+    <header className={`poi-header ${editing ? "is-editing" : ""}`}>
       <div className="poi-title-wrap">
         <h2 className="poi-title">
           {editing && canEdit ? (
@@ -67,17 +73,19 @@ export default function PoiHeader({
             />
           ) : (
             <span className="poi-title-row">
-              <span className="poi-title-text">{title}</span>
+              <span className="poi-title-text" title={title}>
+                {title}
+              </span>
 
               <Button
                 type="button"
                 variant="icon"
                 size="sm"
-                className={`poi-fav-btn ${isFav ? "is-active" : ""}`}
+                className={`poi-fav-btn poi-btn-icon ${isFav ? "is-active" : ""}`}
                 onClick={onToggleFavorite}
                 disabled={favLoading}
-                title={user ? (isFav ? "Remover dos Favoritos" : "Adicionar aos Favoritos") : "Adicionar aos Favoritos"}
-                aria-label={user ? (isFav ? "Remover dos Favoritos" : "Adicionar aos Favoritos") : "Adicionar aos Favoritos"}
+                title={favTitle}
+                aria-label={favTitle}
               >
                 <StarIcon filled={isFav} />
               </Button>
@@ -88,20 +96,46 @@ export default function PoiHeader({
 
       <div className="poi-actions">
         {canEdit && (
-          <Button className="poi-edit-btn" type="button" onClick={onToggleEdit}>
-            {editing ? "Cancelar" : "Editar"}
+          <Button
+            className="poi-edit-btn poi-btn-icon poi-btn-icon--glyph"
+            type="button"
+            onClick={onToggleEdit}
+            title={editing ? "Cancelar" : "Editar"}
+            aria-label={editing ? "Cancelar" : "Editar"}
+          >
+            {editing ? "×" : "✎"}
           </Button>
         )}
 
         {editing && canEdit && (
-          <Button className="poi-save-btn" type="button" disabled={saving} onClick={onSave}>
-            {saving ? "A guardar..." : "Guardar"}
+          <Button
+            className="poi-save-btn poi-btn-icon poi-btn-icon--gold poi-btn-icon--glyph"
+            type="button"
+            disabled={saving}
+            onClick={onSave}
+            title="Guardar"
+            aria-label="Guardar"
+          >
+            {saving ? (
+              <span className="poi-btn-dots" aria-hidden="true">
+                •••
+              </span>
+            ) : (
+              "✓"
+            )}
           </Button>
         )}
 
-        <Button className="poi-close" onClick={onClose} aria-label="Fechar" type="button">
-          ×
-        </Button>
+        {!editing && (
+          <Button
+          className="poi-close poi-btn-icon poi-btn-icon--glyph"
+          onClick={onClose} aria-label="Fechar"
+          type="button"
+          title="Fechar"
+          >
+            ×
+          </Button>
+        )}
       </div>
     </header>
   );

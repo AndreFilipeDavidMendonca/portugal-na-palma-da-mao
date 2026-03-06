@@ -1,10 +1,29 @@
+/* Header com profundidade, verde escuro (não preto) e luz à direita */
 .poi-header {
+  --hdr-pad-y: 18px;
+  --hdr-pad-x: 26px;
+
+  --btn-size: 38px;
+  --btn-radius: 12px;
+
+  --lux-border: rgba(215, 178, 90, 0.22);
+  --lux-border-2: rgba(215, 178, 90, 0.14);
+
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  padding: 18px 26px;
+
+  background:
+    radial-gradient(900px 240px at 86% 0%, rgba(215, 178, 90, 0.10), transparent 62%),
+    linear-gradient(180deg, rgba(22, 58, 38, 0.96), rgba(14, 40, 26, 0.96));
+
+  border-bottom: 1px solid rgba(215, 178, 90, 0.16);
+
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  padding: var(--hdr-pad-y) var(--hdr-pad-x);
 
   display: flex;
   align-items: center;
@@ -26,7 +45,10 @@
   font-size: clamp(26px, 3vw, 36px);
   font-weight: 800;
   letter-spacing: 0.3px;
-  text-shadow: 0 0 6px rgba(215, 178, 90, 0.3);
+
+  text-shadow:
+    0 0 10px rgba(215, 178, 90, 0.18),
+    0 1px 0 rgba(0, 0, 0, 0.45);
 }
 
 .poi-title-row {
@@ -43,20 +65,6 @@
   white-space: nowrap;
 }
 
-/* ⭐ favorito agora é um icon button global */
-.poi-fav-btn {
-  color: var(--gold-dark);
-
-  svg {
-    width: 22px;
-    height: 22px;
-  }
-}
-
-.poi-fav-btn.is-active {
-  color: var(--gold);
-}
-
 .poi-actions {
   display: flex;
   gap: 8px;
@@ -65,66 +73,133 @@
   white-space: nowrap;
 }
 
-.poi-edit-btn,
-.poi-save-btn {
-  border-radius: 999px;
-  padding: 4px 12px;
-  border: 1px solid #e0b15a;
-  background: #1f1a10;
-  color: #f7e3b5;
-  cursor: pointer;
-  font-size: 0.8rem;
+/* Base premium icon button (aplica a TODOS: fav/edit/save/close) */
+.poi-btn-icon {
+  width: var(--btn-size);
+  height: var(--btn-size);
+  padding: 0;
+  border-radius: var(--btn-radius);
 
-  &:hover {
-    background: #2b2113;
-  }
-}
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-.poi-save-btn[disabled] {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.poi-close {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--bg-panel-2);
+  border: 1px solid var(--lux-border-2);
+  background: linear-gradient(180deg, rgba(30, 54, 38, 0.92), rgba(16, 30, 22, 0.92));
   color: var(--gold);
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  font-size: 26px;
-  line-height: 30px;
   cursor: pointer;
 
-  flex: 0 0 auto;
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.30),
+    0 2px 0 rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.40);
 
-  transition: all 0.2s ease;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, filter 0.14s ease;
+  line-height: 1;
+}
 
-  &:hover {
-    background: var(--bg-panel);
-    color: var(--gold-strong);
-    transform: scale(1.05);
-  }
+.poi-btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* hover premium */
+.poi-btn-icon:hover {
+  transform: translateY(-1px);
+  border-color: var(--lux-border);
+  box-shadow:
+    0 14px 24px rgba(0, 0, 0, 0.38),
+    0 2px 0 rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(215, 178, 90, 0.05);
+  filter: brightness(1.05);
+}
+
+.poi-btn-icon:active {
+  transform: translateY(0);
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.28),
+    inset 0 2px 6px rgba(0, 0, 0, 0.42);
+}
+
+.poi-btn-icon:focus-visible {
+  outline: none;
+  box-shadow:
+    0 14px 24px rgba(0, 0, 0, 0.38),
+    0 0 0 2px rgba(215, 178, 90, 0.22),
+    0 0 0 5px rgba(215, 178, 90, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.poi-btn-icon[disabled] {
+  opacity: 0.62;
+  cursor: default;
+  transform: none;
+  filter: saturate(0.9);
+}
+
+/* glyphs (✎ × ✓) com presença consistente */
+.poi-btn-icon--glyph {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+/* alinhar o ✓ um toque */
+.poi-save-btn.poi-btn-icon--glyph {
+  padding-bottom: 7px;
+}
+
+/* Variante “gold” para Guardar */
+.poi-btn-icon--gold {
+  border-color: rgba(215, 178, 90, 0.34);
+  background:
+    radial-gradient(180px 120px at 30% 20%, rgba(215, 178, 90, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(36, 28, 16, 0.92), rgba(18, 14, 10, 0.92));
+  box-shadow:
+    0 12px 22px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 0 16px rgba(215, 178, 90, 0.10);
+}
+
+/* Loading dots */
+.poi-btn-dots {
+  font-size: 14px;
+  letter-spacing: 2px;
+  opacity: 0.9;
+}
+
+/* Favorito */
+.poi-fav-btn {
+  color: var(--gold-dark);
+}
+.poi-fav-btn.is-active {
+  color: var(--gold);
+}
+
+/* Em edição: spacing ligeiramente mais apertado */
+.poi-header.is-editing .poi-actions {
+  gap: 6px;
 }
 
 @media (max-width: 1024px) {
   .poi-header {
-    padding: 12px 14px;
+    --hdr-pad-y: 12px;
+    --hdr-pad-x: 14px;
   }
-
   .poi-title-row {
-    gap: 8px;
-  }
-
-  .poi-actions {
     gap: 8px;
   }
 }
 
 @media (max-width: 600px) {
   .poi-header {
-    padding: 10px 12px;
+    --hdr-pad-y: 10px;
+    --hdr-pad-x: 12px;
+    --btn-size: 34px;
     gap: 10px;
   }
 
@@ -132,17 +207,11 @@
     font-size: 20px;
   }
 
-  .poi-title-row {
-    gap: 8px;
-  }
-
   .poi-actions {
     gap: 6px;
   }
 
-  .poi-close {
-    width: 34px;
-    height: 34px;
-    font-size: 24px;
+  .poi-btn-icon--glyph {
+    font-size: 20px;
   }
 }
