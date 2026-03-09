@@ -1,83 +1,78 @@
-// src/lib/poiInfo.ts
 import type { PoiCategory } from "@/utils/constants";
-import { resolvePoiMedia10 } from "@/lib/poiMedia";
 
 /* =====================================================================
    TIPOS
    ===================================================================== */
 
 export type OpeningHours = {
-    raw?: string | null;
-    isOpenNow?: boolean;
-    nextChange?: string | null;
+  raw?: string | null;
+  isOpenNow?: boolean;
+  nextChange?: string | null;
 };
 
 export type Contacts = {
-    phone?: string | null;
-    email?: string | null;
-    website?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
 };
 
 export type Ratings = {
-    source: "google";
-    value: number;
-    votes?: number | null;
+  source: "google";
+  value: number;
+  votes?: number | null;
 };
 
 export type BuiltPeriod = {
-    start?: string | null;
-    end?: string | null;
-    opened?: string | null;
+  start?: string | null;
+  end?: string | null;
+  opened?: string | null;
 };
 
 export type MediaAttribution = {
-    source: "db" | "wikimedia" | "none";
-    note?: string | null;
+  source: "db" | "none";
+  note?: string | null;
 };
 
 export type PoiInfo = {
-    // ✅ novos (para permissões / navegação / debug)
-    id?: number | null;
-    ownerId?: string | null;
-    source?: string | null;
+  id?: number | null;
+  ownerId?: string | null;
+  source?: string | null;
 
-    // ✅ categoria normalizada (inclui comerciais)
-    category?: PoiCategory | null;
+  category?: PoiCategory | null;
 
-    label?: string | null;
-    description?: string | null;
-    image?: string | null;
-    images?: string[];
-    inception?: string | null;
+  label?: string | null;
+  description?: string | null;
+  image?: string | null;
+  images?: string[];
+  inception?: string | null;
 
-    wikipediaUrl?: string | null;
-    wikidataId?: string | null;
+  wikipediaUrl?: string | null;
+  wikidataId?: string | null;
 
-    oldNames?: string[];
+  oldNames?: string[];
 
-    coords?: { lat: number; lon: number } | null;
-    website?: string | null;
+  coords?: { lat: number; lon: number } | null;
+  website?: string | null;
 
-    instanceOf?: string[];
-    locatedIn?: string[];
-    heritage?: string[];
-    kinds?: string | null;
+  instanceOf?: string[];
+  locatedIn?: string[];
+  heritage?: string[];
+  kinds?: string | null;
 
-    openingHours?: OpeningHours | null;
-    contacts?: Contacts | null;
-    ratings?: Ratings[];
+  openingHours?: OpeningHours | null;
+  contacts?: Contacts | null;
+  ratings?: Ratings[];
 
-    historyText?: string | null;
-    architectureText?: string | null;
+  historyText?: string | null;
+  architectureText?: string | null;
 
-    architects?: string[];
-    architectureStyles?: string[];
-    materials?: string[];
-    builders?: string[];
-    builtPeriod?: BuiltPeriod;
+  architects?: string[];
+  architectureStyles?: string[];
+  materials?: string[];
+  builders?: string[];
+  builtPeriod?: BuiltPeriod;
 
-    // ✅ para UI avisar “momentâneo”
-    mediaAttribution?: MediaAttribution;
+  mediaAttribution?: MediaAttribution;
 };
 
 /* =====================================================================
@@ -85,94 +80,101 @@ export type PoiInfo = {
    ===================================================================== */
 
 function cleanString(v: unknown): string | null {
-    if (typeof v !== "string") return null;
-    const t = v.trim();
-    return t ? t : null;
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t ? t : null;
 }
 
 function asStringArray(v: unknown): string[] {
-    if (!Array.isArray(v)) return [];
-    const out: string[] = [];
-    for (const it of v) {
-        const s = cleanString(it);
-        if (s) out.push(s);
-    }
-    return out;
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const it of v) {
+    const s = cleanString(it);
+    if (s) out.push(s);
+  }
+  return out;
 }
 
 function uniqStrings(arr: string[]): string[] {
-    return Array.from(new Set(arr));
+  return Array.from(new Set(arr));
 }
 
 function asNumber(v: unknown): number | null {
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-    if (typeof v === "string") {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
-    }
-    return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 function hasAnyUsefulField(p: Partial<PoiInfo>): boolean {
-    return !!(
-        p.label ||
-        p.description ||
-        p.image ||
-        (p.images && p.images.length > 0) ||
-        p.website ||
-        p.contacts ||
-        p.openingHours ||
-        (p.ratings && p.ratings.length > 0)
-    );
+  return !!(
+    p.label ||
+    p.description ||
+    p.image ||
+    (p.images && p.images.length > 0) ||
+    p.website ||
+    p.contacts ||
+    p.openingHours ||
+    (p.ratings && p.ratings.length > 0)
+  );
 }
 
-function extractCoords(sourceFeature: any, approx?: { lat?: number | null; lon?: number | null } | null) {
-    const geom = sourceFeature?.geometry ?? null;
+function extractCoords(
+  sourceFeature: any,
+  approx?: { lat?: number | null; lon?: number | null } | null
+) {
+  const geom = sourceFeature?.geometry ?? null;
 
-    if (geom && geom.type === "Point" && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
-        const lon = asNumber(geom.coordinates[0]);
-        const lat = asNumber(geom.coordinates[1]);
-        if (lat != null && lon != null) return { lat, lon };
-    }
+  if (
+    geom &&
+    geom.type === "Point" &&
+    Array.isArray(geom.coordinates) &&
+    geom.coordinates.length >= 2
+  ) {
+    const lon = asNumber(geom.coordinates[0]);
+    const lat = asNumber(geom.coordinates[1]);
+    if (lat != null && lon != null) return { lat, lon };
+  }
 
-    const lat = approx?.lat ?? null;
-    const lon = approx?.lon ?? null;
-    if (typeof lat === "number" && typeof lon === "number") return { lat, lon };
+  const lat = approx?.lat ?? null;
+  const lon = approx?.lon ?? null;
+  if (typeof lat === "number" && typeof lon === "number") return { lat, lon };
 
-    return null;
+  return null;
 }
 
-// ✅ Normalização categoria (PT -> key)
 const COMMERCIAL_MAP_PT: Record<string, PoiCategory> = {
-    Gastronomia: "gastronomy",
-    Artesanato: "crafts",
-    Alojamento: "accommodation",
-    Evento: "event",
+  Gastronomia: "gastronomy",
+  Artesanato: "crafts",
+  Alojamento: "accommodation",
+  Evento: "event",
 };
 
 const ALL_KEYS: ReadonlySet<string> = new Set([
-    "castle",
-    "palace",
-    "monument",
-    "ruins",
-    "church",
-    "viewpoint",
-    "park",
-    "trail",
-    "gastronomy",
-    "crafts",
-    "accommodation",
-    "event",
+  "castle",
+  "palace",
+  "monument",
+  "ruins",
+  "church",
+  "viewpoint",
+  "park",
+  "trail",
+  "gastronomy",
+  "crafts",
+  "accommodation",
+  "event",
 ]);
 
 function normalizePoiCategory(raw: unknown): PoiCategory | null {
-    const s = cleanString(raw);
-    if (!s) return null;
+  const s = cleanString(raw);
+  if (!s) return null;
 
-    if (ALL_KEYS.has(s)) return s as PoiCategory;
-    if (COMMERCIAL_MAP_PT[s]) return COMMERCIAL_MAP_PT[s];
+  if (ALL_KEYS.has(s)) return s as PoiCategory;
+  if (COMMERCIAL_MAP_PT[s]) return COMMERCIAL_MAP_PT[s];
 
-    return null;
+  return null;
 }
 
 /* =====================================================================
@@ -180,120 +182,96 @@ function normalizePoiCategory(raw: unknown): PoiCategory | null {
    ===================================================================== */
 
 type FetchPoiInfoOpts = {
-    wikipedia?: string | null;
-    approx?: {
-        name?: string | null;
-        lat?: number | null;
-        lon?: number | null;
-    } | null;
-    sourceFeature?: any | null;
+  wikipedia?: string | null;
+  approx?: {
+    name?: string | null;
+    lat?: number | null;
+    lon?: number | null;
+  } | null;
+  sourceFeature?: any | null;
 };
 
-/**
- * Base rápida (BD/GeoJSON) + fallback temporário para Wikimedia (via resolvePoiMedia10).
- * Comerciais nunca usam wiki.
- */
 export async function fetchPoiInfo(options: FetchPoiInfoOpts): Promise<PoiInfo | null> {
-    const sourceFeature = options.sourceFeature || null;
-    const approx = options.approx || null;
+  const sourceFeature = options.sourceFeature || null;
+  const approx = options.approx || null;
 
-    if (!sourceFeature) return null;
+  if (!sourceFeature) return null;
 
-    const props = sourceFeature.properties ?? {};
+  const props = sourceFeature.properties ?? {};
+  const coords = extractCoords(sourceFeature, approx);
 
-    const coords = extractCoords(sourceFeature, approx);
+  const id = asNumber(props.id);
+  const ownerId = cleanString(props.ownerId) ?? cleanString(props.owner_id) ?? null;
+  const source = cleanString(props.source);
+  const category = normalizePoiCategory(props.category);
 
-    // IDs / permissões (comerciais)
-    const id = asNumber(props.id);
-    const ownerId = cleanString(props.ownerId) ?? cleanString(props.owner_id) ?? null;
-    const source = cleanString(props.source);
+  const label =
+    cleanString(props["name:pt"]) ??
+    cleanString(props.namePt) ??
+    cleanString(props.name) ??
+    cleanString(approx?.name) ??
+    null;
 
-    // ✅ categoria normalizada (inclui comerciais)
-    const category = normalizePoiCategory(props.category);
+  const dbImages = asStringArray(props.images);
+  const mainImageFromProps =
+    cleanString(props.image) ?? (dbImages.length > 0 ? dbImages[0] : null);
 
-    const label =
-        cleanString(props["name:pt"]) ??
-        cleanString(props.namePt) ??
-        cleanString(props.name) ??
-        cleanString(approx?.name) ??
-        null;
+  const finalMedia = uniqStrings([
+    ...(mainImageFromProps ? [mainImageFromProps] : []),
+    ...dbImages,
+  ]).slice(0, 5);
 
-    // imagens da BD (GeoJSON/DTO)
-    const dbImages = asStringArray(props.images);
+  const finalImage = finalMedia.length > 0 ? finalMedia[0] : null;
 
-    const mainImageFromProps = cleanString(props.image) ?? (dbImages.length > 0 ? dbImages[0] : null);
+  const mediaAttribution: MediaAttribution =
+    finalMedia.length === 0
+      ? { source: "none", note: null }
+      : { source: "db", note: null };
 
-    const baseMedia = uniqStrings([...(mainImageFromProps ? [mainImageFromProps] : []), ...dbImages]).slice(0, 10);
+  const phone = cleanString(props.phone);
+  const email = cleanString(props.email);
+  const website = cleanString(props.website);
 
-    // ✅ fallback temporário: wikimedia (até 10)
-    const resolvedMedia = label
-        ? await resolvePoiMedia10({
-            label,
-            baseImage: baseMedia[0] ?? null,
-            baseImages: baseMedia.slice(1),
-            allowWikiFor: sourceFeature, // resolvePoiMedia10 trata de comerciais/flag
-            limit: 10,
-        })
-        : baseMedia;
+  const contacts: Contacts | null =
+    phone || email || website ? { phone, email, website } : null;
 
-    const finalMedia = uniqStrings(resolvedMedia).slice(0, 10);
-    const finalImage = finalMedia.length > 0 ? finalMedia[0] : null;
+  const poi: Partial<PoiInfo> = {
+    id,
+    ownerId,
+    source,
+    category,
 
-    // attribution
-    const baseSet = new Set(baseMedia);
-    const wikiAdded = finalMedia.some((u) => !baseSet.has(u));
-    const mediaAttribution: MediaAttribution = finalMedia.length === 0
-        ? { source: "none", note: null }
-        : wikiAdded
-            ? {
-                source: "wikimedia",
-                note: "Fotografias via Wikimedia Commons (temporário).",
-            }
-            : { source: "db", note: null };
+    label,
+    description: cleanString(props.description) ?? null,
 
-    // Contacts
-    const phone = cleanString(props.phone);
-    const email = cleanString(props.email);
-    const website = cleanString(props.website);
+    image: finalImage,
+    images: finalMedia,
 
-    const contacts: Contacts | null = phone || email || website ? { phone, email, website } : null;
+    mediaAttribution,
 
-    const poi: Partial<PoiInfo> = {
-        id,
-        ownerId,
-        source,
+    coords,
 
-        category,
+    wikipediaUrl: cleanString(props.wikipediaUrl) ?? null,
+    wikidataId: cleanString(props.wikidataId) ?? null,
 
-        label,
-        description: cleanString(props.description) ?? null,
+    website,
+    contacts,
 
-        image: finalImage,
-        images: finalMedia,
+    historyText: cleanString(props.historyText) ?? null,
+    architectureText: cleanString(props.architectureText) ?? null,
 
-        mediaAttribution,
+    architects: Array.isArray(props.architects) ? asStringArray(props.architects) : undefined,
+    architectureStyles: Array.isArray(props.architectureStyles)
+      ? asStringArray(props.architectureStyles)
+      : undefined,
+    materials: Array.isArray(props.materials) ? asStringArray(props.materials) : undefined,
+    builders: Array.isArray(props.builders) ? asStringArray(props.builders) : undefined,
 
-        coords,
+    builtPeriod: props.builtPeriod ?? undefined,
+    openingHours: props.openingHours ?? null,
+    ratings: Array.isArray(props.ratings) ? props.ratings : undefined,
+  };
 
-        wikipediaUrl: cleanString(props.wikipediaUrl) ?? null,
-        wikidataId: cleanString(props.wikidataId) ?? null,
-
-        website,
-        contacts,
-
-        historyText: cleanString(props.historyText) ?? null,
-        architectureText: cleanString(props.architectureText) ?? null,
-
-        architects: Array.isArray(props.architects) ? asStringArray(props.architects) : undefined,
-        architectureStyles: Array.isArray(props.architectureStyles) ? asStringArray(props.architectureStyles) : undefined,
-        materials: Array.isArray(props.materials) ? asStringArray(props.materials) : undefined,
-        builders: Array.isArray(props.builders) ? asStringArray(props.builders) : undefined,
-
-        builtPeriod: props.builtPeriod ?? undefined,
-        openingHours: props.openingHours ?? null,
-        ratings: Array.isArray(props.ratings) ? props.ratings : undefined,
-    };
-
-    if (!hasAnyUsefulField(poi)) return null;
-    return poi as PoiInfo;
+  if (!hasAnyUsefulField(poi)) return null;
+  return poi as PoiInfo;
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import "./PoiModal.scss";
 
@@ -14,8 +14,6 @@ import PoiHeader from "@/components/PoiHeader/PoiHeader";
 import PoiMedia from "@/components/PoiMedia/PoiMedia";
 import PoiSide from "@/components/PoiSide/PoiSide";
 import PoiComments from "@/components/PoiComment/PoiComments";
-
-import { resolvePoiMedia10, shouldUseWikiImages } from "@/lib/poiMedia";
 
 type Props = {
   open: boolean;
@@ -33,7 +31,10 @@ type Props = {
   isAdmin?: boolean;
 };
 
-const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
+const MAX_IMAGES = 5;
+
+const uniqStrings = (arr: string[]) =>
+  Array.from(new Set((arr ?? []).filter(Boolean)));
 
 const sanitizePersistableMedia = (list: string[]) =>
   (list ?? []).filter((u) => {
@@ -48,11 +49,18 @@ const pickPoiId = (poi: any): number | null => {
 };
 
 const pickOwnerId = (poi: any): string | null => {
-  const v = poi?.properties?.ownerId;
+  const v = poi?.properties?.ownerId ?? poi?.properties?.owner_id ?? null;
   return typeof v === "string" && v.trim() ? v.trim() : null;
 };
 
-export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = false }: Props) {
+export default function PoiModal({
+  open,
+  onClose,
+  info,
+  poi,
+  onSaved,
+  isAdmin = false,
+}: Props) {
   const { user } = useAuth();
 
   const poiId = useMemo(() => pickPoiId(poi), [poi]);
@@ -73,13 +81,11 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
   const [titleInput, setTitleInput] = useState("");
   const [descInput, setDescInput] = useState("");
   const [imagesList, setImagesList] = useState<string[]>([]);
-  const [loadingMedia, setLoadingMedia] = useState(false);
 
   useEffect(() => {
     setLocalInfo(info);
     setEditing(false);
     setSaving(false);
-    setLoadingMedia(false);
 
     if (!info) {
       setTitleInput("");
@@ -91,81 +97,34 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
     setTitleInput(info.label ?? "");
     setDescInput(info.description ?? "");
 
-    const dbBase = sanitizePersistableMedia(uniqStrings([info.image ?? "", ...(info.images ?? [])])).slice(0, 10);
-    setImagesList(dbBase);
+    const base = sanitizePersistableMedia(
+      uniqStrings([info.image ?? "", ...(info.images ?? [])])
+    ).slice(0, MAX_IMAGES);
+
+    setImagesList(base);
   }, [info]);
 
-  const wikiTried = useRef<Set<number>>(new Set());
-  const wikiInflight = useRef<Set<number>>(new Set());
-
-  useEffect(() => {
-    let alive = true;
-
-    if (!open || !poiId) return;
-
-    const label = localInfo?.label?.trim();
-    if (!label) return;
-
-    if (!shouldUseWikiImages(poi)) return;
-    if (wikiTried.current.has(poiId)) return;
-    if (wikiInflight.current.has(poiId)) return;
-
-    const baseFromBe = sanitizePersistableMedia(uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])])).slice(
-      0,
-      10
-    );
-
-    if (baseFromBe.length >= 3) {
-      wikiTried.current.add(poiId);
-      return;
-    }
-
-    wikiInflight.current.add(poiId);
-
-    (async () => {
-      setLoadingMedia(true);
-      try {
-        const merged = await resolvePoiMedia10({
-          label,
-          baseImage: baseFromBe[0] ?? null,
-          baseImages: baseFromBe,
-          allowWikiFor: poi,
-          limit: 10,
-        });
-
-        if (!alive) return;
-
-        wikiTried.current.add(poiId);
-
-        const wikiOnly = sanitizePersistableMedia(uniqStrings(merged ?? []));
-        const finalList = uniqStrings([...baseFromBe, ...wikiOnly]).slice(0, 10);
-        if (!finalList.length) return;
-
-        const primary = finalList[0] ?? null;
-
-        setLocalInfo((prev) => (prev ? { ...prev, image: primary ?? prev.image ?? null, images: finalList } : prev));
-        setImagesList((prev) => (editing ? prev : finalList));
-      } catch {
-        wikiTried.current.add(poiId);
-      } finally {
-        wikiInflight.current.delete(poiId);
-        if (alive) setLoadingMedia(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [open, poiId, localInfo?.label, poi, editing]);
-
-  const title = useMemo(() => localInfo?.label ?? "Ponto de interesse", [localInfo?.label]);
+  const title = useMemo(
+    () => localInfo?.label ?? "Ponto de interesse",
+    [localInfo?.label]
+  );
 
   const mediaUrls = useMemo(() => {
-    if (editing) return uniqStrings(imagesList ?? []);
-    return sanitizePersistableMedia(uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])]));
+    if (editing) {
+      return uniqStrings(imagesList ?? []).slice(0, MAX_IMAGES);
+    }
+
+    return sanitizePersistableMedia(
+      uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])])
+    ).slice(0, MAX_IMAGES);
   }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
-  const { isFav, favLoading, toggleFavorite } = usePoiFavorite({ open, poiId, user });
+  const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
+    open,
+    poiId,
+    user,
+  });
+
   const commentsState = usePoiComments({ open, poiId, user });
 
   const requireCanEdit = useCallback(() => {
@@ -183,7 +142,7 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
   const handleSave = useCallback(async () => {
     if (!requireCanEdit()) return;
 
-    const persistable = sanitizePersistableMedia(imagesList ?? []).slice(0, 10);
+    const persistable = sanitizePersistableMedia(imagesList ?? []).slice(0, MAX_IMAGES);
     const primaryImage = persistable[0] ?? null;
 
     setSaving(true);
@@ -196,7 +155,9 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         images: persistable.length ? persistable : null,
       });
 
-      const updatedList = sanitizePersistableMedia(uniqStrings([updated.image ?? "", ...(updated.images ?? [])])).slice(0, 10);
+      const updatedList = sanitizePersistableMedia(
+        uniqStrings([updated.image ?? "", ...(updated.images ?? [])])
+      ).slice(0, MAX_IMAGES);
 
       setLocalInfo((prev) =>
         prev
@@ -234,7 +195,12 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
 
   return ReactDOM.createPortal(
     <div className="poi-overlay" onClick={onClose}>
-      <div className="poi-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div
+        className="poi-card"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <PoiHeader
           title={title}
           titleInput={titleInput}
@@ -259,18 +225,20 @@ export default function PoiModal({ open, onClose, info, poi, onSaved, isAdmin = 
         />
 
         <div className={`poi-body ${editing ? "is-editing" : ""}`}>
-          <section className={`poi-media ${editing ? "is-editing" : ""}`} aria-label="Galeria">
-           <div className="poi-media__viewport">
-               <PoiMedia
-                 title={title}
-                 mediaUrls={mediaUrls}
-                 editing={editing}
-                 canEdit={canEdit}
-                 imagesList={imagesList ?? []}
-                 setImagesList={setImagesList}
-               />
-             </div>
-            {!editing && loadingMedia && <div className="poi-media__hint">A carregar fotos (Wikimedia)…</div>}
+          <section
+            className={`poi-media ${editing ? "is-editing" : ""}`}
+            aria-label="Galeria"
+          >
+            <div className="poi-media__viewport">
+              <PoiMedia
+                title={title}
+                mediaUrls={mediaUrls}
+                editing={editing}
+                canEdit={canEdit}
+                imagesList={imagesList ?? []}
+                setImagesList={setImagesList}
+              />
+            </div>
           </section>
 
           <aside className="poi-side" aria-label="Detalhes">

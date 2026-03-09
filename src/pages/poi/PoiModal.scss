@@ -2,7 +2,7 @@
 @use "@/styles/base.scss" as *;
 
 :root {
-  --poi-top: calc(var(--topbar-h) + var(--safe-top) + 10px);
+  --poi-top: calc(var(--topbar-h) + var(--safe-top) - 50px);
   --poi-gap: 10px;
   --poi-max-w: 1180px;
   --poi-radius: 16px;
