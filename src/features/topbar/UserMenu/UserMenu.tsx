@@ -83,7 +83,7 @@ export default function UserMenu() {
             const list = await fetchMyPois();
             setMyPois(list ?? []);
         } catch (e: any) {
-            setMyPoisError(e?.message ?? "Falha a carregar os meus POIs");
+            setMyPoisError(e?.message ?? "Falha a carregar os meus negócios");
         } finally {
             setMyPoisLoading(false);
         }

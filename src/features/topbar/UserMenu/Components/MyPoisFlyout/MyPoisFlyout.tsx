@@ -27,7 +27,7 @@ export default function MyPoisFlyout({
     return (
         <div className="user-menu__flyout" role="region" aria-label="Os meus POIs">
             <div className="user-menu__flyout-header">
-                <span>Os meus POIs</span>
+                <span>Os meus negócios</span>
                 <Button type="button" className="user-menu__flyout-close" onClick={onClose} aria-label="Fechar" title="Fechar">
                     ×
                 </Button>
@@ -35,7 +35,7 @@ export default function MyPoisFlyout({
 
             <div className="user-menu__favorites gold-scroll">
                 <Button type="button" className="user-menu__item user-menu__item--primary user-menu__item--full" onClick={onCreatePoi}>
-                    + Criar POI
+                    + Adicionar negócio
                 </Button>
 
                 {loading && <div className="user-menu__hint">A carregar…</div>}

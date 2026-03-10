@@ -47,7 +47,7 @@ export default function UserMenuDropdown({
                             onClick={onToggleMyPois}
                         >
                             <span className="user-menu__chev" aria-hidden="true">◂</span>
-                            <span className="user-menu__section-title">Os meus POIs</span>
+                            <span className="user-menu__section-title">Os meus negócios</span>
                         </Button>
                     )}
 
