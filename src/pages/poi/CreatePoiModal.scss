@@ -1,0 +1,330 @@
+@use "@/styles/base.scss" as *;
+
+.create-poi-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  display: grid;
+  place-items: center;
+
+  padding:
+    calc(18px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    calc(22px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
+  overflow: hidden;
+}
+
+.create-poi-card {
+  position: relative;
+  width: min(760px, 96vw);
+  max-width: 760px;
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  padding: 0;
+  border-radius: 24px;
+  box-sizing: border-box;
+
+  background:
+    radial-gradient(760px 260px at 50% 0%, rgba(241, 204, 108, 0.08), transparent 60%),
+    radial-gradient(500px 180px at 0% 100%, rgba(58, 122, 84, 0.10), transparent 65%),
+    linear-gradient(180deg, rgba(24, 39, 30, 0.97), rgba(17, 29, 22, 0.985));
+
+  border: 1px solid rgba(240, 199, 107, 0.34);
+
+  box-shadow:
+    0 40px 80px rgba(0, 0, 0, 0.45),
+    0 18px 36px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 34px rgba(240, 199, 107, 0.20),
+    0 0 90px rgba(240, 199, 107, 0.10);
+}
+
+.create-poi-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+
+  box-shadow:
+    0 0 18px rgba(240, 199, 107, 0.22),
+    0 0 42px rgba(240, 199, 107, 0.12);
+}
+
+.create-poi-header {
+  flex: 0 0 auto;
+  padding: 32px 50px 18px;
+}
+
+.create-poi-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 50px 35px;
+}
+
+.create-poi-body::-webkit-scrollbar {
+  display: none;
+}
+
+.create-poi-title {
+  margin: 0 0 12px;
+  text-align: center;
+  font-family: var(--font-title), serif;
+  font-size: clamp(3rem, 3vw, 5rem);
+  line-height: 1.05;
+  color: #f0c76b;
+  text-shadow: 0 2px 14px rgba(240, 199, 107, 0.10);
+}
+
+.create-poi-subtitle {
+  margin: 0 auto;
+  max-width: 500px;
+  text-align: center;
+  color: rgba(244, 237, 220, 0.84);
+  font-size: 0.8rem;
+  line-height: 1.45;
+
+  strong {
+    color: #f0c76b;
+    font-weight: 800;
+  }
+}
+
+.create-poi-form {
+  display: grid;
+  gap: 16px;
+}
+
+.create-poi-label-row {
+  margin-top: 2px;
+}
+
+.create-poi-label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #f0c76b;
+  font-weight: 800;
+}
+
+.create-poi-top-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "type description"
+    "name description";
+  gap: 12px;
+  align-items: stretch;
+}
+
+.create-poi-type-block {
+  grid-area: type;
+  min-width: 0;
+}
+
+.create-poi-name-block {
+  grid-area: name;
+  min-width: 0;
+}
+
+.create-poi-description-block {
+  grid-area: description;
+  min-width: 0;
+}
+
+.create-poi-description-block .ui-textarea {
+  height: 100%;
+  min-height: 116px;
+  resize: none;
+}
+
+.create-poi-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.create-poi-grid > * {
+  min-width: 0;
+}
+
+.create-poi-grid--postal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.create-poi-grid--postal > *:first-child {
+  grid-column: 1 / 2;
+}
+
+.create-poi-geo {
+  font-size: 13px;
+  color: #f0c76b;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 6px 14px rgba(0, 0, 0, 0.10);
+}
+
+.create-poi-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+  padding-bottom: 6px;
+}
+
+.is-invalid {
+  border: 1.6px solid rgba(235, 85, 85, 0.9) !important;
+  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16) !important;
+}
+
+.is-invalid-text {
+  color: rgba(235, 85, 85, 0.95) !important;
+}
+
+.is-invalid-block {
+  border-radius: 14px;
+  border: 1.6px solid rgba(235, 85, 85, 0.75);
+  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16);
+  padding: 2px;
+}
+
+.create-poi-card .ui-input,
+.create-poi-card .ui-textarea,
+.create-poi-card .ui-select {
+  border-color: rgba(240, 199, 107, 0.34);
+}
+
+.create-poi-card .ui-input:hover,
+.create-poi-card .ui-textarea:hover,
+.create-poi-card .ui-select:hover {
+  border-color: rgba(240, 199, 107, 0.52);
+}
+
+.create-poi-card .ui-input:focus,
+.create-poi-card .ui-textarea:focus,
+.create-poi-card .ui-select:focus {
+  border-color: rgba(240, 199, 107, 0.72);
+  box-shadow: 0 0 0 3px rgba(240, 199, 107, 0.16);
+}
+
+@media (max-width: 760px) {
+  .create-poi-overlay {
+    display: block;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    padding:
+      calc(12px + var(--safe-top))
+      calc(12px + var(--safe-right))
+      calc(18px + var(--safe-bottom))
+      calc(12px + var(--safe-left));
+  }
+
+  .create-poi-overlay::-webkit-scrollbar {
+    display: none;
+  }
+
+  .create-poi-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+    border-radius: 20px;
+  }
+
+  .create-poi-header {
+    padding: 25px 20px 12px;
+  }
+
+  .create-poi-body {
+    padding: 0 20px 25px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .create-poi-body::-webkit-scrollbar {
+    display: none;
+  }
+
+  .create-poi-title {
+    font-size: 2rem;
+  }
+
+  .create-poi-subtitle {
+    max-width: 100%;
+    font-size: 0.7rem;
+  }
+
+  .create-poi-form {
+    gap: 14px;
+  }
+
+  .create-poi-top-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "type"
+      "name"
+      "description";
+    gap: 10px;
+  }
+
+  .create-poi-description-block .ui-textarea {
+    min-height: 120px;
+  }
+
+  .create-poi-grid,
+  .create-poi-grid--postal {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .create-poi-grid--postal > *:first-child {
+    grid-column: auto;
+  }
+
+  .create-poi-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .create-poi-actions .ui-btn {
+    width: 100%;
+    --btn-pad: 12px 18px;
+    font-size: 1rem;
+  }
+
+  .create-poi-geo {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .create-poi-header {
+    padding: 22px 16px 10px;
+  }
+
+  .create-poi-body {
+    padding: 0 16px 20px;
+  }
+}
