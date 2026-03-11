@@ -1,10 +1,11 @@
+@use "@/styles/base.scss" as *;
+
 :root {
   --poi-bar-h: 50px;
 }
 
 /* ===========================
    Mostrar 1 topbar de cada vez
-   (Desktop: PoiFilter | Mobile: PoiFiltersMobileDropdown)
 =========================== */
 .poi-filters-mobile {
   display: none;
@@ -28,8 +29,14 @@
    Barra de filtros (POI)
 =========================== */
 .poi-filter {
-  background: var(--bg-panel);
-  border-bottom: 2px solid var(--gold-dark);
+  background:
+    linear-gradient(180deg, rgba(24, 39, 30, 0.94), rgba(17, 29, 22, 0.97));
+  border-bottom: 1px solid var(--panel-border-gold);
+  color: var(--gold);
+
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 
   &--top {
     position: sticky;
@@ -40,6 +47,11 @@
 
   &--panel {
     border-bottom: 0;
+    border: 1px solid var(--panel-border-gold);
+    border-radius: 16px;
+    box-shadow:
+      0 14px 28px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
 
   &__inner {
@@ -49,7 +61,7 @@
     gap: 10px;
     padding: 10px 14px;
     min-height: var(--poi-bar-h);
-    overflow: visible; /* dropdowns saem */
+    overflow: visible;
     flex-wrap: nowrap;
   }
 
@@ -60,7 +72,7 @@
 }
 
 /* ===========================
-   Grupo (Cultura / Natureza / Comercial)
+   Grupo
 =========================== */
 .poi-group {
   position: relative;
@@ -82,9 +94,11 @@
   padding: 8px;
   border-radius: 14px;
 
-  background: var(--bg-panel);
-  border: 2px solid var(--gold-dark);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  background: var(--panel-shell-bg);
+  border: 1px solid var(--panel-border-gold);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 
   display: flex;
   flex-direction: column;
@@ -105,16 +119,29 @@
   font-size: 0.9rem;
   font-weight: 600;
   border-radius: 999px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--panel-border-gold);
   background: transparent;
   color: var(--gold);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 0.2s ease, color 0.2s ease;
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:hover {
-    background: var(--gold);
-    color: var(--bg-panel);
+    background: var(--bg-panel-2);
+    border-color: var(--field-border-hover);
+    color: var(--gold-strong);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--field-border-focus);
+    box-shadow: 0 0 0 3px var(--field-ring-focus);
   }
 }
 
@@ -123,9 +150,9 @@
   height: 42px;
 
   border-radius: 50%;
-  border: 2px solid var(--gold-dark);
-  background-color: var(--gold);
-  color: var(--bg-deep);
+  border: 1px solid var(--panel-border-gold);
+  background: linear-gradient(180deg, var(--bg-panel-2), var(--bg-panel));
+  color: var(--gold);
 
   display: grid;
   place-items: center;
@@ -134,10 +161,13 @@
   line-height: 0;
 
   cursor: pointer;
-  transition: background-color 0.25s ease,
-  border-color 0.25s ease,
-  color 0.25s ease,
-  box-shadow 0.25s ease;
+
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
 
   svg {
     width: 24px;
@@ -146,10 +176,17 @@
   }
 
   &:hover {
-    background-color: var(--gold-strong);
-    border-color: var(--gold);
-    color: var(--bg-panel);
-    box-shadow: 0 0 10px rgba(215, 178, 90, 0.5);
+    transform: translateY(-1px);
+    background: linear-gradient(180deg, var(--bg-panel-3), var(--bg-panel-2));
+    border-color: var(--field-border-hover);
+    color: var(--gold-strong);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--field-border-focus);
+    box-shadow: 0 0 0 3px var(--field-ring-focus);
   }
 }
 
@@ -158,10 +195,9 @@
 }
 
 /* ===========================
-   Mobile (apenas o dropdown mobile)
+   Mobile
 =========================== */
 @media (max-width: 900px) {
-  /* Container do header mobile */
   .poi-filters-mobile {
     align-items: center;
     width: 100%;
@@ -170,9 +206,15 @@
     margin-left: 0;
     box-sizing: border-box;
     position: relative;
+
+    background:
+      linear-gradient(180deg, rgba(24, 39, 30, 0.94), rgba(17, 29, 22, 0.97));
+    border-bottom: 1px solid var(--panel-border-gold);
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, 0.20),
+      inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
 
-  /* ✅ SÓ o chip pai (Filters) cresce */
   .poi-filters-mobile__btn--parent.ui-chip {
     flex: 0 1 auto;
     max-width: 70vw;
@@ -184,13 +226,11 @@
     border-radius: 16px;
   }
 
-  /* Spacer p/ empurrar hamburguer */
   .poi-filters-mobile__spacer {
     flex: 1 1 auto;
     min-width: 8px;
   }
 
-  /* Painel do mobile */
   .poi-filters-mobile__panel {
     position: absolute;
     top: calc(100% + 8px);
@@ -200,10 +240,11 @@
     width: min(92vw, 420px);
     padding: 10px;
     border-radius: 16px;
-    background: var(--bg-panel);
-    border: 2px solid var(--gold-dark);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
     box-sizing: border-box;
+
+    background: var(--panel-shell-bg);
+    border: 1px solid rgba(240, 199, 107, 0.18);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.26);
   }
 
   .poi-filters-mobile__panel-inner {
@@ -218,7 +259,6 @@
     padding: 10px 14px;
   }
 
-  /* Dentro do painel: grupos 100% */
   .poi-filters-mobile__panel .poi-group,
   .poi-filters-mobile__panel .ui-chip--group {
     width: 100%;
@@ -235,7 +275,6 @@
     max-width: 100%;
   }
 
-  /* Dropdown dos grupos: garantir que não rebenta */
   .poi-group-dropdown {
     width: min(420px, calc(100vw - 24px));
     max-width: calc(100vw - 24px);
