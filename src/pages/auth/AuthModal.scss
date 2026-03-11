@@ -1,74 +1,19 @@
 @use "@/styles/base.scss" as *;
 
 .auth-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-
-  display: grid;
-  place-items: center;
-
-  padding:
-    calc(18px + var(--safe-top))
-    calc(16px + var(--safe-right))
-    calc(22px + var(--safe-bottom))
-    calc(16px + var(--safe-left));
-
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
-
+  @include modal-overlay-shell;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.auth-overlay::-webkit-scrollbar {
-  display: none;
+  @include scroll-hidden;
 }
 
 .auth-card {
-  position: relative;
-  width: min(760px, 96vw);
-  max-width: 760px;
-
+  @include modal-panel-shell;
   max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-
-  padding: 35px 40px 35px;
-  border-radius: 24px;
-  box-sizing: border-box;
-
-  background:
-    radial-gradient(760px 260px at 50% 0%, rgba(241, 204, 108, 0.08), transparent 60%),
-    radial-gradient(500px 180px at 0% 100%, rgba(58, 122, 84, 0.10), transparent 65%),
-    linear-gradient(180deg, rgba(24, 39, 30, 0.97), rgba(17, 29, 22, 0.985));
-
-  border: 1px solid rgba(240, 199, 107, 0.34);
-
-  box-shadow:
-    0 40px 80px rgba(0, 0, 0, 0.45),
-    0 18px 36px rgba(0, 0, 0, 0.22),
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 0 34px rgba(240, 199, 107, 0.20),
-    0 0 90px rgba(240, 199, 107, 0.10);
-}
-
-.auth-card::-webkit-scrollbar {
-  display: none;
-}
-
-.auth-card::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  pointer-events: none;
-
-  box-shadow:
-    0 0 18px rgba(240, 199, 107, 0.22),
-    0 0 42px rgba(240, 199, 107, 0.12);
+  @include scroll-hidden;
+  padding: 35px 40px;
 }
 
 .auth-card--login {
@@ -97,27 +42,16 @@
 }
 
 .auth-title {
+  @include modal-title;
   margin: 0 0 8px;
-  text-align: center;
-  font-family: var(--font-title), serif;
   font-size: clamp(3rem, 2.6vw, 3rem);
-  line-height: 1.05;
-  color: #f0c76b;
-  text-shadow: 0 2px 14px rgba(240, 199, 107, 0.10);
 }
 
 .auth-subtitle {
+  @include modal-subtitle;
   margin: 0 auto 20px;
   max-width: 500px;
-  text-align: center;
-  color: rgba(244, 237, 220, 0.84);
-  font-size: 0.80rem;
-  line-height: 1.45;
-
-  strong {
-    color: #f0c76b;
-    font-weight: 800;
-  }
+  font-size: 0.8rem;
 }
 
 .auth-form {
@@ -135,7 +69,7 @@
   font-size: 0.82rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: #f0c76b;
+  color: var(--panel-title-color);
   font-weight: 800;
 }
 
@@ -149,17 +83,14 @@
   min-height: 96px;
   padding: 14px 16px;
   border-radius: 18px;
-
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   gap: 6px;
-
   font-weight: 700;
   text-align: left;
   cursor: pointer;
-
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease,
@@ -169,10 +100,9 @@
 }
 
 .auth-role-btn:not(.is-active) {
-  background: linear-gradient(180deg, #183628, #10241a);
+  background: linear-gradient(180deg, var(--bg-panel-2), var(--bg-deep));
   border: 1px solid rgba(223, 186, 96, 0.25);
-  color: #f0c76b;
-
+  color: var(--panel-title-color);
   box-shadow:
     0 10px 20px rgba(0, 0, 0, 0.20),
     inset 0 1px 0 rgba(255, 255, 255, 0.02);
@@ -182,7 +112,6 @@
   transform: translateY(-2px);
   background: linear-gradient(180deg, #1d422f, #133020);
   border-color: rgba(240, 199, 107, 0.42);
-
   box-shadow:
     0 16px 28px rgba(0, 0, 0, 0.28),
     0 0 24px rgba(240, 199, 107, 0.16);
@@ -194,7 +123,6 @@
     linear-gradient(180deg, #f6d27a, #e3b654);
   border: 1px solid rgba(255, 230, 170, 0.95);
   color: #111;
-
   box-shadow:
     0 16px 34px rgba(0, 0, 0, 0.32),
     0 0 26px rgba(240, 199, 107, 0.34),
@@ -207,7 +135,6 @@
     radial-gradient(320px 120px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
     linear-gradient(180deg, #f8d781, #e6ba58);
   border-color: rgba(255, 236, 184, 1);
-
   box-shadow:
     0 20px 38px rgba(0, 0, 0, 0.34),
     0 0 34px rgba(240, 199, 107, 0.46),
@@ -260,55 +187,21 @@
 }
 
 .auth-footer__text {
-  color: rgba(244, 237, 220, 0.84);
+  color: var(--panel-text-soft);
 }
 
-/* dourado local para os inputs dentro do modal */
-.auth-card .ui-input,
-.auth-card .ui-textarea,
-.auth-card .ui-select {
-  border-color: rgba(240, 199, 107, 0.34);
-}
-
-.auth-card .ui-input:hover,
-.auth-card .ui-textarea:hover,
-.auth-card .ui-select:hover {
-  border-color: rgba(240, 199, 107, 0.52);
-}
-
-.auth-card .ui-input:focus,
-.auth-card .ui-textarea:focus,
-.auth-card .ui-select:focus {
-  border-color: rgba(240, 199, 107, 0.72);
-  box-shadow: 0 0 0 3px rgba(240, 199, 107, 0.16);
-}
-
-@media (min-width: 761px) {
-  .auth-card--register {
-    max-height: min(86vh, 820px);
-  }
-
-  .auth-card--login {
-    max-height: min(86vh, 620px);
-  }
-}
+@include field-theme-gold('.auth-card');
 
 @media (max-width: 760px) {
   .auth-overlay {
     display: block;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-
     padding:
       calc(12px + var(--safe-top))
       calc(12px + var(--safe-right))
       calc(18px + var(--safe-bottom))
       calc(12px + var(--safe-left));
-  }
-
-  .auth-overlay::-webkit-scrollbar {
-    display: none;
   }
 
   .auth-card {
@@ -317,22 +210,12 @@
     max-height: none;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-
-    padding: 35px 20px 25px;
+    padding: 20px 14px 18px;
     border-radius: 20px;
   }
 
-  .auth-card::-webkit-scrollbar {
-    display: none;
-  }
-
-  .auth-logo {
-    margin-bottom: 6px;
-
-    img {
-      width: 68px;
-    }
+  .auth-logo img {
+    width: 68px;
   }
 
   .auth-title {
@@ -349,7 +232,9 @@
     gap: 14px;
   }
 
-  .auth-role-toggle {
+  .auth-role-toggle,
+  .auth-grid,
+  .auth-grid--security {
     grid-template-columns: 1fr;
     gap: 10px;
   }
@@ -358,11 +243,6 @@
     min-height: 74px;
     padding: 13px 14px;
     border-radius: 16px;
-  }
-
-  .auth-grid,
-  .auth-grid--security {
-    grid-template-columns: 1fr;
   }
 
   .auth-actions {
@@ -376,15 +256,5 @@
     width: 100%;
     --btn-pad: 12px 18px;
     font-size: 1rem;
-  }
-}
-
-@media (max-width: 380px) {
-  .auth-card {
-    padding: 18px 12px 16px;
-  }
-
-  .auth-role-btn__hint {
-    font-size: 0.8rem;
   }
 }

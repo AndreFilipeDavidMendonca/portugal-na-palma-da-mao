@@ -1,63 +1,20 @@
 @use "@/styles/base.scss" as *;
 
 .create-poi-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-
-  display: grid;
-  place-items: center;
-
-  padding:
-    calc(18px + var(--safe-top))
-    calc(16px + var(--safe-right))
-    calc(22px + var(--safe-bottom))
-    calc(16px + var(--safe-left));
-
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
-
-  overflow: hidden;
+  @include modal-overlay-shell;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  @include scroll-hidden;
 }
 
 .create-poi-card {
-  position: relative;
+  @include modal-panel-shell;
   width: min(760px, 96vw);
   max-width: 760px;
-  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  padding: 0;
-  border-radius: 24px;
-  box-sizing: border-box;
-
-  background:
-    radial-gradient(760px 260px at 50% 0%, rgba(241, 204, 108, 0.08), transparent 60%),
-    radial-gradient(500px 180px at 0% 100%, rgba(58, 122, 84, 0.10), transparent 65%),
-    linear-gradient(180deg, rgba(24, 39, 30, 0.97), rgba(17, 29, 22, 0.985));
-
-  border: 1px solid rgba(240, 199, 107, 0.34);
-
-  box-shadow:
-    0 40px 80px rgba(0, 0, 0, 0.45),
-    0 18px 36px rgba(0, 0, 0, 0.22),
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 0 34px rgba(240, 199, 107, 0.20),
-    0 0 90px rgba(240, 199, 107, 0.10);
-}
-
-.create-poi-card::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  pointer-events: none;
-
-  box-shadow:
-    0 0 18px rgba(240, 199, 107, 0.22),
-    0 0 42px rgba(240, 199, 107, 0.12);
 }
 
 .create-poi-header {
@@ -70,36 +27,21 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  @include scroll-hidden;
   padding: 0 50px 35px;
 }
 
-.create-poi-body::-webkit-scrollbar {
-  display: none;
-}
-
 .create-poi-title {
+  @include modal-title;
   margin: 0 0 12px;
-  text-align: center;
-  font-family: var(--font-title), serif;
   font-size: clamp(3rem, 3vw, 5rem);
-  line-height: 1.05;
-  color: #f0c76b;
-  text-shadow: 0 2px 14px rgba(240, 199, 107, 0.10);
 }
 
 .create-poi-subtitle {
+  @include modal-subtitle;
   margin: 0 auto;
   max-width: 500px;
-  text-align: center;
-  color: rgba(244, 237, 220, 0.84);
   font-size: 0.8rem;
-  line-height: 1.45;
-
-  strong {
-    color: #f0c76b;
-    font-weight: 800;
-  }
 }
 
 .create-poi-form {
@@ -117,7 +59,7 @@
   font-size: 0.82rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: #f0c76b;
+  color: var(--panel-title-color);
   font-weight: 800;
 }
 
@@ -172,11 +114,10 @@
 
 .create-poi-geo {
   font-size: 13px;
-  color: #f0c76b;
+  color: var(--panel-title-color);
   padding: 8px 10px;
   border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
     0 6px 14px rgba(0, 0, 0, 0.10);
@@ -191,56 +132,33 @@
 }
 
 .is-invalid {
-  border: 1.6px solid rgba(235, 85, 85, 0.9) !important;
-  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16) !important;
+  border: 1.6px solid var(--field-invalid-border) !important;
+  box-shadow: 0 0 0 3px var(--field-invalid-ring) !important;
 }
 
 .is-invalid-text {
-  color: rgba(235, 85, 85, 0.95) !important;
+  color: var(--status-danger) !important;
 }
 
 .is-invalid-block {
   border-radius: 14px;
   border: 1.6px solid rgba(235, 85, 85, 0.75);
-  box-shadow: 0 0 0 3px rgba(235, 85, 85, 0.16);
+  box-shadow: 0 0 0 3px var(--field-invalid-ring);
   padding: 2px;
 }
 
-.create-poi-card .ui-input,
-.create-poi-card .ui-textarea,
-.create-poi-card .ui-select {
-  border-color: rgba(240, 199, 107, 0.34);
-}
-
-.create-poi-card .ui-input:hover,
-.create-poi-card .ui-textarea:hover,
-.create-poi-card .ui-select:hover {
-  border-color: rgba(240, 199, 107, 0.52);
-}
-
-.create-poi-card .ui-input:focus,
-.create-poi-card .ui-textarea:focus,
-.create-poi-card .ui-select:focus {
-  border-color: rgba(240, 199, 107, 0.72);
-  box-shadow: 0 0 0 3px rgba(240, 199, 107, 0.16);
-}
+@include field-theme-gold('.create-poi-card');
 
 @media (max-width: 760px) {
   .create-poi-overlay {
     display: block;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-
     padding:
       calc(12px + var(--safe-top))
       calc(12px + var(--safe-right))
       calc(18px + var(--safe-bottom))
       calc(12px + var(--safe-left));
-  }
-
-  .create-poi-overlay::-webkit-scrollbar {
-    display: none;
   }
 
   .create-poi-card {
@@ -256,13 +174,6 @@
 
   .create-poi-body {
     padding: 0 20px 25px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .create-poi-body::-webkit-scrollbar {
-    display: none;
   }
 
   .create-poi-title {
@@ -316,15 +227,5 @@
 
   .create-poi-geo {
     font-size: 12px;
-  }
-}
-
-@media (max-width: 380px) {
-  .create-poi-header {
-    padding: 22px 16px 10px;
-  }
-
-  .create-poi-body {
-    padding: 0 16px 20px;
   }
 }

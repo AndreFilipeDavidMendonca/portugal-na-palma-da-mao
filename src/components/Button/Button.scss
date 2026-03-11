@@ -35,7 +35,7 @@
       --btn-focus-border,
       var(--border-2, rgba(255, 255, 255, 0.28))
     );
-    box-shadow: 0 0 0 3px var(--btn-ring, rgba(215, 178, 90, 0.15));
+    box-shadow: 0 0 0 3px var(--btn-ring, var(--field-ring-focus, rgba(215, 178, 90, 0.15)));
   }
 
   &:active {
@@ -95,6 +95,7 @@
   --btn-fg: var(--bg-deep, #0b0b0b);
   --btn-bg-hover: var(--gold-strong, rgba(215, 178, 90, 0.9));
   --btn-border-hover: var(--gold, rgba(215, 178, 90, 1));
+  --btn-ring: var(--field-ring-focus, rgba(215, 178, 90, 0.15));
 }
 
 .ui-btn--gold {

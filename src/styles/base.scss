@@ -2,18 +2,14 @@
    Base global + tema + tipografia
 ------------------------------- */
 
-/* Import das fontes (1x global) */
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Poppins:wght@300;400;500&display=swap");
 
-/* Paleta + fontes globais */
 :root {
-  /* Safe areas (iOS notch, etc.) */
   --safe-top: env(safe-area-inset-top);
   --safe-right: env(safe-area-inset-right);
   --safe-bottom: env(safe-area-inset-bottom);
   --safe-left: env(safe-area-inset-left);
 
-  /* Cores */
   --bg-deep: #0f2418;
   --bg-panel: #122b1a;
   --bg-panel-2: #163521;
@@ -24,17 +20,54 @@
   --gold-strong: #f1d27a;
   --muted: rgba(215, 178, 90, 0.75);
 
-  /* Fontes */
+  --overlay-backdrop: rgba(0, 0, 0, 0.45);
+  --overlay-blur: 6px;
+
+  --panel-border-gold: rgba(240, 199, 107, 0.34);
+  --panel-border-soft: rgba(223, 186, 96, 0.14);
+  --panel-ring: rgba(240, 199, 107, 0.16);
+  --panel-glow-sm: rgba(240, 199, 107, 0.12);
+  --panel-glow-md: rgba(240, 199, 107, 0.20);
+  --panel-glow-lg: rgba(240, 199, 107, 0.10);
+
+  --panel-shell-bg:
+    radial-gradient(760px 260px at 50% 0%, rgba(241, 204, 108, 0.08), transparent 60%),
+    radial-gradient(500px 180px at 0% 100%, rgba(58, 122, 84, 0.10), transparent 65%),
+    linear-gradient(180deg, rgba(24, 39, 30, 0.97), rgba(17, 29, 22, 0.985));
+
+  --panel-shell-shadow:
+    0 40px 80px rgba(0, 0, 0, 0.45),
+    0 18px 36px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 34px var(--panel-glow-md),
+    0 0 90px var(--panel-glow-lg);
+
+  --panel-shell-inner-glow:
+    0 0 18px rgba(240, 199, 107, 0.22),
+    0 0 42px var(--panel-glow-sm);
+
+  --panel-title-color: #f0c76b;
+  --panel-title-shadow: 0 2px 14px rgba(240, 199, 107, 0.10);
+  --panel-text-soft: rgba(244, 237, 220, 0.84);
+
+  --field-border-default: var(--border);
+  --field-border-hover: rgba(240, 199, 107, 0.52);
+  --field-border-focus: rgba(240, 199, 107, 0.72);
+  --field-ring-focus: var(--panel-ring);
+  --field-invalid-border: rgba(235, 85, 85, 0.9);
+  --field-invalid-ring: rgba(235, 85, 85, 0.16);
+  --field-disabled-opacity: 0.65;
+
+  --status-danger: rgba(235, 85, 85, 0.95);
+
   --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-title: "Cormorant Garamond", serif;
   --font-weight-body: 400;
   --font-weight-title: 600;
 
-  /* Loading logo shift */
   --logo-shift-x: 0%;
   --logo-shift-y: 0%;
 
-  /* ===== Topbars (único source of truth) ===== */
   --top-left-slot: 64px;
   --topbar-h: 64px;
   --topbar-pad-x: 12px;
@@ -43,11 +76,6 @@
   --topbar-radius: 10px;
 }
 
-/* ==============================
-   Responsive globals
-   ============================== */
-
-/* iPad / tablet */
 @media (max-width: 1024px) {
   :root {
     --topbar-h: 60px;
@@ -58,7 +86,6 @@
   }
 }
 
-/* Mobile */
 @media (max-width: 600px) {
   :root {
     --topbar-h: 56px;
@@ -69,7 +96,6 @@
   }
 }
 
-/* Estrutura base */
 html,
 body,
 #root {
@@ -99,7 +125,6 @@ h6 {
   margin: 0;
 }
 
-/* Botão base (genérico) */
 .btn {
   padding: 0.45rem 0.75rem;
   border: 1px solid var(--border);
@@ -132,13 +157,11 @@ h6 {
   }
 }
 
-/* Leaflet canvas full-viewport padrão */
 .map-root .leaflet-container {
   height: 100vh;
   width: 100vw;
 }
 
-/* Etiquetas genéricas */
 .country-label span {
   font: 600 12px/1.2 var(--font-body);
   color: var(--gold);
@@ -195,7 +218,6 @@ h6 {
   }
 }
 
-/* Tooltip de distrito */
 .leaflet-tooltip.district-badge {
   background: var(--bg-panel-2);
   color: var(--gold);
@@ -217,14 +239,10 @@ h6 {
   border-width: 7px !important;
 }
 
-/* Transições suaves em geometrias */
 .leaflet-interactive {
   transition: fill-opacity 0.22s ease, stroke 0.22s ease, stroke-width 0.22s ease, fill 0.22s ease;
 }
 
-/* ============================
-   Scrollbar dourada (reutilizável)
-   ============================ */
 @mixin gold-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--gold) transparent;
@@ -244,12 +262,92 @@ h6 {
   }
 }
 
-/* util global (continua a existir) */
+@mixin scroll-hidden {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@mixin modal-overlay-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding:
+    calc(18px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    calc(22px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(var(--overlay-blur));
+}
+
+@mixin modal-panel-shell {
+  position: relative;
+  width: min(760px, 96vw);
+  max-width: 760px;
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: var(--panel-shell-bg);
+  border: 1px solid var(--panel-border-gold);
+  box-shadow: var(--panel-shell-shadow);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: var(--panel-shell-inner-glow);
+  }
+}
+
+@mixin modal-title {
+  text-align: center;
+  font-family: var(--font-title), serif;
+  line-height: 1.05;
+  color: var(--panel-title-color);
+  text-shadow: var(--panel-title-shadow);
+}
+
+@mixin modal-subtitle {
+  text-align: center;
+  color: var(--panel-text-soft);
+  line-height: 1.45;
+
+  strong {
+    color: var(--panel-title-color);
+    font-weight: 800;
+  }
+}
+
+@mixin field-theme-gold($scope) {
+  #{$scope} .ui-input,
+  #{$scope} .ui-textarea,
+  #{$scope} .ui-select {
+    border-color: var(--panel-border-gold);
+  }
+
+  #{$scope} .ui-input:hover,
+  #{$scope} .ui-textarea:hover,
+  #{$scope} .ui-select:hover {
+    border-color: var(--field-border-hover);
+  }
+
+  #{$scope} .ui-input:focus,
+  #{$scope} .ui-textarea:focus,
+  #{$scope} .ui-select:focus {
+    border-color: var(--field-border-focus);
+    box-shadow: 0 0 0 3px var(--field-ring-focus);
+  }
+}
+
 .gold-scroll {
   @include gold-scroll;
 }
 
-/* Overlay de loading global */
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -257,92 +355,4 @@ h6 {
   background: #0e3b2e;
   display: grid;
   place-items: center;
-}
-.loading-frame {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-}
-.loading-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: calc(50% + var(--logo-shift-x)) calc(50% + var(--logo-shift-y));
-  background: #0e3b2e;
-}
-
-.leaflet-tooltip.poi-tooltip{
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  border: 1.4px solid var(--gold-dark);
-  border-radius: 10px;
-
-  padding: 4px 8px;
-  box-shadow: 0 8px 18px rgba(0,0,0,.32);
-
-  font-family: var(--font-body), serif;
-  font-size: 12px;
-  line-height: 1.15;
-  font-weight: 400;
-
-  pointer-events: none;
-  white-space: nowrap;
-  z-index: 99999;
-}
-
-.leaflet-tooltip-top.poi-tooltip:before{
-  border-top-color: var(--bg-panel-2) !important;
-  border-width: 6px !important;
-}
-
-.leaflet-tooltip.poi-tooltip strong{
-  font-weight: 500;      /* antes 700 */
-  color: var(--gold-strong);
-  display: block;
-  margin-bottom: 1px;
-  letter-spacing: 0;     /* tira o “luxo” extra */
-}
-
-.leaflet-tooltip.poi-tooltip div{
-  opacity: .85;
-  margin-top: 1px;
-  font-size: 10px;
-  font-weight: 200;
-}
-/* =========================
-   Responsive foundation
-========================= */
-
-@media (max-width: 1024px) {
-  :root {
-    --topbar-h: 60px;
-    --top-left-slot: 60px;
-    --topbar-brand-icon: 42px;
-  }
-}
-
-@media (max-width: 900px) {
-  :root {
-    --topbar-h: 56px;
-    --top-left-slot: 56px;
-    --topbar-pad-x: 10px;
-    --topbar-gap: 10px;
-    --topbar-brand-icon: 40px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  .spinner-gold {
-    animation-duration: 1.2s !important;
-    animation-iteration-count: infinite !important;
-  }
 }
