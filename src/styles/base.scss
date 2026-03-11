@@ -10,34 +10,25 @@
   --safe-bottom: env(safe-area-inset-bottom);
   --safe-left: env(safe-area-inset-left);
 
-  /* Core palette */
-  --bg-deep: #121d17;
-  --bg-panel: #18271e;
-  --bg-panel-2: #1f3327;
-  --bg-panel-3: #284133;
-
-  --border: rgba(240, 199, 107, 0.28);
-  --border-2: rgba(240, 199, 107, 0.46);
-  --border-soft: rgba(255, 255, 255, 0.06);
-
-  --gold: #f0c76b;
-  --gold-dark: #d9ab48;
-  --gold-strong: #f6d27a;
-  --gold-soft: rgba(240, 199, 107, 0.82);
-  --text-soft: rgba(244, 237, 220, 0.84);
-  --muted: rgba(240, 199, 107, 0.72);
+  --bg-deep: #0f2418;
+  --bg-panel: #122b1a;
+  --bg-panel-2: #163521;
+  --border: #254b32;
+  --border-2: #2d593b;
+  --gold: #d7b25a;
+  --gold-dark: #b38f3b;
+  --gold-strong: #f1d27a;
+  --muted: rgba(215, 178, 90, 0.75);
 
   --overlay-backdrop: rgba(0, 0, 0, 0.45);
   --overlay-blur: 6px;
 
-  /* Shell / modal / panel tokens */
   --panel-border-gold: rgba(240, 199, 107, 0.34);
   --panel-border-soft: rgba(223, 186, 96, 0.14);
   --panel-ring: rgba(240, 199, 107, 0.16);
   --panel-glow-sm: rgba(240, 199, 107, 0.12);
   --panel-glow-md: rgba(240, 199, 107, 0.20);
   --panel-glow-lg: rgba(240, 199, 107, 0.10);
-  --panel-edge-highlight: rgba(255, 255, 255, 0.03);
 
   --panel-shell-bg:
     radial-gradient(760px 260px at 50% 0%, rgba(241, 204, 108, 0.08), transparent 60%),
@@ -47,7 +38,7 @@
   --panel-shell-shadow:
     0 40px 80px rgba(0, 0, 0, 0.45),
     0 18px 36px rgba(0, 0, 0, 0.22),
-    0 0 0 1px var(--panel-edge-highlight) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
     0 0 34px var(--panel-glow-md),
     0 0 90px var(--panel-glow-lg);
 
@@ -55,41 +46,19 @@
     0 0 18px rgba(240, 199, 107, 0.22),
     0 0 42px var(--panel-glow-sm);
 
-  --panel-title-color: var(--gold);
+  --panel-title-color: #f0c76b;
   --panel-title-shadow: 0 2px 14px rgba(240, 199, 107, 0.10);
-  --panel-text-soft: var(--text-soft);
+  --panel-text-soft: rgba(244, 237, 220, 0.84);
 
-  /* Inputs */
-  --field-bg: rgba(255, 255, 255, 0.025);
-  --field-bg-hover: rgba(255, 255, 255, 0.038);
-  --field-bg-focus: rgba(255, 255, 255, 0.045);
-  --field-border-default: rgba(240, 199, 107, 0.34);
+  --field-border-default: var(--border);
   --field-border-hover: rgba(240, 199, 107, 0.52);
   --field-border-focus: rgba(240, 199, 107, 0.72);
   --field-ring-focus: var(--panel-ring);
-  --field-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.025),
-    0 8px 18px rgba(0, 0, 0, 0.10);
-  --field-shadow-hover:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 10px 22px rgba(0, 0, 0, 0.12);
-  --field-shadow-focus:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 12px 24px rgba(0, 0, 0, 0.13);
   --field-invalid-border: rgba(235, 85, 85, 0.9);
   --field-invalid-ring: rgba(235, 85, 85, 0.16);
   --field-disabled-opacity: 0.65;
 
   --status-danger: rgba(235, 85, 85, 0.95);
-
-  /* Shared buttons */
-  --btn-bg: var(--bg-panel);
-  --btn-bg-hover: var(--bg-panel-2);
-  --btn-border: var(--border);
-  --btn-border-hover: var(--border-2);
-  --btn-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
 
   --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-title: "Cormorant Garamond", serif;
@@ -139,7 +108,7 @@ body {
   font-family: var(--font-body), serif;
   font-weight: var(--font-weight-body);
   background-color: var(--bg-deep);
-  color: var(--gold-soft);
+  color: var(--gold);
   line-height: 1.6;
 }
 
@@ -158,18 +127,17 @@ h6 {
 
 .btn {
   padding: 0.45rem 0.75rem;
-  border: 1px solid var(--btn-border);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--btn-bg);
+  background: var(--bg-panel);
   color: var(--gold);
   cursor: pointer;
   font-family: var(--font-body), serif;
-  box-shadow: var(--btn-shadow);
   transition: all 0.18s ease;
 
   &:hover {
-    background: var(--btn-bg-hover);
-    border-color: var(--btn-border-hover);
+    background: var(--bg-panel-2);
+    border-color: var(--gold-dark);
     color: var(--gold-strong);
   }
 
@@ -179,8 +147,8 @@ h6 {
 
   &:focus {
     outline: none;
-    border-color: var(--field-border-focus);
-    box-shadow: var(--btn-shadow), 0 0 0 3px var(--field-ring-focus);
+    border-color: var(--border-2);
+    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
   }
 
   &:disabled {
@@ -227,9 +195,6 @@ h6 {
   font-weight: var(--font-weight-title);
   font-size: 16px;
   cursor: pointer;
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.12),
-    0 0 14px rgba(240, 199, 107, 0.08);
   transition: all 0.18s ease;
   display: inline-flex;
   align-items: center;
@@ -240,9 +205,6 @@ h6 {
     background: var(--bg-panel-2);
     border-color: var(--gold);
     color: var(--gold-strong);
-    box-shadow:
-      0 10px 22px rgba(0, 0, 0, 0.16),
-      0 0 18px rgba(240, 199, 107, 0.12);
   }
 
   &:active {
@@ -251,8 +213,8 @@ h6 {
 
   &:focus {
     outline: none;
-    border-color: var(--field-border-focus);
-    box-shadow: 0 0 0 3px var(--field-ring-focus);
+    border-color: var(--border-2);
+    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
   }
 }
 
@@ -289,11 +251,9 @@ h6 {
     width: 8px;
     height: 8px;
   }
-
   &::-webkit-scrollbar-track {
     background: transparent;
   }
-
   &::-webkit-scrollbar-thumb {
     background-color: var(--gold);
     border-radius: 8px;
@@ -302,16 +262,8 @@ h6 {
   }
 }
 
-@mixin floating-surface-shell {
-  background: var(--panel-shell-bg);
-  border: 1px solid var(--panel-border-gold);
-  box-shadow: var(--panel-shell-shadow);
-  backdrop-filter: blur(10px);
-}
-
 @mixin scroll-hidden {
   scrollbar-width: none;
-
   &::-webkit-scrollbar {
     display: none;
   }
@@ -404,4 +356,3 @@ h6 {
   display: grid;
   place-items: center;
 }
-

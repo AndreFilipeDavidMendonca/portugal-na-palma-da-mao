@@ -1,24 +1,28 @@
-@use "@/styles/base.scss" as *;
-
 .user-menu__dropdown {
   position: absolute;
   top: var(--um-top);
-  left: 0;
+  left: 0;       /* abre para a esquerda */
+
+
   width: var(--um-w);
   min-width: unset;
+
   padding: 14px;
   border-radius: var(--um-radius);
-  z-index: 9999;
-  overflow: visible;
-
-  @include floating-surface-shell;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   backdrop-filter: blur(10px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35),
+  0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  z-index: 9999;
+
+  overflow: visible;
 }
 
 .user-menu__divider {
   height: 1px;
   margin: 10px 0;
-  background: var(--border-soft);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .user-menu__item {
@@ -26,40 +30,30 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 12px 12px;
   border-radius: 12px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--text-soft);
+  color: rgba(255, 255, 255, 0.88);
   cursor: pointer;
   text-align: left;
   font-weight: 500;
   font-size: 16px;
-  transition:
-    background 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease,
-    box-shadow 0.16s ease;
 
   &:hover {
-    background: var(--field-bg-hover);
-    border-color: var(--panel-border-soft);
-    color: var(--gold-strong);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
   }
 }
 
 .user-menu__item--primary {
-  background: rgba(240, 199, 107, 0.14);
-  border-color: rgba(240, 199, 107, 0.28);
-  color: var(--gold-strong);
+  background: rgba(212, 175, 55, 0.14);
+  border-color: rgba(212, 175, 55, 0.28);
+  color: rgba(212, 175, 55, 0.95);
 
   &:hover {
-    background: rgba(240, 199, 107, 0.18);
-    border-color: rgba(240, 199, 107, 0.40);
-    box-shadow:
-      0 10px 22px rgba(0, 0, 0, 0.14),
-      0 0 18px rgba(240, 199, 107, 0.10);
+    background: rgba(212, 175, 55, 0.18);
+    border-color: rgba(212, 175, 55, 0.36);
   }
 }
 
@@ -69,31 +63,32 @@
   &:hover {
     background: rgba(255, 80, 80, 0.10);
     border-color: rgba(255, 80, 80, 0.18);
-    color: rgba(255, 190, 190, 0.98);
   }
 }
 
+/* ===========================
+   Sections (Favoritos / Os meus POIs)
+=========================== */
 .user-menu__section {
   width: 100%;
   border: 0;
   background: transparent;
   padding: 10px 6px 8px;
   cursor: pointer;
-  color: var(--gold-strong);
+  color: rgba(212, 175, 55, 0.95);
   font-weight: 500;
   letter-spacing: 0.04em;
+
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-start; /* ✅ texto logo após a seta */
   gap: 6px;
-  border-bottom: 1px solid rgba(240, 199, 107, 0.22);
-  transition:
-    color 0.16s ease,
-    border-color 0.16s ease;
+
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
 
   &:hover {
-    color: var(--gold-strong);
-    border-bottom-color: rgba(240, 199, 107, 0.34);
+    color: rgba(212, 175, 55, 1);
+    border-bottom-color: rgba(212, 175, 55, 0.34);
   }
 }
 
@@ -102,13 +97,15 @@
   white-space: nowrap;
 }
 
+/* seta */
 .user-menu__chev {
-  flex: 0 0 auto;
-  opacity: 0.85;
   transition: transform 0.18s ease, opacity 0.18s ease;
+  opacity: 0.85;
+  flex: 0 0 auto;
 }
 
+/* quando abre o flyout (para a esquerda) */
 .user-menu__section.is-open .user-menu__chev {
-  transform: rotate(-90deg);
+  transform: rotate(-90deg); /* aponta para a esquerda */
   opacity: 1;
 }

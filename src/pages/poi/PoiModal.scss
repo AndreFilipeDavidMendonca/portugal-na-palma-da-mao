@@ -1,3 +1,4 @@
+/* src/pages/poi/PoiModal.scss */
 @use "@/styles/base.scss" as *;
 
 :root {
@@ -5,13 +6,16 @@
   --poi-gap: 10px;
   --poi-max-w: 1180px;
   --poi-radius: 16px;
-  --gold-sep: rgba(240, 199, 107, 0.22);
+  --gold-sep: rgba(215, 178, 90, 0.28);
 }
 
 .poi-overlay {
   position: fixed;
   inset: 0;
   z-index: 99999;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
   display: grid;
   place-items: start center;
 
@@ -19,40 +23,30 @@
   padding-right: calc(var(--poi-gap) + var(--safe-right));
   padding-bottom: calc(var(--poi-gap) + var(--safe-bottom));
   padding-left: calc(var(--poi-gap) + var(--safe-left));
-
-  background: var(--overlay-backdrop);
-  backdrop-filter: blur(var(--overlay-blur));
 }
 
 .poi-card {
-  position: relative;
   width: min(var(--poi-max-w), calc(100vw - (var(--poi-gap) * 2)));
   max-height: calc(100vh - var(--poi-top) - var(--poi-gap) - var(--safe-bottom));
   overflow: hidden;
 
   border-radius: var(--poi-radius);
-  background: var(--panel-shell-bg);
-  border: 1px solid var(--panel-border-gold);
-  box-shadow: var(--panel-shell-shadow);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 
   display: flex;
   flex-direction: column;
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow: var(--panel-shell-inner-glow);
-  }
 }
 
 .poi-header {
   flex: 0 0 auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* =========================
+   BODY (Desktop default)
+========================= */
 .poi-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -76,39 +70,49 @@
   gap: 18px;
 }
 
+/* =========================
+   MEDIA (Base premium + center)
+   ✅ centra e nunca foge para a direita
+========================= */
 .poi-media {
   grid-area: media;
-  min-height: clamp(270px, 48vh, 560px);
-  min-width: 0;
-  margin-bottom: 30px;
 
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
+  min-height: clamp(270px, 48vh, 560px);
+
   border-radius: 16px;
+  overflow: hidden;
 
   background:
-    radial-gradient(600px 220px at 30% 10%, rgba(240, 199, 107, 0.10), transparent 62%),
+    radial-gradient(600px 220px at 30% 10%, rgba(215, 178, 90, 0.10), transparent 62%),
     linear-gradient(180deg, rgba(18, 46, 30, 0.60), rgba(10, 26, 18, 0.55));
 
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  display: flex;
+  justify-content: center;
+
+  min-width: 0;
+  margin-bottom: 30px;
 }
 
 .poi-media.is-editing {
   min-height: clamp(520px, 78vh, 980px);
 }
 
+/* viewport real do slideshow (embrulha o PoiMedia no TSX com .poi-media__viewport) */
 .poi-media__viewport {
-  position: relative;
   width: 100%;
   height: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+
+  background: rgba(0, 0, 0, 0.12);
+
   min-width: 0;
   box-sizing: border-box;
-  overflow: hidden;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.12);
 }
 
 .poi-media__viewport > * {
@@ -122,28 +126,31 @@
 .poi-media__viewport video {
   width: 100%;
   height: 100%;
-  display: block;
   object-fit: cover;
   object-position: center;
+  display: block;
 }
 
+/* =========================
+   SIDE + COMMENTS
+========================= */
 .poi-side {
   grid-area: side;
   align-self: start;
-  min-width: 0;
   overflow: visible;
+  min-width: 0;
 }
 
 .poi-comments-wrap {
   grid-area: comments;
   min-height: 0;
+
   margin-top: 6px;
   padding-top: 14px;
   padding-bottom: 14px;
+
   border-top: 1px solid var(--gold-sep);
 }
-
-@include field-theme-gold(".poi-card");
 
 @media (max-width: 1200px) {
   .poi-body {
@@ -153,20 +160,27 @@
   }
 }
 
+/* =========================
+   Mobile
+   ✅ dots não cortam
+   ✅ remove scroll no mobile
+========================= */
 @media (max-width: 900px) {
+  /* ✅ remove scroll do modal em mobile */
   .poi-card {
     max-height: none;
     height: calc(100vh - var(--poi-top) - var(--poi-gap) - var(--safe-bottom));
-    max-width: 100%;
   }
 
   .poi-body {
     display: flex;
     flex-direction: column;
     gap: 14px;
+
     padding: 14px;
     margin-bottom: 0;
-    scrollbar-width: none;
+
+  scrollbar-width: none;
     -webkit-overflow-scrolling: auto;
   }
 
@@ -179,11 +193,15 @@
 
   .poi-media {
     width: calc(100% + 12px);
-    max-width: none;
     margin-left: -6px;
     margin-right: -6px;
+
+    max-width: none;
     border-radius: 16px;
+
     aspect-ratio: 16 / 9;
+
+    /* ✅ dá “respiro” para os dots */
     padding-bottom: 14px;
   }
 
@@ -193,10 +211,17 @@
     min-height: clamp(520px, 86vh, 980px);
   }
 
+  /* ✅ garante espaço dentro do viewport para indicadores/dots */
   .poi-media__viewport {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+
+    /* 🔥 isto resolve 90% dos “dots cortados” */
     padding-bottom: max(14px, env(safe-area-inset-bottom));
   }
 
+  /* ✅ impedir que tracks internos imponham largura/altura estranhas */
   .poi-media,
   .poi-media__viewport,
   .poi-media__viewport > *,
@@ -219,10 +244,12 @@
     margin-top: 8px;
     padding-top: 18px;
     padding-bottom: 14px;
-    border-top: 1px solid rgba(240, 199, 107, 0.28);
+    border-top: 1px solid rgba(215, 178, 90, 0.34);
   }
 
+  /* cinto extra */
   .poi-card {
     overflow: hidden;
+    max-width: 100%;
   }
 }
