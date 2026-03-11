@@ -404,16 +404,3 @@ h6 {
   display: grid;
   place-items: center;
 }
-
-.leaflet-container .leaflet-interactive,
-.leaflet-container .leaflet-interactive:focus,
-.leaflet-container path:focus,
-.leaflet-container svg:focus {
-  outline: none !important;
-}
-
-.leaflet-container img.leaflet-tile {
-  mix-blend-mode: normal !important;
-  filter: none !important;
-  opacity: 1 !important;
-}
