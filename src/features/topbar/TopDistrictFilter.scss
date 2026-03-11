@@ -1,3 +1,5 @@
+@use "@/styles/base.scss" as *;
+
 /* ===========================
    Barra topo: Pesquisa global
 =========================== */
@@ -6,10 +8,11 @@
   position: sticky;
   top: 0;
   z-index: 9500;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
   padding-left: var(--top-left-slot);
   padding-top: var(--safe-top);
+
+  @include floating-surface-shell;
+  border-bottom: 1px solid var(--topbar-border);
 }
 
 .tdf-inner {
@@ -21,7 +24,6 @@
   box-sizing: border-box;
 }
 
-/* layout */
 .tdf-wrap {
   display: flex;
   align-items: center;
@@ -34,7 +36,6 @@
   min-width: 8px;
 }
 
-/* label */
 .tdf-label {
   font-family: var(--font-title), serif;
   color: var(--gold);
@@ -45,7 +46,6 @@
   white-space: nowrap;
 }
 
-/* input + dropdown */
 .tdf-inputbox {
   position: relative;
   display: flex;
@@ -56,22 +56,36 @@
 
 .tdf-input {
   width: 100%;
-  background: var(--bg-panel);
-  color: var(--gold);
-  border: 1px solid var(--border);
+  padding: 10px 42px 10px 12px;
   border-radius: var(--topbar-radius);
-  padding: 10px 42px 10px 12px; /* espaço p/ botão X */
   outline: none;
   font-family: var(--font-body), serif;
   line-height: 1.2;
 
+  background: var(--field-bg);
+  color: var(--gold-strong);
+  border: 1px solid var(--field-border-default);
+  box-shadow: var(--field-shadow);
+
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+
+  &:hover {
+    background: var(--field-bg-hover);
+    border-color: var(--field-border-hover);
+    box-shadow: var(--field-shadow-hover);
+  }
+
   &:focus {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+    background: var(--field-bg-focus);
+    border-color: var(--field-border-focus);
+    box-shadow: var(--field-shadow-focus), 0 0 0 3px var(--field-ring-focus);
   }
 }
 
-/* botão X dentro do input */
 .tdf-clear {
   position: absolute;
   right: 10px;
@@ -79,30 +93,41 @@
   transform: translateY(-50%);
   width: 28px;
   height: 28px;
+  padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  cursor: pointer;
   display: grid;
   place-items: center;
   font-size: 18px;
   line-height: 1;
-  padding: 0;
+  cursor: pointer;
+
+  border: 1px solid var(--field-border-default);
+  background: var(--bg-panel-2);
+  color: var(--gold);
+  box-shadow: var(--btn-shadow);
+
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
 
   &:hover {
-    border-color: var(--gold-dark);
+    border-color: var(--field-border-hover);
+    background: var(--bg-panel-3);
     color: var(--gold-strong);
+    box-shadow:
+      0 10px 22px rgba(0, 0, 0, 0.16),
+      0 0 18px rgba(240, 199, 107, 0.10);
   }
 
   &:focus {
     outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+    border-color: var(--field-border-focus);
+    box-shadow: 0 0 0 3px var(--field-ring-focus);
   }
 }
 
-/* dropdown */
 .tdf-list {
   position: absolute;
   left: 0;
@@ -110,34 +135,35 @@
   top: calc(100% + 6px);
   max-height: 280px;
   overflow: auto;
-
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--topbar-radius);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-
-  list-style: none;
   margin: 0;
   padding: 6px;
+  list-style: none;
+
+  @include gold-scroll;
+  @include floating-surface-shell;
+
+  border-radius: var(--topbar-radius);
 }
 
 .tdf-item {
   padding: 8px 10px;
   border-radius: 8px;
-  color: var(--gold);
+  color: var(--gold-soft);
   cursor: pointer;
   font-family: var(--font-body), serif;
+  border: 1px solid transparent;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 
   &:hover,
   &.is-active {
-    background: var(--bg-panel-2);
-    border: 1px solid var(--gold-dark);
+    background: var(--field-bg-hover);
+    border-color: var(--panel-border-gold);
+    color: var(--gold-strong);
   }
 }
-
-/* =========================
-   Responsive
-========================= */
 
 @media (max-width: 1024px) {
   .tdf-inputbox {
