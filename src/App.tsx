@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import Home from "@/pages/Home";
-import CreatePoiPage from "@/pages/poi/CreatePoiPage";
 import ToastHost from "@/components/Toastr/ToastHost";
 
 export default function App() {
