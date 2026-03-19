@@ -1,3 +1,5 @@
+@use "@/styles/base.scss" as *;
+
 /* src/pages/district/DistrictModal.scss */
 
 .district-modal.theme-dark {
@@ -12,19 +14,32 @@
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 1fr;
   overflow: hidden;
-
   min-width: 0;
+
+  .poi-top {
+    position: fixed;
+    top: var(--safe-top);
+    left: var(--safe-left);
+    right: var(--safe-right);
+    z-index: 5200;
+    pointer-events: none;
+  }
+
+  .poi-top > * {
+    pointer-events: auto;
+  }
 
   .modal-content {
     display: grid;
-
-    /* ✅ Desktop: divide ao meio */
     grid-template-columns: 3fr 2fr;
-
     min-height: 0;
     min-width: 0;
+
+    /* espaço para a barra fixa no topo */
+    padding-top: 74px;
+    gap: 0;
   }
 
   .left-pane,
@@ -56,32 +71,35 @@
 @media (max-width: 1024px) {
   .district-modal.theme-dark {
     height: 100dvh;
-
-    /* ✅ scroll no container principal */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-
-    /* ✅ em mobile querias padding 0 */
     padding: 0;
+
+    .poi-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 5200;
+    }
   }
 
   .district-modal.theme-dark .modal-content {
     display: flex;
     flex-direction: column;
-
     min-height: auto;
     overflow: visible;
+
+    /* espaço para a barra mobile fixa */
+    padding-top: 72px;
   }
 
   .district-modal.theme-dark .left-pane {
     flex: 0 0 auto;
-
-    /* ✅ altura do bloco do mapa/galeria em mobile */
     height: clamp(52vh, 60vh, 72vh);
     overflow: hidden;
 
-    /* ✅ se for gallery, permite scroll dentro da left pane (para editor/lista) */
     &:has(.district-gallery-pane) {
       overflow: auto;
       -webkit-overflow-scrolling: touch;
@@ -104,5 +122,9 @@
 @media (max-width: 600px) {
   .district-modal.theme-dark .left-pane {
     height: clamp(45vh, 60vh, 78vh);
+  }
+
+  .district-modal.theme-dark .modal-content {
+    padding-top: 68px;
   }
 }

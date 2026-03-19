@@ -1,14 +1,16 @@
 import React from "react";
-import { GeoJSON, useMap } from "react-leaflet";
-import L, { LatLngExpression } from "leaflet";
+import { GeoJSON, LayerGroup, useMap } from "react-leaflet";
+import L, { LatLngBounds, LatLngExpression } from "leaflet";
 
-import { POI_LABELS, type PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
+import { type PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
 import { paintPoiIconSvg, buildPoiMarkerHtml } from "@/utils/poiSvg";
 
 type AnyGeo = any;
 
 const iconCache = new Map<string, L.DivIcon>();
+const MAX_VISIBLE_LABELS = 10;
+const MIN_ZOOM_LABELS = 12;
 
 function getName(p: any) {
   const tags = p?.tags ?? {};
@@ -94,24 +96,65 @@ function getIconSizeForZoom(zoom: number): number {
   return Math.round(P0 + (P1 - P0) * t);
 }
 
-function useMapZoom() {
+function getLabelFontSizeForZoom(zoom: number): number {
+  const Z0 = 13;
+  const Z1 = 18;
+  const P0 = 11;
+  const P1 = 15;
+
+  const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
+  return Math.round(P0 + (P1 - P0) * t);
+}
+
+function useMapViewState() {
   const map = useMap();
-  const [zoom, setZoom] = React.useState<number>(() => map.getZoom());
+
+  const [viewState, setViewState] = React.useState(() => ({
+    zoom: map.getZoom(),
+    bounds: map.getBounds(),
+    center: map.getCenter(),
+  }));
+
+  const timeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    const onZoom = () => setZoom(map.getZoom());
-    map.on("zoomend", onZoom);
+    const update = () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = window.setTimeout(() => {
+        setViewState({
+          zoom: map.getZoom(),
+          bounds: map.getBounds(),
+          center: map.getCenter(),
+        });
+      }, 80);
+    };
+
+    map.on("zoomend", update);
+    map.on("moveend", update);
 
     return () => {
-      map.off("zoomend", onZoom);
+      map.off("zoomend", update);
+      map.off("moveend", update);
+
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
     };
   }, [map]);
 
-  return zoom;
+  return viewState;
 }
 
-function getCachedIcon(key: string, html: string, size: number) {
-  const cacheKey = `${key}|${size}`;
+function getCachedIcon(
+  key: string,
+  html: string,
+  size: number,
+  anchor?: [number, number]
+) {
+  const cacheKey = `${key}|${size}|${anchor?.join(",") ?? "default"}`;
   const cached = iconCache.get(cacheKey);
   if (cached) return cached;
 
@@ -119,7 +162,7 @@ function getCachedIcon(key: string, html: string, size: number) {
     html,
     className: "poi-divicon",
     iconSize: [size, size],
-    iconAnchor: [size / 2, size],
+    iconAnchor: anchor ?? [size / 2, size],
   });
 
   iconCache.set(cacheKey, icon);
@@ -132,7 +175,99 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
   const iconSvg = rawSvg ? paintPoiIconSvg(rawSvg, color) : null;
   const html = buildPoiMarkerHtml(iconSvg, color, sizePx);
 
-  return getCachedIcon(`poi-marker:${category}:${color}:v3`, html, sizePx);
+  return getCachedIcon(`poi-marker:${category}:${color}:v5`, html, sizePx);
+}
+
+function splitLabelTwoLines(name: string) {
+  const MAX_LINE = 26;
+
+  if (name.length <= MAX_LINE) return name;
+
+  const words = name.split(" ");
+  let line1 = "";
+  let line2 = "";
+
+  for (const word of words) {
+    const nextLine1 = `${line1} ${word}`.trim();
+
+    if (nextLine1.length <= MAX_LINE && !line2) {
+      line1 = nextLine1;
+    } else {
+      line2 = `${line2} ${word}`.trim();
+    }
+  }
+
+  if (!line2) return name;
+
+  if (line2.length > MAX_LINE) {
+    line2 = `${line2.slice(0, MAX_LINE - 1)}…`;
+  }
+
+  return `${line1}<br/>${line2}`;
+}
+
+function createPoiLabelIcon(category: PoiCategory, name: string, fontSize: number) {
+  const color = CATEGORY_COLORS[category] || "#d7b25a";
+  const formattedName = splitLabelTwoLines(name);
+  const safeTitle = name.replace(/"/g, "&quot;");
+
+  const plainLength = name.length;
+  const width = Math.max(90, Math.min(plainLength * fontSize * 0.58, 220));
+  const height = Math.round(fontSize * 2.35);
+
+  const html = `
+    <div
+      class="poi-inline-label"
+      style="
+        color:${color};
+        font-size:${fontSize}px;
+      "
+      title="${safeTitle}"
+    >
+      ${formattedName}
+    </div>
+  `;
+
+  return getCachedIcon(
+    `poi-label:${category}:${color}:${name}:${fontSize}`,
+    html,
+    width,
+    [-14, Math.round(height * 1.0)]
+  );
+}
+
+function isPointFeature(f: any) {
+  return f?.geometry?.type === "Point" && Array.isArray(f?.geometry?.coordinates);
+}
+
+function getVisibleLabelFeatures(
+  data: AnyGeo,
+  bounds: LatLngBounds,
+  center: L.LatLng
+) {
+  const features = (data?.features ?? []) as any[];
+
+  return features
+    .filter((f) => {
+      if (!isPointFeature(f)) return false;
+
+      const [lon, lat] = f.geometry.coordinates;
+      if (typeof lat !== "number" || typeof lon !== "number") return false;
+
+      return bounds.contains(L.latLng(lat, lon));
+    })
+    .map((f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      const latlng = L.latLng(lat, lon);
+
+      return {
+        feature: f,
+        distance: center.distanceTo(latlng),
+      };
+    })
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, MAX_VISIBLE_LABELS)
+    .map((item) => item.feature);
 }
 
 export function PoiPointsLayer({
@@ -146,160 +281,110 @@ export function PoiPointsLayer({
   nonce?: number;
   onSelect?: (feature: any) => void;
 }) {
-  const map = useMap();
-  const zoom = useMapZoom();
+  const { zoom, bounds, center } = useMapViewState();
 
-  const MIN_ZOOM_TOOLTIPS = 13;
-  const MAX_OPEN = 1;
-  const showTooltips = zoom >= MIN_ZOOM_TOOLTIPS;
-
-  const showTooltipsRef = React.useRef(showTooltips);
-  React.useEffect(() => {
-    showTooltipsRef.current = showTooltips;
-  }, [showTooltips]);
-
+  const showLabels = zoom >= MIN_ZOOM_LABELS;
   const iconSize = getIconSizeForZoom(zoom);
+  const labelFontSize = getLabelFontSizeForZoom(zoom);
 
-  const key = React.useMemo(() => {
+  const labelData = React.useMemo(() => {
+    if (!showLabels) {
+      return { type: "FeatureCollection", features: [] as any[] };
+    }
+
+    return {
+      type: "FeatureCollection",
+      features: getVisibleLabelFeatures(data, bounds, center),
+    };
+  }, [
+    data,
+    showLabels,
+    bounds.getWest(),
+    bounds.getSouth(),
+    bounds.getEast(),
+    bounds.getNorth(),
+    center.lat,
+    center.lng,
+  ]);
+
+  const baseKey = React.useMemo(() => {
     const cats = Array.from(selectedTypes ?? []).sort().join(",");
     const ids = (data?.features ?? []).map((f: any) => f?.properties?.id ?? "").join(",");
     return `${cats}|n:${nonce}|ids:${ids}`;
   }, [selectedTypes, nonce, data]);
 
-  const geoRef = React.useRef<L.GeoJSON | null>(null);
-  const rafRef = React.useRef<number | null>(null);
-
-  const getCurrentLayers = React.useCallback((): L.Layer[] => {
-    const geo = geoRef.current as any;
-    return geo?.getLayers?.() ?? [];
-  }, []);
-
-  const updateVisibleTooltips = React.useCallback(() => {
-    const layers = getCurrentLayers();
-
-    if (!showTooltipsRef.current) {
-      for (const layer of layers) {
-        (layer as any)?.closeTooltip?.();
-      }
-      return;
-    }
-
-    const bounds = map.getBounds();
-    const center = bounds.getCenter();
-    const candidates: { layer: any; dist: number }[] = [];
-
-    for (const layer of layers) {
-      const marker: any = layer;
-      const latlng = marker?.getLatLng?.();
-      if (!latlng) continue;
-
-      if (!bounds.contains(latlng)) {
-        marker.closeTooltip?.();
-        continue;
-      }
-
-      candidates.push({
-        layer: marker,
-        dist: center.distanceTo(latlng),
-      });
-    }
-
-    candidates.sort((a, b) => a.dist - b.dist);
-    const keep = new Set(candidates.slice(0, MAX_OPEN).map((c) => c.layer));
-
-    for (const layer of layers) {
-      const marker: any = layer;
-      if (!marker?.getLatLng?.()) continue;
-
-      if (keep.has(marker)) marker.openTooltip?.();
-      else marker.closeTooltip?.();
-    }
-  }, [map, getCurrentLayers]);
-
-  const scheduleUpdate = React.useCallback(() => {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(updateVisibleTooltips);
-  }, [updateVisibleTooltips]);
-
-  React.useEffect(() => {
-    const handler = () => scheduleUpdate();
-
-    map.on("zoomend", handler);
-    map.on("moveend", handler);
-
-    const t1 = window.setTimeout(() => scheduleUpdate(), 0);
-    const t2 = window.setTimeout(() => scheduleUpdate(), 80);
-
-    return () => {
-      map.off("zoomend", handler);
-      map.off("moveend", handler);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [map, scheduleUpdate, key]);
+  const labelsKey = React.useMemo(() => {
+    return `labels:${zoom}:${bounds.toBBoxString()}:${center.lat.toFixed(4)}:${center.lng.toFixed(4)}`;
+  }, [zoom, bounds, center]);
 
   return (
-    <GeoJSON
-      key={key}
-      data={data as any}
-      ref={(ref) => {
-        geoRef.current = (ref as any) ?? null;
-      }}
-      pointToLayer={(feature: any, latlng: LatLngExpression) => {
-        const category = getPoiCategory(feature);
+    <LayerGroup key={baseKey}>
+      <GeoJSON
+        data={data as any}
+        pointToLayer={(feature: any, latlng: LatLngExpression) => {
+          const category = getPoiCategory(feature);
 
-        if (category) {
-          const icon = createPoiIcon(category, iconSize);
-          const marker = L.marker(latlng, { icon });
+          if (category) {
+            const icon = createPoiIcon(category, iconSize);
+            const marker = L.marker(latlng, { icon });
 
-          if (onSelect) {
-            marker.on("click", () => onSelect(feature));
+            if (onSelect) {
+              marker.on("click", () => onSelect(feature));
+            }
+
+            return marker;
           }
 
-          return marker;
-        }
+          const fallback = L.circleMarker(latlng, {
+            radius: 2,
+            weight: 0.6,
+            color: "#555",
+            fillColor: "#555",
+            fillOpacity: 0.7,
+          } as L.CircleMarkerOptions);
 
-        const fallback = L.circleMarker(latlng, {
-          radius: 2,
-          weight: 0.6,
-          color: "#555",
-          fillColor: "#555",
-          fillOpacity: 0.7,
-        } as L.CircleMarkerOptions);
+          if (onSelect) {
+            fallback.on("click", () => onSelect(feature));
+          }
 
-        if (onSelect) {
-          fallback.on("click", () => onSelect(feature));
-        }
+          return fallback;
+        }}
+        onEachFeature={(_feature: any, layer: L.Layer) => {
+          const anyLayer: any = layer;
+          if (anyLayer._icon) anyLayer._icon.style.cursor = "pointer";
+          if (anyLayer._path) anyLayer._path.style.cursor = "pointer";
+        }}
+      />
 
-        return fallback;
-      }}
-      onEachFeature={(feature: any, layer: L.Layer) => {
-        const props = feature?.properties || {};
-        const name = getName(props) || "Sem nome";
-        const category = getPoiCategory(feature);
-        const label = category ? POI_LABELS[category] : "";
+      {showLabels && (
+        <GeoJSON
+          key={labelsKey}
+          data={labelData as any}
+          pointToLayer={(feature: any, latlng: LatLngExpression) => {
+            const props = feature?.properties || {};
+            const category = getPoiCategory(feature);
+            const name = getName(props);
 
-        const tooltipHtml = `<strong>${name}</strong>${label ? `<div>${label}</div>` : ""}`;
+            if (!category || !name) {
+              return L.circleMarker(latlng, {
+                opacity: 0,
+                fillOpacity: 0,
+                radius: 0,
+              });
+            }
 
-        layer.bindTooltip(tooltipHtml, {
-          className: "poi-tooltip",
-          direction: "top",
-          offset: L.point(0, -10),
-          sticky: false,
-          opacity: 1,
-          permanent: false,
-          interactive: false,
-        });
+            const icon = createPoiLabelIcon(category, name, labelFontSize);
 
-        const anyLayer: any = layer;
-        if (anyLayer._icon) anyLayer._icon.style.cursor = "pointer";
-        if (anyLayer._path) anyLayer._path.style.cursor = "pointer";
-
-        scheduleUpdate();
-        anyLayer.once?.("add", () => scheduleUpdate());
-      }}
-    />
+            return L.marker(latlng, {
+              icon,
+              interactive: false,
+              keyboard: false,
+              zIndexOffset: -1000,
+            });
+          }}
+        />
+      )}
+    </LayerGroup>
   );
 }
 

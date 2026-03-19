@@ -32,23 +32,23 @@ export type PoiCategory =
 
 // === Cores por categoria ===
 export const CATEGORY_COLORS: Record<PoiCategory, string> = {
-    // Cultura
-    castle: "#7e1616",
-    palace: "#3890dc",
-    monument: "#24338e",
-    ruins: "#51362c",
-    church: "#501c61",
+  // Cultura
+  castle: "#7E1616",
+  palace: "#3890DC",
+  monument: "#24338E",
+  ruins: "#51362C",
+  church: "#501C61",
 
-    // Natureza
-    viewpoint: "#ae7710",
-    park: "#2E7D32",
-    trail: "#4ced4c",
+  // Natureza
+  viewpoint: "#8C6A1A",
+  park: "#2E7D32",
+  trail: "#3DDC84",
 
-    // Comercial
-    gastronomy: "#ca6609",
-    crafts: "#8d6e63",
-    accommodation: "#1e88e5",
-    event: "#ed0023",
+  // Comercial
+  gastronomy: "#CA6609",
+  crafts: "#8D6E63",
+  accommodation: "#1E88E5",
+  event: "#ED0023",
 };
 
 // === Labels ===

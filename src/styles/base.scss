@@ -356,3 +356,72 @@ h6 {
   display: grid;
   place-items: center;
 }
+
+/* ------------------------------
+   Context shells
+------------------------------- */
+
+@mixin context-topbar {
+  background:
+    radial-gradient(700px 220px at 50% 0%, rgba(241, 204, 108, 0.07), transparent 62%),
+    linear-gradient(180deg, rgba(20, 43, 29, 0.96), rgba(13, 28, 20, 0.98));
+  border: 1px solid rgba(240, 199, 107, 0.18);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+}
+
+@mixin context-surface {
+  background:
+    linear-gradient(180deg, rgba(22, 49, 33, 0.90), rgba(14, 32, 22, 0.94));
+  border: 1px solid rgba(240, 199, 107, 0.16);
+  border-radius: 18px;
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* ------------------------------
+   POI inline labels (Google-like)
+------------------------------- */
+
+.poi-inline-label {
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: 0;
+  white-space: nowrap;
+
+  white-space: normal;        /* 🔥 permitir quebra */
+    max-width: 180px;           /* 🔥 controla largura */
+    word-break: break-word;
+  text-shadow:
+    -1px 0 0 rgba(255, 255, 255, 0.96),
+     1px 0 0 rgba(255, 255, 255, 0.96),
+     0 -1px 0 rgba(255, 255, 255, 0.96),
+     0  1px 0 rgba(255, 255, 255, 0.96),
+     -1px -1px 0 rgba(255, 255, 255, 0.96),
+      1px -1px 0 rgba(255, 255, 255, 0.96),
+     -1px  1px 0 rgba(255, 255, 255, 0.96),
+      1px  1px 0 rgba(255, 255, 255, 0.96),
+      0 1px 2px rgba(60, 70, 80, 0.28);
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+
+  user-select: none;
+  pointer-events: none;
+}
+
+/* opcional: labels mais suaves no dark map */
+.poi-inline-label--soft {
+  opacity: 0.96;
+}
