@@ -50,6 +50,22 @@
   --panel-title-shadow: 0 2px 14px rgba(240, 199, 107, 0.10);
   --panel-text-soft: rgba(244, 237, 220, 0.84);
 
+  --form-modal-pad-x: 40px;
+  --form-modal-pad-y: 35px;
+  --form-modal-header-pad-x: 50px;
+  --form-modal-header-pad-top: 32px;
+  --form-modal-header-pad-bottom: 18px;
+  --form-modal-body-pad-x: 50px;
+  --form-modal-body-pad-bottom: 35px;
+  --form-modal-radius: 24px;
+  --form-modal-radius-mobile: 20px;
+  --form-modal-title-size: clamp(3rem, 2.8vw, 5rem);
+  --form-modal-subtitle-size: 0.8rem;
+  --form-modal-label-size: 0.82rem;
+  --form-modal-grid-gap: 12px;
+  --form-modal-form-gap: 16px;
+  --form-modal-action-gap: 10px;
+
   --field-border-default: var(--border);
   --field-border-hover: rgba(240, 199, 107, 0.52);
   --field-border-focus: rgba(240, 199, 107, 0.72);
@@ -321,6 +337,103 @@ h6 {
     color: var(--panel-title-color);
     font-weight: 800;
   }
+}
+
+
+@mixin form-modal-card($width: 760px, $scroll: false) {
+  @include modal-panel-shell;
+  width: min(#{$width}, 96vw);
+  max-width: $width;
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
+
+  @if $scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    @include scroll-hidden;
+    padding: var(--form-modal-pad-y) var(--form-modal-pad-x);
+  } @else {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+@mixin form-modal-header {
+  flex: 0 0 auto;
+  padding:
+    var(--form-modal-header-pad-top)
+    var(--form-modal-header-pad-x)
+    var(--form-modal-header-pad-bottom);
+}
+
+@mixin form-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  @include scroll-hidden;
+  padding: 0 var(--form-modal-body-pad-x) var(--form-modal-body-pad-bottom);
+}
+
+@mixin form-modal-title($size: var(--form-modal-title-size), $margin-bottom: 12px) {
+  @include modal-title;
+  margin: 0 0 $margin-bottom;
+  font-size: $size;
+}
+
+@mixin form-modal-subtitle($max-width: 500px) {
+  @include modal-subtitle;
+  margin: 0 auto;
+  max-width: $max-width;
+  font-size: var(--form-modal-subtitle-size);
+}
+
+@mixin form-modal-form {
+  display: grid;
+  gap: var(--form-modal-form-gap);
+}
+
+@mixin form-modal-label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--form-modal-label-size);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--panel-title-color);
+  font-weight: 800;
+}
+
+@mixin form-modal-actions($justify: flex-end) {
+  display: flex;
+  justify-content: $justify;
+  gap: var(--form-modal-action-gap);
+  margin-top: 4px;
+}
+
+@mixin form-modal-mobile-card($scroll: false) {
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--form-modal-radius-mobile);
+
+  @if $scroll {
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 14px 18px;
+  } @else {
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+  }
+}
+
+@mixin form-modal-mobile-overlay {
+  display: block;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    calc(12px + var(--safe-top))
+    calc(12px + var(--safe-right))
+    calc(18px + var(--safe-bottom))
+    calc(12px + var(--safe-left));
 }
 
 @mixin field-theme-gold($scope) {

@@ -8,17 +8,7 @@
 }
 
 .auth-card {
-  @include modal-panel-shell;
-  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  @include scroll-hidden;
-  padding: 35px 40px;
-}
-
-.auth-card--login {
-  width: min(560px, 96vw);
-  max-width: 560px;
+  @include form-modal-card(560px, true);
 }
 
 .auth-card--register {
@@ -42,21 +32,16 @@
 }
 
 .auth-title {
-  @include modal-title;
-  margin: 0 0 8px;
-  font-size: clamp(3rem, 2.6vw, 3rem);
+  @include form-modal-title(clamp(3rem, 2.6vw, 3rem), 8px);
 }
 
 .auth-subtitle {
-  @include modal-subtitle;
-  margin: 0 auto 20px;
-  max-width: 500px;
-  font-size: 0.8rem;
+  @include form-modal-subtitle;
+  margin-bottom: 20px;
 }
 
 .auth-form {
-  display: grid;
-  gap: 16px;
+  @include form-modal-form;
 }
 
 .auth-role {
@@ -66,11 +51,7 @@
 }
 
 .auth-role-label {
-  font-size: 0.82rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--panel-title-color);
-  font-weight: 800;
+  @include form-modal-label;
 }
 
 .auth-role-toggle {
@@ -173,10 +154,7 @@
 }
 
 .auth-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 4px;
+  @include form-modal-actions;
 }
 
 .auth-footer {
@@ -194,24 +172,11 @@
 
 @media (max-width: 760px) {
   .auth-overlay {
-    display: block;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding:
-      calc(12px + var(--safe-top))
-      calc(12px + var(--safe-right))
-      calc(18px + var(--safe-bottom))
-      calc(12px + var(--safe-left));
+    @include form-modal-mobile-overlay;
   }
 
   .auth-card {
-    width: 100%;
-    max-width: 100%;
-    max-height: none;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 20px 14px 18px;
-    border-radius: 20px;
+    @include form-modal-mobile-card(true);
   }
 
   .auth-logo img {
@@ -225,36 +190,30 @@
   .auth-subtitle {
     max-width: 100%;
     font-size: 0.7rem;
-    margin-bottom: 14px;
   }
 
-  .auth-form {
-    gap: 14px;
-  }
-
-  .auth-role-toggle,
   .auth-grid,
-  .auth-grid--security {
+  .auth-grid--security,
+  .auth-role-toggle {
     grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .auth-role-btn {
-    min-height: 74px;
-    padding: 13px 14px;
-    border-radius: 16px;
   }
 
   .auth-actions {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 
-  .auth-actions .ui-btn {
+  .auth-actions .ui-btn,
+  .auth-footer .ui-btn {
     width: 100%;
-    --btn-pad: 12px 18px;
-    font-size: 1rem;
+  }
+
+  .auth-footer {
+    display: grid;
+    gap: 10px;
+  }
+
+  .auth-footer__text {
+    text-align: center;
   }
 }

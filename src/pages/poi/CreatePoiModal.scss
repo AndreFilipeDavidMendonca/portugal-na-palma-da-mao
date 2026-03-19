@@ -8,45 +8,27 @@
 }
 
 .create-poi-card {
-  @include modal-panel-shell;
-  width: min(760px, 96vw);
-  max-width: 760px;
-  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  @include form-modal-card(760px, false);
 }
 
 .create-poi-header {
-  flex: 0 0 auto;
-  padding: 32px 50px 18px;
+  @include form-modal-header;
 }
 
 .create-poi-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  @include scroll-hidden;
-  padding: 0 50px 35px;
+  @include form-modal-body;
 }
 
 .create-poi-title {
-  @include modal-title;
-  margin: 0 0 12px;
-  font-size: clamp(3rem, 3vw, 5rem);
+  @include form-modal-title;
 }
 
 .create-poi-subtitle {
-  @include modal-subtitle;
-  margin: 0 auto;
-  max-width: 500px;
-  font-size: 0.8rem;
+  @include form-modal-subtitle;
 }
 
 .create-poi-form {
-  display: grid;
-  gap: 16px;
+  @include form-modal-form;
 }
 
 .create-poi-label-row {
@@ -54,13 +36,7 @@
 }
 
 .create-poi-label {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 0.82rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--panel-title-color);
-  font-weight: 800;
+  @include form-modal-label;
 }
 
 .create-poi-top-grid {
@@ -69,24 +45,13 @@
   grid-template-areas:
     "type description"
     "name description";
-  gap: 12px;
+  gap: var(--form-modal-grid-gap);
   align-items: stretch;
 }
 
-.create-poi-type-block {
-  grid-area: type;
-  min-width: 0;
-}
-
-.create-poi-name-block {
-  grid-area: name;
-  min-width: 0;
-}
-
-.create-poi-description-block {
-  grid-area: description;
-  min-width: 0;
-}
+.create-poi-type-block { grid-area: type; min-width: 0; }
+.create-poi-name-block { grid-area: name; min-width: 0; }
+.create-poi-description-block { grid-area: description; min-width: 0; }
 
 .create-poi-description-block .ui-textarea {
   height: 100%;
@@ -96,7 +61,7 @@
 
 .create-poi-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--form-modal-grid-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -124,10 +89,7 @@
 }
 
 .create-poi-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 4px;
+  @include form-modal-actions;
   padding-bottom: 6px;
 }
 
@@ -151,21 +113,11 @@
 
 @media (max-width: 760px) {
   .create-poi-overlay {
-    display: block;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding:
-      calc(12px + var(--safe-top))
-      calc(12px + var(--safe-right))
-      calc(18px + var(--safe-bottom))
-      calc(12px + var(--safe-left));
+    @include form-modal-mobile-overlay;
   }
 
   .create-poi-card {
-    width: 100%;
-    max-width: 100%;
-    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
-    border-radius: 20px;
+    @include form-modal-mobile-card(false);
   }
 
   .create-poi-header {
