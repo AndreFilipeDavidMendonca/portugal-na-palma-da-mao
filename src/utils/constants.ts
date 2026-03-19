@@ -41,8 +41,8 @@ export const CATEGORY_COLORS: Record<PoiCategory, string> = {
 
   // Natureza
   viewpoint: "#8C6A1A",
-  park: "#2E7D32",
-  trail: "#3DDC84",
+  park: "#1B5E20",
+  trail: "#4CAF50",
 
   // Comercial
   gastronomy: "#CA6609",
