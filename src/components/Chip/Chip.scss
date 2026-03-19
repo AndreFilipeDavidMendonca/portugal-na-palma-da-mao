@@ -116,24 +116,21 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
   }
 
-  /* icon */
-  .poi-chip__icon {
-    width: 1.2em;
-    height: 1.2em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transform: translateY(-1px);
+.poi-chip__icon {
+  width: 1.2em;
+  height: 1.2em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-1px);
 
-    svg {
-      width: 100% !important;
-      height: 100% !important;
-      display: block !important;
-    }
-
-    svg [fill] { fill: currentColor !important; }
-    svg [stroke] { stroke: currentColor !important; }
+  svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    overflow: visible;
   }
+}
 
   .poi-chip__label {
     line-height: 1;

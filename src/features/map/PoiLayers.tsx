@@ -1,13 +1,14 @@
-// src/features/map/PoiPointsLayer.tsx
 import React from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
 
 import { POI_LABELS, type PoiCategory, CATEGORY_COLORS } from "@/utils/constants";
 import { POI_ICON_SVG_RAW } from "@/utils/icons";
-import markerSvgRaw from "@/assets/icons/marker.svg?raw";
+import { paintPoiIconSvg, buildPoiMarkerHtml } from "@/utils/poiSvg";
 
 type AnyGeo = any;
+
+const iconCache = new Map<string, L.DivIcon>();
 
 function getName(p: any) {
   const tags = p?.tags ?? {};
@@ -51,6 +52,7 @@ export function getPoiCategory(f: any): PoiCategory | null {
     case "igreja":
       return "church";
     case "viewpoint":
+      return "viewpoint";
     case "miradouro":
       return "viewpoint";
     case "park":
@@ -83,24 +85,11 @@ export function getPoiCategory(f: any): PoiCategory | null {
   }
 }
 
-/* =========================
-   Zoom helpers
-========================= */
-
 function getIconSizeForZoom(zoom: number): number {
-  const Z0 = 14,
-    Z1 = 20;
-  const P0 = 20,
-    P1 = 28;
-  const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
-  return Math.round(P0 + (P1 - P0) * t);
-}
-
-function getPinSizeForZoom(zoom: number): number {
-  const Z0 = 7,
-    Z1 = 10;
-  const P0 = 6,
-    P1 = 12;
+  const Z0 = 7;
+  const Z1 = 20;
+  const P0 = 26;
+  const P1 = 46;
   const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
   return Math.round(P0 + (P1 - P0) * t);
 }
@@ -112,10 +101,7 @@ function useMapZoom() {
   React.useEffect(() => {
     const onZoom = () => setZoom(map.getZoom());
     map.on("zoomend", onZoom);
-
-    return () => {
-      map.off("zoomend", onZoom);
-    };
+    return () => map.off("zoomend", onZoom);
   }, [map]);
 
   return zoom;
@@ -129,8 +115,8 @@ function useMediaQuery(query: string) {
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    const mql = window.matchMedia(query);
 
+    const mql = window.matchMedia(query);
     const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
 
     if ((mql as any).addEventListener) (mql as any).addEventListener("change", onChange);
@@ -147,66 +133,30 @@ function useMediaQuery(query: string) {
   return matches;
 }
 
-/* =========================
-   Icon cache
-========================= */
-
-const iconCache = new Map<string, L.DivIcon>();
-
-function getCachedIcon(key: string, html: string, size: number, anchorY?: number) {
-  const k = `${key}|${size}`;
-  const cached = iconCache.get(k);
+function getCachedIcon(key: string, html: string, size: number) {
+  const cacheKey = `${key}|${size}`;
+  const cached = iconCache.get(cacheKey);
   if (cached) return cached;
 
-  const div = L.divIcon({
+  const icon = L.divIcon({
     html,
     className: "poi-divicon",
     iconSize: [size, size],
-    iconAnchor: [size / 2, anchorY ?? size],
+    iconAnchor: [size / 2, size],
   });
 
-  iconCache.set(k, div);
-  return div;
-}
-
-function createLowZoomMarker(category: PoiCategory | null, sizePx: number) {
-  const color = (category && CATEGORY_COLORS[category]) || "#777";
-  const html = `
-    <div style="
-      width:${sizePx}px; height:${sizePx}px;
-      display:flex; align-items:center; justify-content:center;
-      line-height:0; color:${color};
-      filter: drop-shadow(0 0 1px rgba(0,0,0,.35));
-    ">
-      <span style="display:inline-block;width:100%;height:100%;">${markerSvgRaw}</span>
-    </div>
-  `;
-  return getCachedIcon(`low:${category ?? "none"}`, html, sizePx);
+  iconCache.set(cacheKey, icon);
+  return icon;
 }
 
 function createPoiIcon(category: PoiCategory, sizePx: number) {
-  const color = CATEGORY_COLORS[category] || "#666";
-  const svg = POI_ICON_SVG_RAW[category];
+  const color = CATEGORY_COLORS[category] || "#64748b";
+  const rawSvg = POI_ICON_SVG_RAW[category] ?? null;
+  const iconSvg = rawSvg ? paintPoiIconSvg(rawSvg, color) : null;
+  const html = buildPoiMarkerHtml(iconSvg, color, sizePx);
 
-  const html = svg
-    ? `
-      <div style="
-        width:${sizePx}px;height:${sizePx}px;
-        display:flex;align-items:center;justify-content:center;
-        color:${color};line-height:0;
-        filter: drop-shadow(0 0 1px rgba(0,0,0,.35));
-      ">
-        <span style="display:inline-block;width:100%;height:100%;">${svg}</span>
-      </div>
-    `
-    : `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;border-radius:50%;background:${color}"></span>`;
-
-  return getCachedIcon(`poi:${category}`, html, sizePx);
+  return getCachedIcon(`poi-marker:${category}:${color}:v2`, html, sizePx);
 }
-
-/* =========================
-   PoiPointsLayer
-========================= */
 
 export function PoiPointsLayer({
   data,
@@ -222,17 +172,11 @@ export function PoiPointsLayer({
   const map = useMap();
   const zoom = useMapZoom();
 
-  const MIN_ZOOM_ICONS = 13;
-  const MIN_ZOOM_TOOLTIPS_DESKTOP = 13;
-  const MIN_ZOOM_TOOLTIPS_MOBILE = 13;
-
+  const MIN_ZOOM_TOOLTIPS = 13;
   const MAX_OPEN = 1;
 
-  const showIcons = zoom >= MIN_ZOOM_ICONS;
-
-  const isMobile = useMediaQuery("(max-width: 900px)");
-  const showTooltips =
-    showIcons && (isMobile ? zoom >= MIN_ZOOM_TOOLTIPS_MOBILE : zoom >= MIN_ZOOM_TOOLTIPS_DESKTOP);
+  useMediaQuery("(max-width: 900px)");
+  const showTooltips = zoom >= MIN_ZOOM_TOOLTIPS;
 
   const showTooltipsRef = React.useRef(showTooltips);
   React.useEffect(() => {
@@ -240,72 +184,57 @@ export function PoiPointsLayer({
   }, [showTooltips]);
 
   const iconSize = getIconSizeForZoom(zoom);
-  const pinSize = getPinSizeForZoom(zoom);
 
-  // 🔑 IMPORTANTE: não metas zoom no key (evita remounts em cada zoom)
   const key = React.useMemo(() => {
     const cats = Array.from(selectedTypes ?? []).sort().join(",");
     const ids = (data?.features ?? []).map((f: any) => f?.properties?.id ?? "").join(",");
-    return `${cats}|mode:${showIcons ? "svg" : "pin"}|n:${nonce}|ids:${ids}`;
-  }, [selectedTypes, showIcons, nonce, data]);
+    return `${cats}|n:${nonce}|ids:${ids}`;
+  }, [selectedTypes, nonce, data]);
 
-  // ✅ fonte de verdade dos layers atuais (Leaflet)
   const geoRef = React.useRef<L.GeoJSON | null>(null);
-
   const rafRef = React.useRef<number | null>(null);
 
   const getCurrentLayers = React.useCallback((): L.Layer[] => {
-    const g = geoRef.current as any;
-    const layers: L.Layer[] = g?.getLayers?.() ?? [];
-    return layers;
+    const geo = geoRef.current as any;
+    return geo?.getLayers?.() ?? [];
   }, []);
 
   const updateVisibleTooltips = React.useCallback(() => {
     const layers = getCurrentLayers();
-    const featuresCount = (data?.features ?? []).length;
-
-    console.log("updateVisibleTooltips", {
-      showTooltips: showTooltipsRef.current,
-      layers: layers.length,
-      zoom,
-      features: featuresCount,
-    });
 
     if (!showTooltipsRef.current) {
-      for (const l of layers) (l as any)?.closeTooltip?.();
+      for (const layer of layers) (layer as any)?.closeTooltip?.();
       return;
     }
 
     const bounds = map.getBounds();
     const center = bounds.getCenter();
-
     const candidates: { layer: any; dist: number }[] = [];
 
-    for (const l of layers) {
-      const anyL: any = l as any;
-      const ll = anyL?.getLatLng?.();
-      if (!ll) continue;
+    for (const layer of layers) {
+      const marker: any = layer;
+      const latlng = marker?.getLatLng?.();
+      if (!latlng) continue;
 
-      if (!bounds.contains(ll)) {
-        anyL.closeTooltip?.();
+      if (!bounds.contains(latlng)) {
+        marker.closeTooltip?.();
         continue;
       }
 
-      candidates.push({ layer: anyL, dist: center.distanceTo(ll) });
+      candidates.push({ layer: marker, dist: center.distanceTo(latlng) });
     }
 
     candidates.sort((a, b) => a.dist - b.dist);
-
     const keep = new Set(candidates.slice(0, MAX_OPEN).map((c) => c.layer));
 
-    for (const l of layers) {
-      const anyL: any = l as any;
-      if (!anyL?.getLatLng?.()) continue;
+    for (const layer of layers) {
+      const marker: any = layer;
+      if (!marker?.getLatLng?.()) continue;
 
-      if (keep.has(anyL)) anyL.openTooltip?.();
-      else anyL.closeTooltip?.();
+      if (keep.has(marker)) marker.openTooltip?.();
+      else marker.closeTooltip?.();
     }
-  }, [map, zoom, data, getCurrentLayers]);
+  }, [map, getCurrentLayers]);
 
   const scheduleUpdate = React.useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
@@ -314,10 +243,10 @@ export function PoiPointsLayer({
 
   React.useEffect(() => {
     const handler = () => scheduleUpdate();
+
     map.on("zoomend", handler);
     map.on("moveend", handler);
 
-    // ✅ 2 ticks para apanhar o “add” real do Leaflet
     const t1 = window.setTimeout(() => scheduleUpdate(), 0);
     const t2 = window.setTimeout(() => scheduleUpdate(), 80);
 
@@ -335,27 +264,20 @@ export function PoiPointsLayer({
       key={key}
       data={data as any}
       ref={(ref) => {
-        // react-leaflet passa o L.GeoJSON aqui
         geoRef.current = (ref as any) ?? null;
       }}
       pointToLayer={(feature: any, latlng: LatLngExpression) => {
-        const cat = getPoiCategory(feature);
+        const category = getPoiCategory(feature);
 
-        if (!showIcons) {
-          const icon = createLowZoomMarker(cat, pinSize);
-          const m = L.marker(latlng, { icon });
-          if (onSelect) m.on("click", () => onSelect(feature));
-          return m;
+        if (category) {
+          const icon = createPoiIcon(category, iconSize);
+          const marker = L.marker(latlng, { icon });
+
+          if (onSelect) marker.on("click", () => onSelect(feature));
+          return marker;
         }
 
-        if (cat) {
-          const icon = createPoiIcon(cat, iconSize);
-          const m = L.marker(latlng, { icon });
-          if (onSelect) m.on("click", () => onSelect(feature));
-          return m;
-        }
-
-        const cm = L.circleMarker(latlng, {
+        const fallback = L.circleMarker(latlng, {
           radius: 2,
           weight: 0.6,
           color: "#555",
@@ -363,18 +285,18 @@ export function PoiPointsLayer({
           fillOpacity: 0.7,
         } as L.CircleMarkerOptions);
 
-        if (onSelect) cm.on("click", () => onSelect(feature));
-        return cm;
+        if (onSelect) fallback.on("click", () => onSelect(feature));
+        return fallback;
       }}
       onEachFeature={(feature: any, layer: L.Layer) => {
-        const p = (feature as any).properties || {};
-        const name = getName(p) || "Sem nome";
-        const catKey = getPoiCategory(feature);
-        const catLabel = catKey ? POI_LABELS[catKey] : "";
+        const props = feature?.properties || {};
+        const name = getName(props) || "Sem nome";
+        const category = getPoiCategory(feature);
+        const label = category ? POI_LABELS[category] : "";
 
-        const html = `<strong>${name}</strong>${catLabel ? `<div>${catLabel}</div>` : ""}`;
+        const tooltipHtml = `<strong>${name}</strong>${label ? `<div>${label}</div>` : ""}`;
 
-        layer.bindTooltip(html, {
+        layer.bindTooltip(tooltipHtml, {
           className: "poi-tooltip",
           direction: "top",
           offset: L.point(0, -10),
@@ -384,21 +306,16 @@ export function PoiPointsLayer({
           interactive: false,
         });
 
-        const anyLayer: any = layer as any;
+        const anyLayer: any = layer;
         if (anyLayer._icon) anyLayer._icon.style.cursor = "pointer";
         if (anyLayer._path) anyLayer._path.style.cursor = "pointer";
 
-        // ✅ tenta abrir assim que cada layer fica pronto
         scheduleUpdate();
         anyLayer.once?.("add", () => scheduleUpdate());
       }}
     />
   );
 }
-
-/* =========================
-   PoiAreasLayer
-========================= */
 
 export function PoiAreasLayer({ data }: { data: AnyGeo }) {
   return (
