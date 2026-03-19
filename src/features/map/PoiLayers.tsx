@@ -52,7 +52,6 @@ export function getPoiCategory(f: any): PoiCategory | null {
     case "igreja":
       return "church";
     case "viewpoint":
-      return "viewpoint";
     case "miradouro":
       return "viewpoint";
     case "park":
@@ -90,6 +89,7 @@ function getIconSizeForZoom(zoom: number): number {
   const Z1 = 20;
   const P0 = 26;
   const P1 = 46;
+
   const t = Math.max(0, Math.min(1, (zoom - Z0) / (Z1 - Z0)));
   return Math.round(P0 + (P1 - P0) * t);
 }
@@ -101,36 +101,13 @@ function useMapZoom() {
   React.useEffect(() => {
     const onZoom = () => setZoom(map.getZoom());
     map.on("zoomend", onZoom);
-    return () => map.off("zoomend", onZoom);
+
+    return () => {
+      map.off("zoomend", onZoom);
+    };
   }, [map]);
 
   return zoom;
-}
-
-function useMediaQuery(query: string) {
-  const [matches, setMatches] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(query).matches;
-  });
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mql = window.matchMedia(query);
-    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
-
-    if ((mql as any).addEventListener) (mql as any).addEventListener("change", onChange);
-    else (mql as any).addListener(onChange);
-
-    setMatches(mql.matches);
-
-    return () => {
-      if ((mql as any).removeEventListener) (mql as any).removeEventListener("change", onChange);
-      else (mql as any).removeListener(onChange);
-    };
-  }, [query]);
-
-  return matches;
 }
 
 function getCachedIcon(key: string, html: string, size: number) {
@@ -155,7 +132,7 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
   const iconSvg = rawSvg ? paintPoiIconSvg(rawSvg, color) : null;
   const html = buildPoiMarkerHtml(iconSvg, color, sizePx);
 
-  return getCachedIcon(`poi-marker:${category}:${color}:v2`, html, sizePx);
+  return getCachedIcon(`poi-marker:${category}:${color}:v3`, html, sizePx);
 }
 
 export function PoiPointsLayer({
@@ -174,8 +151,6 @@ export function PoiPointsLayer({
 
   const MIN_ZOOM_TOOLTIPS = 13;
   const MAX_OPEN = 1;
-
-  useMediaQuery("(max-width: 900px)");
   const showTooltips = zoom >= MIN_ZOOM_TOOLTIPS;
 
   const showTooltipsRef = React.useRef(showTooltips);
@@ -203,7 +178,9 @@ export function PoiPointsLayer({
     const layers = getCurrentLayers();
 
     if (!showTooltipsRef.current) {
-      for (const layer of layers) (layer as any)?.closeTooltip?.();
+      for (const layer of layers) {
+        (layer as any)?.closeTooltip?.();
+      }
       return;
     }
 
@@ -221,7 +198,10 @@ export function PoiPointsLayer({
         continue;
       }
 
-      candidates.push({ layer: marker, dist: center.distanceTo(latlng) });
+      candidates.push({
+        layer: marker,
+        dist: center.distanceTo(latlng),
+      });
     }
 
     candidates.sort((a, b) => a.dist - b.dist);
@@ -273,7 +253,10 @@ export function PoiPointsLayer({
           const icon = createPoiIcon(category, iconSize);
           const marker = L.marker(latlng, { icon });
 
-          if (onSelect) marker.on("click", () => onSelect(feature));
+          if (onSelect) {
+            marker.on("click", () => onSelect(feature));
+          }
+
           return marker;
         }
 
@@ -285,7 +268,10 @@ export function PoiPointsLayer({
           fillOpacity: 0.7,
         } as L.CircleMarkerOptions);
 
-        if (onSelect) fallback.on("click", () => onSelect(feature));
+        if (onSelect) {
+          fallback.on("click", () => onSelect(feature));
+        }
+
         return fallback;
       }}
       onEachFeature={(feature: any, layer: L.Layer) => {
