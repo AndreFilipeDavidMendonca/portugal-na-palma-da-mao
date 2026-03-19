@@ -87,9 +87,7 @@ export default function DistrictMapPane({
             <MapContainer
                 center={[39.5, -8]}
                 zoom={8}
-                maxZoom={20}
-                zoomSnap={0.25}
-                zoomDelta={0.5}
+                maxZoom={18}
                 scrollWheelZoom
                 attributionControl
                 preferCanvas
