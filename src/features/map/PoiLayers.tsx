@@ -7,8 +7,17 @@ import { POI_ICON_SVG_RAW } from "@/utils/icons";
 import { paintPoiIconSvg, buildPoiMarkerHtml } from "@/utils/poiSvg";
 
 type AnyGeo = any;
+type LabelPosition = "right" | "left" | "top";
+
+type LabelBox = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
 
 const iconCache = new Map<string, L.DivIcon>();
+
 const MAX_VISIBLE_LABELS = 10;
 const MIN_ZOOM_LABELS = 12;
 
@@ -175,7 +184,7 @@ function createPoiIcon(category: PoiCategory, sizePx: number) {
   const iconSvg = rawSvg ? paintPoiIconSvg(rawSvg, color) : null;
   const html = buildPoiMarkerHtml(iconSvg, color, sizePx);
 
-  return getCachedIcon(`poi-marker:${category}:${color}:v5`, html, sizePx);
+  return getCachedIcon(`poi-marker:${category}:${color}:v6`, html, sizePx);
 }
 
 function splitLabelTwoLines(name: string) {
@@ -188,10 +197,10 @@ function splitLabelTwoLines(name: string) {
   let line2 = "";
 
   for (const word of words) {
-    const nextLine1 = `${line1} ${word}`.trim();
+    const candidate = `${line1} ${word}`.trim();
 
-    if (nextLine1.length <= MAX_LINE && !line2) {
-      line1 = nextLine1;
+    if (candidate.length <= MAX_LINE && !line2) {
+      line1 = candidate;
     } else {
       line2 = `${line2} ${word}`.trim();
     }
@@ -206,18 +215,27 @@ function splitLabelTwoLines(name: string) {
   return `${line1}<br/>${line2}`;
 }
 
-function createPoiLabelIcon(category: PoiCategory, name: string, fontSize: number) {
+function estimateLabelSize(name: string, fontSize: number) {
+  const width = Math.max(90, Math.min(name.length * fontSize * 0.58, 220));
+  const height = Math.round(fontSize * 2.35);
+
+  return { width, height };
+}
+
+function createPoiLabelIcon(
+  category: PoiCategory,
+  name: string,
+  fontSize: number,
+  position: LabelPosition
+) {
   const color = CATEGORY_COLORS[category] || "#d7b25a";
   const formattedName = splitLabelTwoLines(name);
   const safeTitle = name.replace(/"/g, "&quot;");
-
-  const plainLength = name.length;
-  const width = Math.max(90, Math.min(plainLength * fontSize * 0.58, 220));
-  const height = Math.round(fontSize * 2.35);
+  const { width, height } = estimateLabelSize(name, fontSize);
 
   const html = `
     <div
-      class="poi-inline-label"
+      class="poi-inline-label poi-inline-label--${position}"
       style="
         color:${color};
         font-size:${fontSize}px;
@@ -228,11 +246,17 @@ function createPoiLabelIcon(category: PoiCategory, name: string, fontSize: numbe
     </div>
   `;
 
+  const anchorByPosition: Record<LabelPosition, [number, number]> = {
+    right: [-14, Math.round(height * 1.0)],
+    left: [width + 14, Math.round(height * 1.0)],
+    top: [Math.round(width * 0.5), height + 10],
+  };
+
   return getCachedIcon(
-    `poi-label:${category}:${color}:${name}:${fontSize}`,
+    `poi-label:${category}:${color}:${name}:${fontSize}:${position}`,
     html,
     width,
-    [-14, Math.round(height * 1.0)]
+    anchorByPosition[position]
   );
 }
 
@@ -240,14 +264,81 @@ function isPointFeature(f: any) {
   return f?.geometry?.type === "Point" && Array.isArray(f?.geometry?.coordinates);
 }
 
+function boxesIntersect(a: LabelBox, b: LabelBox) {
+  return !(
+    a.right < b.left ||
+    a.left > b.right ||
+    a.bottom < b.top ||
+    a.top > b.bottom
+  );
+}
+
+function makeLabelBox(
+  point: L.Point,
+  width: number,
+  height: number,
+  position: LabelPosition
+): LabelBox {
+  switch (position) {
+    case "right":
+      return {
+        left: point.x + 18,
+        top: point.y - height * 0.5,
+        right: point.x + 18 + width,
+        bottom: point.y - height * 0.5 + height,
+      };
+
+    case "left":
+      return {
+        left: point.x - 18 - width,
+        top: point.y - height * 0.5,
+        right: point.x - 18,
+        bottom: point.y - height * 0.5 + height,
+      };
+
+    case "top":
+      return {
+        left: point.x - width * 0.5,
+        top: point.y - height - 14,
+        right: point.x - width * 0.5 + width,
+        bottom: point.y - 14,
+      };
+  }
+}
+
+function chooseLabelPlacement(
+  map: L.Map,
+  latlng: L.LatLng,
+  width: number,
+  height: number,
+  usedBoxes: LabelBox[]
+): { position: LabelPosition; box: LabelBox } | null {
+  const point = map.latLngToLayerPoint(latlng);
+  const positions: LabelPosition[] = ["right", "left", "top"];
+
+  for (const position of positions) {
+    const box = makeLabelBox(point, width, height, position);
+    const collides = usedBoxes.some((used) => boxesIntersect(box, used));
+
+    if (!collides) {
+      return { position, box };
+    }
+  }
+
+  return null;
+}
+
 function getVisibleLabelFeatures(
   data: AnyGeo,
   bounds: LatLngBounds,
-  center: L.LatLng
+  center: L.LatLng,
+  map: L.Map,
+  fontSize: number
 ) {
+  const usedBoxes: LabelBox[] = [];
   const features = (data?.features ?? []) as any[];
 
-  return features
+  const visibleCandidates = features
     .filter((f) => {
       if (!isPointFeature(f)) return false;
 
@@ -262,12 +353,39 @@ function getVisibleLabelFeatures(
 
       return {
         feature: f,
+        latlng,
         distance: center.distanceTo(latlng),
       };
     })
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, MAX_VISIBLE_LABELS)
-    .map((item) => item.feature);
+    .sort((a, b) => a.distance - b.distance);
+
+  const selected: any[] = [];
+
+  for (const item of visibleCandidates) {
+    if (selected.length >= MAX_VISIBLE_LABELS) break;
+
+    const name = getName(item.feature?.properties || {});
+    const category = getPoiCategory(item.feature);
+
+    if (!name || !category) continue;
+
+    const { width, height } = estimateLabelSize(name, fontSize);
+    const placement = chooseLabelPlacement(map, item.latlng, width, height, usedBoxes);
+
+    if (!placement) continue;
+
+    usedBoxes.push(placement.box);
+
+    selected.push({
+      ...item.feature,
+      properties: {
+        ...item.feature.properties,
+        __labelPosition: placement.position,
+      },
+    });
+  }
+
+  return selected;
 }
 
 export function PoiPointsLayer({
@@ -281,6 +399,7 @@ export function PoiPointsLayer({
   nonce?: number;
   onSelect?: (feature: any) => void;
 }) {
+  const map = useMap();
   const { zoom, bounds, center } = useMapViewState();
 
   const showLabels = zoom >= MIN_ZOOM_LABELS;
@@ -294,11 +413,13 @@ export function PoiPointsLayer({
 
     return {
       type: "FeatureCollection",
-      features: getVisibleLabelFeatures(data, bounds, center),
+      features: getVisibleLabelFeatures(data, bounds, center, map, labelFontSize),
     };
   }, [
     data,
     showLabels,
+    map,
+    labelFontSize,
     bounds.getWest(),
     bounds.getSouth(),
     bounds.getEast(),
@@ -364,6 +485,7 @@ export function PoiPointsLayer({
             const props = feature?.properties || {};
             const category = getPoiCategory(feature);
             const name = getName(props);
+            const position = (props.__labelPosition as LabelPosition | undefined) ?? "right";
 
             if (!category || !name) {
               return L.circleMarker(latlng, {
@@ -373,7 +495,7 @@ export function PoiPointsLayer({
               });
             }
 
-            const icon = createPoiLabelIcon(category, name, labelFontSize);
+            const icon = createPoiLabelIcon(category, name, labelFontSize, position);
 
             return L.marker(latlng, {
               icon,
