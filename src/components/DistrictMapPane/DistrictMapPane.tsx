@@ -88,8 +88,6 @@ export default function DistrictMapPane({
                 center={[39.5, -8]}
                 zoom={8}
                 maxZoom={18}
-                zoomSnap={0.25}
-                zoomDelta={0.5}
                 scrollWheelZoom
                 attributionControl
                 preferCanvas
