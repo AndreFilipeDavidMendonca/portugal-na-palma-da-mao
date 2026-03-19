@@ -1,33 +1,22 @@
+@use "@/styles/base.scss" as *;
+
 /* src/components/PoiSide.scss */
 
 .btn-directions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: var(--bg-panel-2);
-  color: var(--gold);
-  border: 1.5px solid var(--gold);
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 15px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+  @include ui-toolbar-button();
+  border-width: 1.5px;
   margin-top: 4px;
 
   &:hover {
-    background: var(--bg-panel);
+    background: var(--surface-1);
     color: var(--gold-strong);
     transform: translateY(-1px);
-    box-shadow: 0 0 12px rgba(215, 178, 90, 0.3);
+    box-shadow: var(--ui-shadow-medium);
   }
 }
 
 .poi-desc {
-  color: var(--muted);
+  color: var(--text-secondary);
   margin: 12px 0 10px 0;
   line-height: 1.6;
   font-size: 0.98rem;
@@ -38,24 +27,26 @@
 
 .poi-error {
   margin: 10px 0 0 0;
-  color: #ff8080;
+  color: var(--status-danger);
   font-size: 0.85rem;
 }
 
 .poi-edit-label {
   display: block;
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   opacity: 0.8;
   margin: 10px 0 4px;
+  color: var(--text-heading);
+  font-weight: var(--weight-medium);
 }
 
 .poi-edit-textarea {
   width: 100%;
-  padding: 6px 8px;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #111;
-  color: #f0f0f0;
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   resize: vertical;
 }

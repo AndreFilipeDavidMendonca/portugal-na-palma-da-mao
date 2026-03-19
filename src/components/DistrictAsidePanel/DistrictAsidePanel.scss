@@ -1,8 +1,11 @@
+@use "@/styles/base.scss" as *;
+
 .right-panel {
-  background: var(--bg-panel) !important;
-  color: var(--gold);
-  border-left: 1px solid var(--border);
+  background: var(--surface-1) !important;
+  color: var(--text-primary);
+  border-left: var(--ui-border-base);
   overflow: auto;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.02);
 }
 
 /* =========================
@@ -12,7 +15,7 @@
 @media (max-width: 1024px) {
   .right-panel {
     border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid var(--panel-border-soft);
   }
 
   .right-inner {
@@ -42,15 +45,15 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 10px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--panel-border-soft);
     padding-bottom: 6px;
     margin-bottom: 6px;
   }
 
   .district-title {
     margin: 0;
-    color: var(--gold);
-    font-weight: 600;
+    color: var(--text-heading);
+    font-weight: var(--weight-strong);
     font-size: 3rem;
     letter-spacing: .5px;
     text-transform: capitalize;
@@ -66,33 +69,28 @@
 
   .district-error {
     margin-top: 6px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,.14);
-    background: rgba(0, 0, 0, 0.22);
-    color: var(--gold-strong);
-    font-size: 0.8rem;
+    @include ui-status-message(rgba(0, 0, 0, 0.22), rgba(255,255,255,.14), var(--gold-strong), 8px);
   }
 
   .district-info {
     margin-top: 10px;
     line-height: 1.55;
-    color: var(--muted);
+    color: var(--text-secondary);
 
     strong {
-      color: var(--gold-strong);
-      font-weight: 600;
+      color: var(--text-heading);
+      font-weight: var(--weight-medium);
     }
 
 
     .district-description {
       margin: 6px 0 10px;
-      color: var(--gold);
-      font-weight: 500;
+      color: var(--text-primary);
+      font-weight: var(--weight-medium);
     }
 
     .district-history {
       font-size: 0.95rem;
-      color: var(--muted);
+      color: var(--text-secondary);
     }
   }

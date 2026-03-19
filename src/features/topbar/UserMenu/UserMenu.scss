@@ -1,10 +1,12 @@
+@use "@/styles/base.scss" as *;
+
 /* src/features/topbar/UserMenu/UserMenu.scss */
 
 :root {
   --um-top: calc(var(--topbar-h) + 7px);
   --um-w: 400px;
   --um-gap: 30px;
-  --um-radius: 14px;
+  --um-radius: var(--ui-radius-lg);
 }
 
 /* wrapper */
@@ -28,6 +30,7 @@
 
   &:hover {
     background: rgba(255, 255, 255, 0.06);
+    box-shadow: var(--ui-shadow-soft);
   }
 }
 

@@ -1,3 +1,5 @@
+@use "@/styles/base.scss" as *;
+
 .toast-host {
   position: fixed;
   z-index: 999999;
@@ -24,11 +26,11 @@
   padding: 14px;
   border-radius: 16px;
 
-  background: var(--gold);                 /* gold claro */
-  border: 1px solid var(--gold-dark);      /* gold mais escuro */
-  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+  background: var(--gold);
+  border: 1px solid var(--gold-dark);
+  box-shadow: var(--ui-shadow-medium);
 
-  color: var(--bg-deep);                              /* texto preto */
+  color: var(--bg-deep);
   animation: toast-in 160ms ease-out both;
 }
 
@@ -45,6 +47,7 @@
   place-items: center;
   border: 1px solid var(--gold-dark);
   background: rgba(0,0,0,0.05);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
 }
 
 .toast__icon {
@@ -56,6 +59,7 @@
   font-size: 15px;
   line-height: 1.35;
   color: var(--bg-deep);
+  font-weight: var(--weight-medium);
 }
 
 .toast__close {
@@ -72,7 +76,7 @@
   display: grid;
   place-items: center;
 
-  :hover {
+  &:hover {
     background: currentColor;
     color: #fff;
     transform: scale(1.05);

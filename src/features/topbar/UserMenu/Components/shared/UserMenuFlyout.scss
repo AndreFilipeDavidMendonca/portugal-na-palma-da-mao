@@ -1,3 +1,5 @@
+@use "@/styles/base.scss" as *;
+
 .user-menu__flyout {
   position: absolute;
   top: var(--um-top);
@@ -24,12 +26,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 2px 4px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 8px;
+  @include ui-section-divider();
 
   span {
-    color: rgba(212, 175, 55, 0.95);
-    font-weight: 500;
+    color: var(--text-heading);
+    font-weight: var(--weight-medium);
     letter-spacing: 0.04em;
     font-size: 16px;
   }
@@ -38,9 +39,9 @@
 .user-menu__flyout-close {
   border-radius: 999px;
   padding: 4px 12px;
-  border: 1px solid #e0b15a;
-  background: #1f1a10;
-  color: #f7e3b5;
+  border: 1px solid var(--gold-dark);
+  background: rgba(31, 26, 16, 0.96);
+  color: rgba(247, 227, 181, 0.96);
   cursor: pointer;
   font-size: 0.8rem;
 
@@ -55,19 +56,13 @@
 }
 
 .user-menu__hint {
-  font-size: 13px;
-  color: var(--muted);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
   padding: 6px 4px;
 }
 
 .user-menu__error {
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-weight: 500;
-  font-size: 13px;
-  color: rgba(255, 190, 190, 0.95);
-  background: rgba(255, 80, 80, 0.10);
-  border: 1px solid rgba(255, 80, 80, 0.22);
+  @include ui-status-message(rgba(255, 80, 80, 0.10), rgba(255, 80, 80, 0.22), rgba(255, 190, 190, 0.95));
 }
 
 .user-menu__fav-list {
@@ -83,7 +78,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   text-align: left;
 
   &:last-child { border-bottom: 0; }
@@ -93,7 +88,7 @@
   border: 0;
   background: transparent;
   padding: 0;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-secondary);
   cursor: pointer;
   text-align: left;
   justify-content: flex-start;
@@ -102,7 +97,7 @@
   gap: 10px;
   min-width: 0;
 
-  &:hover .user-menu__fav-name { color: rgba(212, 175, 55, 0.95); }
+  &:hover .user-menu__fav-name { color: var(--text-heading); }
 }
 
 .user-menu__fav-thumb {
@@ -110,7 +105,7 @@
   height: 26px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--panel-border-soft);
   background: rgba(0, 0, 0, 0.18);
   flex: 0 0 auto;
 
@@ -118,7 +113,7 @@
 }
 
 .user-menu__fav-name {
-  font-weight: 300;
+  font-weight: 400;
   font-size: 14px;
   line-height: 1.2;
   overflow: hidden;
@@ -133,7 +128,7 @@
   border-radius: 7px;
   border: 1px solid rgba(212, 175, 55, 0.22);
   background: rgba(212, 175, 55, 0.10);
-  color: rgba(212, 175, 55, 0.95);
+  color: var(--text-heading);
   font-weight: 800;
   font-size: 13px;
   line-height: 1;

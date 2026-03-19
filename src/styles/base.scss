@@ -580,6 +580,61 @@ h6 {
   box-shadow: var(--poi-modal-shadow);
 }
 
+
+
+@mixin ui-surface-card($bg: var(--surface-1), $border: var(--ui-border-base), $radius: var(--ui-radius-lg), $shadow: var(--ui-shadow-medium)) {
+  background: $bg;
+  border: $border;
+  border-radius: $radius;
+  box-shadow: $shadow;
+}
+
+@mixin ui-flyout-panel($width: null, $max-height: 520px, $padding: 12px) {
+  @include ui-surface-card(var(--surface-1), var(--ui-border-base), var(--um-radius, var(--ui-radius-lg)), var(--ui-shadow-medium));
+  @include gold-scroll;
+  @if $width != null {
+    width: $width;
+  }
+  max-height: $max-height;
+  padding: $padding;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin ui-section-divider($color: rgba(255, 255, 255, 0.08), $padding-bottom: 10px, $margin-bottom: 8px) {
+  border-bottom: 1px solid $color;
+  padding-bottom: $padding-bottom;
+  margin-bottom: $margin-bottom;
+}
+
+@mixin ui-status-message($bg: rgba(0, 0, 0, 0.22), $border: rgba(255,255,255,.14), $color: var(--text-secondary), $radius: 12px) {
+  padding: 8px 10px;
+  border-radius: $radius;
+  border: 1px solid $border;
+  background: $bg;
+  color: $color;
+  font-size: var(--font-size-md);
+  font-weight: var(--weight-medium);
+}
+
+@mixin ui-toolbar-button($bg: var(--bg-panel-2), $border: 1px solid var(--gold-dark), $color: var(--gold), $radius: 999px) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: $bg;
+  color: $color;
+  border: $border;
+  border-radius: $radius;
+  font-weight: var(--weight-medium);
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: var(--ui-shadow-soft);
+}
 .gold-scroll {
   @include gold-scroll;
 }
