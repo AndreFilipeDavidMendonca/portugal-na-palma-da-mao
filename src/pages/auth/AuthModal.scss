@@ -61,65 +61,51 @@
 }
 
 .auth-role-btn {
-  min-height: 96px;
-  padding: 14px 16px;
-  border-radius: 18px;
+  min-height: var(--role-card-min-height);
+  padding: var(--role-card-pad);
+  border-radius: var(--role-card-radius);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 6px;
-  font-weight: 700;
+  gap: var(--role-card-gap);
+  font-weight: var(--weight-medium);
   text-align: left;
   cursor: pointer;
   transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    opacity 0.18s ease;
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    opacity var(--transition-fast);
 }
 
 .auth-role-btn:not(.is-active) {
-  background: linear-gradient(180deg, var(--bg-panel-2), var(--bg-deep));
-  border: 1px solid rgba(223, 186, 96, 0.25);
-  color: var(--panel-title-color);
-  box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.20),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  @include interactive-panel();
 }
 
 .auth-role-btn:not(.is-active):hover:not(:disabled) {
-  transform: translateY(-2px);
-  background: linear-gradient(180deg, #1d422f, #133020);
-  border-color: rgba(240, 199, 107, 0.42);
-  box-shadow:
-    0 16px 28px rgba(0, 0, 0, 0.28),
-    0 0 24px rgba(240, 199, 107, 0.16);
+  @include interactive-panel-hover(
+    var(--role-card-hover-bg),
+    var(--role-card-hover-border),
+    var(--role-card-hover-shadow)
+  );
 }
 
 .auth-role-btn.is-active {
-  background:
-    radial-gradient(320px 120px at 50% 0%, rgba(255, 235, 170, 0.35), transparent 65%),
-    linear-gradient(180deg, #f6d27a, #e3b654);
-  border: 1px solid rgba(255, 230, 170, 0.95);
-  color: #111;
-  box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.32),
-    0 0 26px rgba(240, 199, 107, 0.34),
-    0 0 70px rgba(240, 199, 107, 0.12);
+  @include interactive-panel(
+    var(--role-card-active-bg),
+    var(--role-card-active-border),
+    var(--role-card-active-color),
+    var(--role-card-active-shadow)
+  );
 }
 
 .auth-role-btn.is-active:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.01);
-  background:
-    radial-gradient(320px 120px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
-    linear-gradient(180deg, #f8d781, #e6ba58);
-  border-color: rgba(255, 236, 184, 1);
-  box-shadow:
-    0 20px 38px rgba(0, 0, 0, 0.34),
-    0 0 34px rgba(240, 199, 107, 0.46),
-    0 0 90px rgba(240, 199, 107, 0.16);
+  background: var(--role-card-active-hover-bg);
+  border-color: var(--role-card-active-hover-border);
+  box-shadow: var(--role-card-active-hover-shadow);
 }
 
 .auth-role-btn:disabled {
@@ -128,13 +114,13 @@
 }
 
 .auth-role-btn__title {
-  font-size: 1rem;
-  font-weight: 900;
+  font-size: var(--font-size-lg);
+  font-weight: var(--weight-heavy);
   line-height: 1.1;
 }
 
 .auth-role-btn__hint {
-  font-size: 0.85rem;
+  font-size: var(--role-card-text-size);
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.82);
 }

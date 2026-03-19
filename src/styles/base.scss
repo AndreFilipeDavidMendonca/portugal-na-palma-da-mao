@@ -76,6 +76,87 @@
 
   --status-danger: rgba(235, 85, 85, 0.95);
 
+  --surface-1: var(--bg-panel);
+  --surface-2: var(--bg-panel-2);
+  --surface-3: linear-gradient(180deg, var(--bg-panel-2), var(--bg-deep));
+
+  --ui-border-base: 1px solid var(--border);
+  --ui-border-strong: 1px solid var(--panel-border-gold);
+  --ui-border-soft: 1px solid var(--panel-border-soft);
+
+  --ui-radius-sm: 10px;
+  --ui-radius-md: 14px;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 18px;
+
+  --ui-shadow-soft:
+    0 10px 20px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --ui-shadow-medium:
+    0 16px 28px rgba(0, 0, 0, 0.28),
+    0 0 24px rgba(240, 199, 107, 0.16);
+  --ui-shadow-strong:
+    0 18px 44px rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+
+  --text-primary: var(--gold);
+  --text-secondary: var(--panel-text-soft);
+  --text-heading: var(--panel-title-color);
+  --text-inverse: #111;
+
+  --font-size-xs: 0.7rem;
+  --font-size-sm: 0.8rem;
+  --font-size-md: 0.85rem;
+  --font-size-lg: 1rem;
+
+  --weight-medium: 700;
+  --weight-strong: 800;
+  --weight-heavy: 900;
+
+  --transition-fast: 0.18s ease;
+
+  --role-card-min-height: 96px;
+  --role-card-pad: 14px 16px;
+  --role-card-gap: 6px;
+  --role-card-radius: 18px;
+  --role-card-text-size: 0.85rem;
+
+  --role-card-bg: var(--surface-3);
+  --role-card-border: 1px solid rgba(223, 186, 96, 0.25);
+  --role-card-color: var(--panel-title-color);
+  --role-card-shadow: var(--ui-shadow-soft);
+
+  --role-card-hover-bg: linear-gradient(180deg, #1d422f, #133020);
+  --role-card-hover-border: rgba(240, 199, 107, 0.42);
+  --role-card-hover-shadow: var(--ui-shadow-medium);
+
+  --role-card-active-bg:
+    radial-gradient(320px 120px at 50% 0%, rgba(255, 235, 170, 0.35), transparent 65%),
+    linear-gradient(180deg, #f6d27a, #e3b654);
+  --role-card-active-border: 1px solid rgba(255, 230, 170, 0.95);
+  --role-card-active-color: var(--text-inverse);
+  --role-card-active-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.32),
+    0 0 26px rgba(240, 199, 107, 0.34),
+    0 0 70px rgba(240, 199, 107, 0.12);
+
+  --role-card-active-hover-bg:
+    radial-gradient(320px 120px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
+    linear-gradient(180deg, #f8d781, #e6ba58);
+  --role-card-active-hover-border: rgba(255, 236, 184, 1);
+  --role-card-active-hover-shadow:
+    0 20px 38px rgba(0, 0, 0, 0.34),
+    0 0 34px rgba(240, 199, 107, 0.46),
+    0 0 90px rgba(240, 199, 107, 0.16);
+
+  --poi-modal-top: calc(var(--topbar-h) + var(--safe-top) - 50px);
+  --poi-modal-gap: 10px;
+  --poi-modal-max-width: 1180px;
+  --poi-modal-radius: 16px;
+  --poi-modal-separator: rgba(215, 178, 90, 0.28);
+  --poi-modal-backdrop: rgba(0, 0, 0, 0.45);
+  --poi-modal-shadow: var(--ui-shadow-strong);
+
   --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-title: "Cormorant Garamond", serif;
   --font-weight-body: 400;
@@ -455,6 +536,48 @@ h6 {
     border-color: var(--field-border-focus);
     box-shadow: 0 0 0 3px var(--field-ring-focus);
   }
+}
+
+@mixin interactive-panel($bg: var(--surface-3), $border: var(--role-card-border), $color: var(--role-card-color), $shadow: var(--role-card-shadow)) {
+  background: $bg;
+  border: $border;
+  color: $color;
+  box-shadow: $shadow;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+@mixin interactive-panel-hover($bg, $border-color, $shadow) {
+  transform: translateY(-2px);
+  background: $bg;
+  border-color: $border-color;
+  box-shadow: $shadow;
+}
+
+@mixin standard-modal-shell($top: var(--poi-modal-top), $gap: var(--poi-modal-gap)) {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--poi-modal-backdrop);
+  backdrop-filter: blur(var(--overlay-blur));
+  display: grid;
+  place-items: start center;
+  padding-top: $top;
+  padding-right: calc($gap + var(--safe-right));
+  padding-bottom: calc($gap + var(--safe-bottom));
+  padding-left: calc($gap + var(--safe-left));
+}
+
+@mixin standard-modal-card($max-width: var(--poi-modal-max-width), $radius: var(--poi-modal-radius)) {
+  width: min($max-width, calc(100vw - (var(--poi-modal-gap) * 2)));
+  border-radius: $radius;
+  background: var(--surface-1);
+  border: var(--ui-border-base);
+  box-shadow: var(--poi-modal-shadow);
 }
 
 .gold-scroll {
