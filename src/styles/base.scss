@@ -421,6 +421,20 @@ h6 {
   pointer-events: none;
 }
 
+.poi-inline-label--right {
+  text-align: left;
+  transform: translateX(0);
+}
+
+.poi-inline-label--left {
+  text-align: right;
+  transform: translateX(-6px);
+}
+
+.poi-inline-label--top {
+  text-align: center;
+}
+
 /* opcional: labels mais suaves no dark map */
 .poi-inline-label--soft {
   opacity: 0.96;
