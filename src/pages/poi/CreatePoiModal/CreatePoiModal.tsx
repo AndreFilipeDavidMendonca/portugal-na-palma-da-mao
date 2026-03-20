@@ -483,7 +483,6 @@ export default function CreatePoiModal({ open, onClose }: Props) {
                 >
                   <div className="create-poi-step__bullet">{item}</div>
                   <div className="create-poi-step__meta">
-                    <span className="create-poi-step__label">Passo {item}</span>
                     <strong className="create-poi-step__title">{getStepTitle(stepNumber)}</strong>
                   </div>
                 </button>

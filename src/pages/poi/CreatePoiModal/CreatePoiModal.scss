@@ -25,6 +25,7 @@
 .create-poi-header {
   flex: 0 0 auto;
   padding: 32px 50px 18px;
+  text-align: center;
 }
 
 .create-poi-body {
@@ -38,15 +39,17 @@
 
 .create-poi-title {
   @include modal-title;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   font-size: clamp(3rem, 3vw, 5rem);
+  line-height: 0.96;
 }
 
 .create-poi-subtitle {
   @include modal-subtitle;
   margin: 0 auto;
-  max-width: 500px;
-  font-size: 0.8rem;
+  max-width: 560px;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .create-poi-form {
@@ -158,27 +161,36 @@
   padding: 2px;
 }
 
+/* Stepper */
 .create-poi-stepper {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 22px;
+  gap: 12px;
+  margin: 20px auto 0;
+  width: 100%;
+  max-width: 1080px;
 }
 
 .create-poi-step {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.025);
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  gap: 12px;
   width: 100%;
+  min-width: 0;
+  min-height: 82px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
   text-align: left;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .create-poi-step:hover {
@@ -188,7 +200,7 @@
 
 .create-poi-step:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.2);
+  box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.18);
 }
 
 .create-poi-step.is-active {
@@ -204,16 +216,17 @@
 }
 
 .create-poi-step__bullet {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   border: 1px solid var(--gold-sep);
   color: var(--panel-title-color);
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   font-weight: 800;
+  line-height: 1;
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -227,23 +240,28 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
 }
 
 .create-poi-step__label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--panel-title-color);
   opacity: 0.8;
+  line-height: 1;
 }
 
 .create-poi-step__title {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   color: var(--text-primary);
   font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
+/* Media / preview */
 .create-poi-media-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -330,6 +348,10 @@
 @include field-theme-gold(".create-poi-card");
 
 @media (max-width: 900px) {
+  .create-poi-card {
+    width: min(960px, 96vw);
+  }
+
   .create-poi-media-layout {
     grid-template-columns: 1fr;
   }
@@ -361,20 +383,22 @@
   }
 
   .create-poi-header {
-    padding: 25px 20px 12px;
+    padding: 24px 20px 12px;
   }
 
   .create-poi-body {
-    padding: 0 20px 25px;
+    padding: 0 20px 24px;
   }
 
   .create-poi-title {
     font-size: 2rem;
+    margin-bottom: 8px;
   }
 
   .create-poi-subtitle {
     max-width: 100%;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
+    line-height: 1.32;
   }
 
   .create-poi-form {
@@ -386,21 +410,38 @@
   }
 
   .create-poi-stepper {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
-    margin-top: 18px;
+    margin-top: 16px;
   }
 
   .create-poi-step {
-    padding: 10px 12px;
+    gap: 6px;
+    padding: 10px 8px;
     border-radius: 14px;
+    min-height: 64px;
+    justify-content: center;
   }
 
   .create-poi-step__bullet {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    font-size: 0.82rem;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    font-size: 0.72rem;
+  }
+
+  .create-poi-step__meta {
+    gap: 0;
+  }
+
+  .create-poi-step__label {
+    display: none;
+  }
+
+  .create-poi-step__title {
+    font-size: 0.74rem;
+    line-height: 1.02;
+    white-space: normal;
   }
 
   .create-poi-top-grid {

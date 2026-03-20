@@ -21,7 +21,7 @@ import DistrictModal from "@/pages/district/DistrictModal";
 import PoiModal from "@/pages/poi/PoiModal";
 import LoginModal from "@/pages/auth/LoginModal";
 import ProfileModal from "@/pages/auth/ProfileModal";
-import CreatePoiModal from "@/pages/poi/CreatePoiModal";
+import CreatePoiModal from "@/pages/poi/CreatePoiModal/CreatePoiModal";
 
 import { useCreatePoiModal } from "@/hooks/useCreatePoiModal";
 

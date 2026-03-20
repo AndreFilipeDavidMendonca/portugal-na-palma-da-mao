@@ -30,6 +30,10 @@ function emitOpenLogin() {
   window.dispatchEvent(new Event("pt:open-login"));
 }
 
+function emitOpenProfile() {
+  window.dispatchEvent(new Event("pt:open-profile"));
+}
+
 function emitOpenPoi(poiId: number) {
   window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId } }));
 }
@@ -142,6 +146,11 @@ export default function UserMenu() {
     emitOpenLogin();
   }, [closeAll]);
 
+  const handleEditProfile = useCallback(() => {
+    closeAll();
+    emitOpenProfile();
+  }, [closeAll]);
+
   const handleLogout = useCallback(async () => {
     closeAll();
     await logout().catch(() => null);
@@ -248,6 +257,7 @@ export default function UserMenu() {
             myPoisOpen={myPoisOpen}
             onToggleFavorites={handleToggleFavorites}
             onToggleMyPois={handleToggleMyPois}
+            onEditProfile={handleEditProfile}
             onLogout={handleLogout}
             onLogin={handleLogin}
           />
