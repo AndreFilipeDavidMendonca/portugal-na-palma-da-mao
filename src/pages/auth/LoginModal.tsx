@@ -3,7 +3,6 @@ import ReactDOM from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "@/lib/api";
 import { useAuth } from "@/auth/AuthContext";
-import logo from "@/assets/logo.png";
 import { toast } from "@/components/Toastr/toast";
 import "./AuthModal.scss";
 import Button from "@/components/Button/Button";
@@ -55,13 +54,13 @@ export default function LoginModal({ open, onClose, onOpenRegister }: Props) {
   const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
 
   function touch(field: FieldKey) {
-    setTouched((p) => ({ ...p, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
   }
 
   function clearFieldError(field: FieldKey) {
-    setErrors((p) => {
-      if (!p[field]) return p;
-      const { [field]: _removed, ...rest } = p;
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
       return rest;
     });
   }
@@ -104,21 +103,20 @@ export default function LoginModal({ open, onClose, onOpenRegister }: Props) {
     setLoading(true);
 
     try {
-      const u = await login(email.trim(), password);
-      setUser(u);
+      const loggedUser = await login(email.trim(), password);
+      setUser(loggedUser);
 
       toast.success("Login efetuado.");
       onClose();
       navigate(from, { replace: true });
     } catch (err: any) {
       toast.error(getErrorMessage(err));
-
-      setErrors((p) => ({
-        ...p,
-        email: p.email ?? "Verifica o email.",
-        password: p.password ?? "Verifica a password.",
+      setErrors((prev) => ({
+        ...prev,
+        email: prev.email ?? "Verifica o email.",
+        password: prev.password ?? "Verifica a password.",
       }));
-      setTouched((t) => ({ ...t, email: true, password: true }));
+      setTouched((prev) => ({ ...prev, email: true, password: true }));
     } finally {
       setLoading(false);
     }
@@ -135,7 +133,6 @@ export default function LoginModal({ open, onClose, onOpenRegister }: Props) {
         aria-modal="true"
         aria-labelledby="auth-login-title"
       >
-
         <h2 id="auth-login-title" className="auth-title">
           Login
         </h2>

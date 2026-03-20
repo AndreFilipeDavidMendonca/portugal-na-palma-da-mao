@@ -98,6 +98,17 @@ export type CurrentUserDto = {
     phone?: string | null;
 };
 
+export type UpdateCurrentUserPayload = {
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  age?: number | null;
+  nationality?: string | null;
+  phone?: string | null;
+};
+
+
 export type AuthResponse = {
     token: string;
     user: CurrentUserDto;
@@ -153,6 +164,25 @@ export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
 export async function logout(): Promise<void> {
     clearAuthToken();
 }
+
+export async function updateCurrentUser(
+  body: UpdateCurrentUserPayload
+): Promise<CurrentUserDto> {
+  return jsonFetch<CurrentUserDto>(`${API_BASE}/api/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      displayName: body.displayName ?? null,
+      avatarUrl: body.avatarUrl ?? null,
+      firstName: body.firstName ?? null,
+      lastName: body.lastName ?? null,
+      age: body.age ?? null,
+      nationality: body.nationality ?? null,
+      phone: body.phone ?? null,
+    }),
+  });
+}
+
 
 /* =========================
    POIs

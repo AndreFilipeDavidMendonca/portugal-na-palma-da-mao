@@ -20,12 +20,13 @@ import SpinnerOverlay from "@/components/SpinnerOverlay/SpinnerOverlay";
 import DistrictModal from "@/pages/district/DistrictModal";
 import PoiModal from "@/pages/poi/PoiModal";
 import LoginModal from "@/pages/auth/LoginModal";
-import RegisterModal from "@/pages/auth/RegisterModal";
+import ProfileModal from "@/pages/auth/ProfileModal";
 import CreatePoiModal from "@/pages/poi/CreatePoiModal";
 
 import { useCreatePoiModal } from "@/hooks/useCreatePoiModal";
 
 type AnyGeo = any;
+type ProfileModalMode = "create" | "edit";
 
 function normalizeDistrictKey(value: string) {
   return (value || "")
@@ -61,7 +62,8 @@ export default function Home() {
   const [openingDistrictLabel, setOpeningDistrictLabel] = useState<string | null>(null);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>("edit");
 
   const { showCreatePoiModal, closeCreatePoi } = useCreatePoiModal();
 
@@ -183,20 +185,29 @@ export default function Home() {
 
   useEffect(() => {
     const handleOpenLogin = () => {
-      setShowRegisterModal(false);
+      setShowProfileModal(false);
       setShowLoginModal(true);
+    };
+
+    const handleOpenProfile = () => {
+      setShowLoginModal(false);
+      setProfileModalMode("edit");
+      setShowProfileModal(true);
     };
 
     const handleOpenRegister = () => {
       setShowLoginModal(false);
-      setShowRegisterModal(true);
+      setProfileModalMode("create");
+      setShowProfileModal(true);
     };
 
     window.addEventListener("pt:open-login", handleOpenLogin);
+    window.addEventListener("pt:open-profile", handleOpenProfile);
     window.addEventListener("pt:open-register", handleOpenRegister);
 
     return () => {
       window.removeEventListener("pt:open-login", handleOpenLogin);
+      window.removeEventListener("pt:open-profile", handleOpenProfile);
       window.removeEventListener("pt:open-register", handleOpenRegister);
     };
   }, []);
@@ -487,17 +498,15 @@ export default function Home() {
         onClose={() => setShowLoginModal(false)}
         onOpenRegister={() => {
           setShowLoginModal(false);
-          setShowRegisterModal(true);
+          setProfileModalMode("create");
+          setShowProfileModal(true);
         }}
       />
 
-      <RegisterModal
-        open={showRegisterModal}
-        onClose={() => setShowRegisterModal(false)}
-        onOpenLogin={() => {
-          setShowRegisterModal(false);
-          setShowLoginModal(true);
-        }}
+      <ProfileModal
+        open={showProfileModal}
+        mode={profileModalMode}
+        onClose={() => setShowProfileModal(false)}
       />
 
       <CreatePoiModal
