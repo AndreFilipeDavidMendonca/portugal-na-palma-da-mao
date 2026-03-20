@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 
 import { POI_LABELS, type PoiCategory } from "@/utils/constants";
+import { MAX_MEDIA_ITEMS } from "@/constants/media";
+import { mergePoiMedia, pickPoiId, poiDtoToFeature, poiLiteDtoToFeature } from "@/utils/poiFeature";
 import { normalizeCat } from "@/utils/poiCategory";
 import { fetchPoisLiteBbox, fetchPoiById, type PoiDto, updateDistrict } from "@/lib/api";
 import { type PoiInfo, fetchPoiInfo } from "@/lib/poiInfo";
@@ -46,19 +48,6 @@ type Props = {
 type PoiCacheEntry = { info: PoiInfo; updatedAt: number };
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] as any[] };
-const MAX_MEDIA = 5;
-
-const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
-
-const pickPoiId = (feature: any): number | null => {
-  const id = feature?.properties?.id;
-  if (typeof id === "number" && Number.isFinite(id)) return id;
-  if (typeof id === "string") {
-    const n = Number(id.trim());
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-};
 
 function pickDistrictId(feature: any): number | null {
   const p = feature?.properties ?? {};
@@ -83,26 +72,6 @@ function bboxFromFeature(feature: any): string | null {
   } catch {
     return null;
   }
-}
-
-function dtoToPointFeature(p: any) {
-  return {
-    type: "Feature",
-    geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-    properties: {
-      id: p.id,
-      name: p.name,
-      namePt: p.namePt ?? p.name,
-      category: p.category ?? null,
-      ownerId: p.ownerId ?? null,
-      source: p.source ?? null,
-      image: p.image ?? null,
-      images: p.images ?? [],
-      description: p.description ?? null,
-      wikipediaUrl: p.wikipediaUrl ?? null,
-      sipaId: p.sipaId ?? null,
-    },
-  };
 }
 
 function normalizePoints(fc: AnyGeo | null) {
@@ -224,7 +193,7 @@ export default function DistrictModal({
       }
 
       setDistName(info.namePt ?? info.name ?? districtNameFallback);
-      setDistMedia((info.files ?? []).slice(0, MAX_MEDIA));
+      setDistMedia((info.files ?? []).slice(0, MAX_MEDIA_ITEMS));
       setDistPopulation(info.population != null ? String(info.population) : "");
       setDistMunicipalities(info.municipalities != null ? String(info.municipalities) : "");
       setDistParishes(info.parishes != null ? String(info.parishes) : "");
@@ -317,7 +286,7 @@ export default function DistrictModal({
 
         setPoiBase({
           type: "FeatureCollection",
-          features: (res.pois ?? []).map(dtoToPointFeature),
+          features: (res.pois ?? []).map(poiLiteDtoToFeature),
         });
       } catch (e: any) {
         if (e?.name !== "AbortError") {
@@ -408,7 +377,7 @@ export default function DistrictModal({
         const base = await fetchPoiInfo({ sourceFeature: featureFull });
         if (!alive || poiModalReqRef.current !== reqId || !base) return;
 
-        const merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, MAX_MEDIA);
+        const merged = mergePoiMedia(base.image, base.images, MAX_MEDIA_ITEMS);
         const infoNow: PoiInfo = {
           ...base,
           image: merged[0] ?? base.image ?? null,
@@ -458,7 +427,7 @@ export default function DistrictModal({
       inhabited_since: distInhabitedSince || null,
       description: distDescription || null,
       history: distHistory || null,
-      files: (distMedia ?? []).slice(0, MAX_MEDIA),
+      files: (distMedia ?? []).slice(0, MAX_MEDIA_ITEMS),
     };
   }, [
     distName,
@@ -489,12 +458,12 @@ export default function DistrictModal({
           ? {
               ...prev,
               ...updated,
-              files: (updated?.files ?? payload.files ?? prev.files ?? []).slice(0, MAX_MEDIA),
+              files: (updated?.files ?? payload.files ?? prev.files ?? []).slice(0, MAX_MEDIA_ITEMS),
             }
           : prev
       );
 
-      setDistMedia((updated?.files ?? payload.files ?? distMedia ?? []).slice(0, MAX_MEDIA));
+      setDistMedia((updated?.files ?? payload.files ?? distMedia ?? []).slice(0, MAX_MEDIA_ITEMS));
 
       toast.success("Distrito guardado.");
       setEditingDistrict(false);
@@ -512,7 +481,7 @@ export default function DistrictModal({
   const districtNameForGallery =
     distName || districtInfo?.namePt || districtInfo?.name || districtNameFallback;
 
-  const districtBaseUrls = (distMedia?.length ? distMedia : districtInfo?.files ?? []).slice(0, MAX_MEDIA);
+  const districtBaseUrls = (distMedia?.length ? distMedia : districtInfo?.files ?? []).slice(0, MAX_MEDIA_ITEMS);
 
   return (
     <div className="district-modal theme-dark">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import L from "leaflet";
 import { loadGeo } from "@/lib/geo";
 import { useAuth } from "@/auth/AuthContext";
+export { WORLD_BOUNDS } from "@/constants/map";
 
 type AnyGeo = any;
 
@@ -39,5 +39,3 @@ export function useHomeData() {
         isAdmin,
     };
 }
-
-export const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);

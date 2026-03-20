@@ -2,75 +2,29 @@ import React, { useCallback, useRef, useState, useEffect } from "react";
 import "./ImageDropField.scss";
 import { toast } from "@/components/Toastr/toast";
 import Button from "@/components/Button/Button";
+import {
+  appendNameToUrl,
+  fileToDataUrl,
+  getMediaAcceptAttr,
+  getMediaExtensionsLabel,
+  getMediaFieldLabel,
+  isVideoUrl,
+  matchesMediaMode,
+  prettyMediaName,
+  type MediaMode,
+} from "@/utils/fileMedia";
 
-type Mode = "image" | "video" | "media";
 type Store = "objectUrl" | "dataUrl";
 
 type Props = {
   label?: string;
   images?: string[];
   onChange: (items: string[]) => void;
-  mode?: Mode;
+  mode?: MediaMode;
   maxItems?: number;
   store?: Store;
   onUploadingChange?: (v: boolean) => void; // ✅ novo (para bloquear submit)
 };
-
-const IMAGE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const VIDEO_EXT = [".mp4", ".webm", ".mov", ".mkv", ".ogg", ".m4v"];
-
-function isVideoUrl(s: string): boolean {
-  if (!s) return false;
-  if (s.startsWith("data:video/")) return true;
-  const base = s.split("#")[0];
-  const lower = base.toLowerCase();
-  return VIDEO_EXT.some((ext) => lower.endsWith(ext)) || lower.startsWith("blob:");
-}
-
-function prettyName(s: string): string {
-  try {
-    const u = new URL(s);
-    if (u.hash && u.hash.startsWith("#name=")) return decodeURIComponent(u.hash.slice("#name=".length));
-    const last = u.pathname.split("/").filter(Boolean).pop();
-    return decodeURIComponent(last || s);
-  } catch {
-    if (s.startsWith("data:")) {
-      const idx = s.indexOf("#name=");
-      if (idx >= 0) return decodeURIComponent(s.slice(idx + "#name=".length));
-      return "ficheiro";
-    }
-    return s;
-  }
-}
-
-function appendNameToUrl(url: string, name: string) {
-  const safe = encodeURIComponent(name || "ficheiro");
-  return `${url}#name=${safe}`;
-}
-
-function matchesMode(file: File, mode: Mode) {
-  if (mode === "media") return true;
-
-  const type = (file.type || "").toLowerCase();
-  if (mode === "image") {
-    if (type.startsWith("image/")) return true;
-    const n = file.name.toLowerCase();
-    return IMAGE_EXT.some((ext) => n.endsWith(ext));
-  }
-
-  if (type.startsWith("video/")) return true;
-  const n = file.name.toLowerCase();
-  return VIDEO_EXT.some((ext) => n.endsWith(ext));
-}
-
-async function fileToDataUrl(file: File): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Falha ao ler ficheiro."));
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function ImageDropField({
   label = "Imagens / vídeos",
@@ -89,8 +43,8 @@ export default function ImageDropField({
     onUploadingChange?.(uploading);
   }, [uploading, onUploadingChange]);
 
-  const acceptAttr = mode === "image" ? "image/*" : mode === "video" ? "video/*" : "image/*,video/*";
-  const labelText = mode === "image" ? label : mode === "video" ? label.replace(/Imagens/i, "Vídeos") : label;
+  const acceptAttr = getMediaAcceptAttr(mode);
+  const labelText = getMediaFieldLabel(label, mode);
 
   const onOpenPicker = () => fileInputRef.current?.click();
 
@@ -99,7 +53,7 @@ export default function ImageDropField({
       if (!files || files.length === 0) return;
 
       const all = Array.from(files);
-      const filtered = all.filter((file) => matchesMode(file, mode));
+      const filtered = all.filter((file) => matchesMediaMode(file, mode));
       const rejectedCount = all.length - filtered.length;
 
       if (filtered.length === 0) {
@@ -200,8 +154,7 @@ export default function ImageDropField({
     toast.info("Item removido.");
   };
 
-  const extsLabel =
-    mode === "image" ? "JPG · PNG · WEBP · GIF" : mode === "video" ? "MP4 · WEBM · MOV · MKV" : "JPG · PNG · MP4 · WEBM · MOV";
+  const extsLabel = getMediaExtensionsLabel(mode);
 
   return (
     <div className="imgdrop">
@@ -240,7 +193,7 @@ export default function ImageDropField({
       {images.length > 0 && (
         <ul className="imgdrop__list gold-scroll">
           {images.map((it, idx) => {
-            const name = prettyName(it);
+            const name = prettyMediaName(it);
             const isVid = isVideoUrl(it);
             return (
               <li key={idx} className="imgdrop__item">

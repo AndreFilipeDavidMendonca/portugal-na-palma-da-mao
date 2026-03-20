@@ -8,6 +8,9 @@ import { fetchDistricts, fetchPoiById, type PoiDto, type SearchItem } from "@/li
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
 
 import { WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
+import { CONTINENTAL_PT_BOUNDS, WORLD_BOUNDS } from "@/constants/map";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import { pickPoiLabelFromDto, poiDtoToFeature, mergePoiMedia } from "@/utils/poiFeature";
 import DistrictsHoverLayer from "@/features/map/DistrictsHoverLayer";
 import TopDistrictFilter from "@/features/topbar/TopDistrictFilter";
 
@@ -24,31 +27,6 @@ import { useCreatePoiModal } from "@/hooks/useCreatePoiModal";
 
 type AnyGeo = any;
 
-const WORLD_BOUNDS = L.latLngBounds([-85.05112878, -180], [85.05112878, 180]);
-const CONTINENTAL_PT_BOUNDS = L.latLngBounds([36.9, -7.5], [42.15, -5.9]);
-
-const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
-
-function pickPoiLabelFromDto(p: PoiDto): string {
-  return (p.namePt ?? p.name ?? "").trim();
-}
-
-function poiDtoToFeature(p: PoiDto): any {
-  const category = p.category ?? null;
-
-  return {
-    type: "Feature",
-    geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-    properties: {
-      ...p,
-      id: p.id,
-      poiId: p.id,
-      namePt: p.namePt ?? p.name,
-      tags: { category, subcategory: p.subcategory ?? null },
-    },
-  };
-}
-
 function normalizeDistrictKey(value: string) {
   return (value || "")
     .normalize("NFD")
@@ -56,31 +34,6 @@ function normalizeDistrictKey(value: string) {
     .replace(/^\s*distrito\s+de\s+/i, "")
     .trim()
     .toLowerCase();
-}
-
-function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia(query).matches : false
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mql = window.matchMedia(query);
-    const onChange = () => setMatches(mql.matches);
-
-    if ("addEventListener" in mql) mql.addEventListener("change", onChange);
-    else (mql as any).addListener(onChange);
-
-    setMatches(mql.matches);
-
-    return () => {
-      if ("removeEventListener" in mql) mql.removeEventListener("change", onChange);
-      else (mql as any).removeListener(onChange);
-    };
-  }, [query]);
-
-  return matches;
 }
 
 export default function Home() {
@@ -332,7 +285,7 @@ export default function Home() {
 
       if (reqId !== homePoiReqRef.current || !base) return;
 
-      const media = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+      const media = mergePoiMedia(base.image, base.images, 10);
 
       setHomePoiInfo({
         ...base,

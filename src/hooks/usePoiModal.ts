@@ -1,28 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPoiById, type PoiDto } from "@/lib/api";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-
-const uniqStrings = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
-
-function pickPoiLabelFromDto(p: PoiDto): string {
-  return (p.namePt ?? p.name ?? "").trim();
-}
-
-function poiDtoToFeature(p: PoiDto): any {
-  const category = p.category ?? null;
-
-  return {
-    type: "Feature",
-    geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-    properties: {
-      ...p,
-      id: p.id,
-      poiId: p.id,
-      namePt: p.namePt ?? p.name,
-      tags: { category, subcategory: p.subcategory ?? null },
-    },
-  };
-}
+import { mergePoiMedia, pickPoiLabelFromDto, poiDtoToFeature } from "@/utils/poiFeature";
 
 export function usePoiModal() {
   const [open, setOpen] = useState(false);
@@ -72,7 +51,7 @@ export function usePoiModal() {
       if (reqId !== reqRef.current) return;
       if (!base) return;
 
-      const merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+      const merged = mergePoiMedia(base.image, base.images, 10);
 
       setInfo({
         ...base,

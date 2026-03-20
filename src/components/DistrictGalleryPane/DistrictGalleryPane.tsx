@@ -2,6 +2,8 @@ import React, { useMemo } from "react";
 import "./DistrictGalleryPane.scss";
 
 import DistrictMedia from "@/components/DistrictMedia/DistrictMedia";
+import { MAX_MEDIA_ITEMS } from "@/constants/media";
+import { uniqStrings } from "@/utils/collections";
 
 type Props = {
   open: boolean;
@@ -16,11 +18,6 @@ type Props = {
   distMedia: string[];
   setDistMedia: (v: string[]) => void;
 };
-
-const MAX_ITEMS = 5;
-
-const uniqStrings = (arr: string[]) =>
-  Array.from(new Set((arr ?? []).filter(Boolean)));
 
 function toUrlList(input: any): string[] {
   const arr = Array.isArray(input) ? input : [];
@@ -47,7 +44,7 @@ export default function DistrictGalleryPane({
     return uniqStrings([
       ...toUrlList(distMedia),
       ...toUrlList(baseUrls),
-    ]).slice(0, MAX_ITEMS);
+    ]).slice(0, MAX_MEDIA_ITEMS);
   }, [distMedia, baseUrls]);
 
   if (!open) return null;
@@ -65,7 +62,7 @@ export default function DistrictGalleryPane({
             canEdit={isAdmin}
             mediaList={distMedia}
             setMediaList={setDistMedia}
-            maxItems={MAX_ITEMS}
+            maxItems={MAX_MEDIA_ITEMS}
           />
         )}
       </div>

@@ -1,30 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-import { uniqStrings } from "@/utils/poiGeo";
+import { mergePoiMedia, pickPoiId } from "@/utils/poiFeature";
+import { pickPoiLabel } from "@/utils/poiMedia";
 
 type PoiCacheEntry = {
   info: PoiInfo;
   updatedAt: number;
 };
-
-function pickPoiId(feature: any): number | null {
-  const id = feature?.properties?.id;
-
-  if (typeof id === "number" && Number.isFinite(id)) return id;
-
-  if (typeof id === "string") {
-    const n = Number(id.trim());
-    return Number.isFinite(n) ? n : null;
-  }
-
-  return null;
-}
-
-function pickPoiLabel(feature: any): string | null {
-  const p = feature?.properties ?? {};
-  const label = p.namePt ?? p["name:pt"] ?? p.name ?? p["name:en"] ?? p.label ?? null;
-  return typeof label === "string" && label.trim().length >= 3 ? label.trim() : null;
-}
 
 export function usePoiModalController() {
   const [selectedPoi, setSelectedPoi] = useState<any | null>(null);
@@ -104,7 +86,7 @@ export function usePoiModalController() {
 
         if (!base) return null;
 
-        const merged = uniqStrings([base.image ?? "", ...(base.images ?? [])]).slice(0, 10);
+        const merged = mergePoiMedia(base.image, base.images, 10);
 
         const infoNow: PoiInfo = {
           ...base,

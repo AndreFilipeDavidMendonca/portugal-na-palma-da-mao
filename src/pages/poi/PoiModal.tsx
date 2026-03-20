@@ -3,6 +3,8 @@ import ReactDOM from "react-dom";
 import "./PoiModal.scss";
 
 import type { PoiInfo } from "@/lib/poiInfo";
+import { MAX_POI_MEDIA_ITEMS } from "@/constants/media";
+import { mergePoiMedia, pickOwnerId, pickPoiId, sanitizePersistableMedia } from "@/utils/poiFeature";
 import { useAuth } from "@/auth/AuthContext";
 import { updatePoi } from "@/lib/api";
 import { toast } from "@/components/Toastr/toast";
@@ -29,28 +31,6 @@ type Props = {
     images?: string[] | null;
   }) => void;
   isAdmin?: boolean;
-};
-
-const MAX_IMAGES = 5;
-
-const uniqStrings = (arr: string[]) =>
-  Array.from(new Set((arr ?? []).filter(Boolean)));
-
-const sanitizePersistableMedia = (list: string[]) =>
-  (list ?? []).filter((u) => {
-    if (!u) return false;
-    if (u.startsWith("data:")) return true;
-    return u.startsWith("http://") || u.startsWith("https://");
-  });
-
-const pickPoiId = (poi: any): number | null => {
-  const id = poi?.properties?.id;
-  return typeof id === "number" && Number.isFinite(id) ? id : null;
-};
-
-const pickOwnerId = (poi: any): string | null => {
-  const v = poi?.properties?.ownerId ?? poi?.properties?.owner_id ?? null;
-  return typeof v === "string" && v.trim() ? v.trim() : null;
 };
 
 export default function PoiModal({
@@ -98,8 +78,8 @@ export default function PoiModal({
     setDescInput(info.description ?? "");
 
     const base = sanitizePersistableMedia(
-      uniqStrings([info.image ?? "", ...(info.images ?? [])])
-    ).slice(0, MAX_IMAGES);
+      mergePoiMedia(info.image, info.images, MAX_POI_MEDIA_ITEMS)
+    ).slice(0, MAX_POI_MEDIA_ITEMS);
 
     setImagesList(base);
   }, [info]);
@@ -111,12 +91,12 @@ export default function PoiModal({
 
   const mediaUrls = useMemo(() => {
     if (editing) {
-      return uniqStrings(imagesList ?? []).slice(0, MAX_IMAGES);
+      return [...new Set(imagesList ?? [])].slice(0, MAX_POI_MEDIA_ITEMS);
     }
 
     return sanitizePersistableMedia(
-      uniqStrings([localInfo?.image ?? "", ...(localInfo?.images ?? [])])
-    ).slice(0, MAX_IMAGES);
+      mergePoiMedia(localInfo?.image, localInfo?.images, MAX_POI_MEDIA_ITEMS)
+    ).slice(0, MAX_POI_MEDIA_ITEMS);
   }, [editing, imagesList, localInfo?.image, localInfo?.images]);
 
   const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
@@ -142,7 +122,7 @@ export default function PoiModal({
   const handleSave = useCallback(async () => {
     if (!requireCanEdit()) return;
 
-    const persistable = sanitizePersistableMedia(imagesList ?? []).slice(0, MAX_IMAGES);
+    const persistable = sanitizePersistableMedia(imagesList ?? []).slice(0, MAX_POI_MEDIA_ITEMS);
     const primaryImage = persistable[0] ?? null;
 
     setSaving(true);
@@ -156,8 +136,8 @@ export default function PoiModal({
       });
 
       const updatedList = sanitizePersistableMedia(
-        uniqStrings([updated.image ?? "", ...(updated.images ?? [])])
-      ).slice(0, MAX_IMAGES);
+        mergePoiMedia(updated.image, updated.images, MAX_POI_MEDIA_ITEMS)
+      ).slice(0, MAX_POI_MEDIA_ITEMS);
 
       setLocalInfo((prev) =>
         prev
