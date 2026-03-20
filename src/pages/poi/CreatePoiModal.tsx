@@ -93,7 +93,6 @@ export default function CreatePoiModal({ open, onClose }: Props) {
   const [geoLoading, setGeoLoading] = useState(false);
 
   const [images, setImages] = useState<string[]>([]);
-  const [selectedPreview, setSelectedPreview] = useState<string | null>(null);
   const [imagesUploading, setImagesUploading] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -141,23 +140,11 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     setGeoStatus(null);
     setGeoLoading(false);
     setImages([]);
-    setSelectedPreview(null);
     setImagesUploading(false);
     setLoading(false);
     setErrors({});
     setTouched({});
   }, [open]);
-
-  useEffect(() => {
-    if (images.length === 0) {
-      setSelectedPreview(null);
-      return;
-    }
-
-    if (!selectedPreview || !images.includes(selectedPreview)) {
-      setSelectedPreview(images[0]);
-    }
-  }, [images, selectedPreview]);
 
   const selectedDistrictName = useMemo(() => {
     if (districtId === "") return "";
@@ -662,59 +649,21 @@ export default function CreatePoiModal({ open, onClose }: Props) {
                     <label className="create-poi-label">Imagens</label>
                   </div>
 
-                  <div className="create-poi-media-layout">
-                    <div className={isInvalid("images") ? "is-invalid-block" : ""}>
-                      <ImageDropField
-                        label="Imagens do Negócio"
-                        images={images}
-                        onChange={(list) => {
-                          const next = list.slice(0, 6);
-                          setImages(next);
-                          clearFieldError("images");
-                          setFieldTouched("images");
-                        }}
-                        store="dataUrl"
-                        mode="media"
-                        maxItems={10}
-                        onUploadingChange={setImagesUploading}
-                      />
-                    </div>
-
-                    <div className="create-poi-preview-panel">
-                      <div className="create-poi-preview-stage">
-                        {selectedPreview ? (
-                          <img
-                            src={selectedPreview}
-                            alt="Pré-visualização da imagem selecionada"
-                            className="create-poi-preview-image"
-                          />
-                        ) : (
-                          <div className="create-poi-preview-empty">
-                            Seleciona uma imagem para pré-visualizar
-                          </div>
-                        )}
-                      </div>
-
-                      {images.length > 0 && (
-                        <div className="create-poi-preview-strip" role="list" aria-label="Lista de imagens">
-                          {images.map((image, index) => {
-                            const active = image === selectedPreview;
-
-                            return (
-                              <button
-                                key={`${image}-${index}`}
-                                type="button"
-                                className={`create-poi-preview-thumb ${active ? "is-active" : ""}`}
-                                onClick={() => setSelectedPreview(image)}
-                                title={`Imagem ${index + 1}`}
-                              >
-                                <img src={image} alt={`Imagem ${index + 1}`} />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                  <div className={isInvalid("images") ? "is-invalid-block" : ""}>
+                    <ImageDropField
+                      label="Imagens do Negócio"
+                      images={images}
+                      onChange={(list) => {
+                        const next = list.slice(0, 6);
+                        setImages(next);
+                        clearFieldError("images");
+                        setFieldTouched("images");
+                      }}
+                      store="dataUrl"
+                      mode="media"
+                      maxItems={10}
+                      onUploadingChange={setImagesUploading}
+                    />
                   </div>
                 </>
               )}

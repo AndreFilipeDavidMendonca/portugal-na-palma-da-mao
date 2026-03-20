@@ -2,7 +2,7 @@
 
 .imgdrop {
   --pad: clamp(0.6rem, 1.2vw, 0.9rem);
-  --gap: clamp(0.45rem, 0.9vw, 0.7rem);
+  --gap: clamp(0.6rem, 1vw, 0.9rem);
   --radius: 0.9rem;
   --border: 1px dashed rgba(255, 255, 255, 0.18);
   --bg: rgba(0, 0, 0, 0.22);
@@ -89,61 +89,118 @@
   flex: 0 0 auto;
 }
 
-.imgdrop__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-block-size: clamp(6rem, 18vh, 10rem);
+.imgdrop__media {
+  display: grid;
+  gap: 12px;
+}
+
+.imgdrop__preview {
+  min-width: 0;
+}
+
+.imgdrop__preview-frame {
+  position: relative;
+  min-height: 260px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(215, 178, 90, 0.08), transparent 60%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.imgdrop__preview-media {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+.imgdrop__preview-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(215, 178, 90, 0.38);
+  background: rgba(8, 20, 14, 0.8);
+  color: #f6f3d9;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.imgdrop__preview-remove:hover {
+  background: rgba(14, 34, 24, 0.92);
+  border-color: rgba(215, 178, 90, 0.55);
+}
+
+.imgdrop__thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 10px;
+  max-block-size: clamp(7rem, 20vh, 10rem);
   overflow: auto;
 }
 
-.imgdrop__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  min-width: 0;
-  margin-block: 0.2rem;
-  padding: 0.35rem 0.55rem;
-  border-radius: 0.65rem;
-  background: rgba(0, 0, 0, 0.28);
-  font-size: 0.78rem;
-}
-
-.imgdrop__name {
-  min-width: 0;
-  flex: 1 1 auto;
-  white-space: nowrap;
+.imgdrop__thumb {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.imgdrop__remove {
-  border: none;
-  background: transparent;
-  color: #ffcc80;
+  background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0 0.3rem;
-  flex: 0 0 auto;
+  aspect-ratio: 1 / 1;
 }
 
-.imgdrop__remove:hover {
-  color: #ffab40;
+.imgdrop__thumb:hover {
+  border-color: rgba(215, 178, 90, 0.32);
+}
+
+.imgdrop__thumb.is-active {
+  border-color: rgba(215, 178, 90, 0.55);
+  box-shadow: 0 0 0 2px rgba(215, 178, 90, 0.18);
+}
+
+.imgdrop__thumb-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imgdrop__thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(215, 178, 90, 0.38);
+  background: rgba(8, 20, 14, 0.78);
+  color: #f6f3d9;
+  font-size: 0.9rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.imgdrop__thumb-remove:hover {
+  background: rgba(14, 34, 24, 0.92);
+  border-color: rgba(215, 178, 90, 0.55);
 }
 
 .media-stack__editor .imgdrop {
   flex: 1 1 auto;
   min-height: 0;
-}
-
-.media-stack__editor .imgdrop__list {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-block-size: none;
-  overflow: auto;
-  margin-top: var(--gap);
 }
 
 @media (max-width: 520px) {
@@ -172,6 +229,16 @@
 
   .imgdrop__hint {
     -webkit-line-clamp: 2;
+  }
+
+  .imgdrop__preview-frame,
+  .imgdrop__preview-media {
+    min-height: 220px;
+    height: 220px;
+  }
+
+  .imgdrop__thumbs {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   }
 }
 

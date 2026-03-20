@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./ImageDropField.scss";
 import { toast } from "@/components/Toastr/toast";
 import Button from "@/components/Button/Button";
@@ -23,8 +23,20 @@ type Props = {
   mode?: MediaMode;
   maxItems?: number;
   store?: Store;
-  onUploadingChange?: (v: boolean) => void; // ✅ novo (para bloquear submit)
+  onUploadingChange?: (v: boolean) => void;
 };
+
+function isHeicFile(file: File) {
+  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase();
+
+  return (
+    type === "image/heic" ||
+    type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
 
 export default function ImageDropField({
   label = "Imagens / vídeos",
@@ -37,14 +49,35 @@ export default function ImageDropField({
 }: Props) {
   const [hovering, setHovering] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     onUploadingChange?.(uploading);
   }, [uploading, onUploadingChange]);
 
+  useEffect(() => {
+    if (images.length === 0) {
+      setSelectedIndex(0);
+      return;
+    }
+
+    if (selectedIndex > images.length - 1) {
+      setSelectedIndex(images.length - 1);
+    }
+  }, [images, selectedIndex]);
+
   const acceptAttr = getMediaAcceptAttr(mode);
   const labelText = getMediaFieldLabel(label, mode);
+  const extsLabel = getMediaExtensionsLabel(mode);
+
+  const selectedItem = useMemo(() => {
+    if (!images.length) return null;
+    return images[selectedIndex] ?? images[0] ?? null;
+  }, [images, selectedIndex]);
+
+  const selectedName = selectedItem ? prettyMediaName(selectedItem) : null;
+  const selectedIsVideo = selectedItem ? isVideoUrl(selectedItem) : false;
 
   const onOpenPicker = () => fileInputRef.current?.click();
 
@@ -53,8 +86,14 @@ export default function ImageDropField({
       if (!files || files.length === 0) return;
 
       const all = Array.from(files);
-      const filtered = all.filter((file) => matchesMediaMode(file, mode));
+      const heicRejected = all.filter(isHeicFile);
+      const withoutHeic = all.filter((file) => !isHeicFile(file));
+      const filtered = withoutHeic.filter((file) => matchesMediaMode(file, mode));
       const rejectedCount = all.length - filtered.length;
+
+      if (heicRejected.length > 0) {
+        toast.error("Ficheiros HEIC/HEIF não são suportados. Usa JPG, PNG ou WEBP.");
+      }
 
       if (filtered.length === 0) {
         toast.error("Nenhum ficheiro compatível foi selecionado.");
@@ -62,7 +101,9 @@ export default function ImageDropField({
         return;
       }
 
-      if (rejectedCount > 0) toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`);
+      if (rejectedCount > 0) {
+        toast.info(`${rejectedCount} ficheiro(s) ignorado(s) por formato.`);
+      }
 
       const currentCount = images.length;
       const limit = typeof maxItems === "number" && maxItems > 0 ? maxItems : undefined;
@@ -84,8 +125,6 @@ export default function ImageDropField({
 
           if (store === "dataUrl") {
             const dataUrl = await fileToDataUrl(file);
-
-            // ✅ mantém nome no hash só para UI (o CreatePoiPage faz strip antes de enviar)
             const urlWithName = appendNameToUrl(dataUrl, file.name);
 
             if (!next.includes(urlWithName)) {
@@ -107,8 +146,12 @@ export default function ImageDropField({
 
         onChange(next);
 
-        if (added > 0) toast.success(`${added} ficheiro(s) adicionado(s).`);
-        else toast.info("Nenhum ficheiro novo foi adicionado.");
+        if (added > 0) {
+          toast.success(`${added} ficheiro(s) adicionado(s).`);
+          if (images.length === 0) setSelectedIndex(0);
+        } else {
+          toast.info("Nenhum ficheiro novo foi adicionado.");
+        }
 
         if (limit && next.length >= limit && filtered.length > added) {
           toast.info("Já atingiu o limite de ficheiros.");
@@ -140,21 +183,29 @@ export default function ImageDropField({
     setHovering(false);
   };
 
-  const removeItem = (i: number) => {
-    if (!images?.length) return;
+  const removeItem = (index: number) => {
+    if (!images.length) return;
 
-    const url = images[i];
+    const url = images[index];
     const base = url?.split("#")[0];
 
-    if (base?.startsWith("blob:")) URL.revokeObjectURL(base);
+    if (base?.startsWith("blob:")) {
+      URL.revokeObjectURL(base);
+    }
 
-    const next = images.slice();
-    next.splice(i, 1);
+    const next = images.filter((_, i) => i !== index);
     onChange(next);
+
+    if (next.length === 0) {
+      setSelectedIndex(0);
+    } else if (index < selectedIndex) {
+      setSelectedIndex(selectedIndex - 1);
+    } else if (index === selectedIndex) {
+      setSelectedIndex(Math.min(selectedIndex, next.length - 1));
+    }
+
     toast.info("Item removido.");
   };
-
-  const extsLabel = getMediaExtensionsLabel(mode);
 
   return (
     <div className="imgdrop">
@@ -173,10 +224,14 @@ export default function ImageDropField({
       >
         <div className="imgdrop__content">
           <div className="imgdrop__icon">{uploading ? "⏳" : "⬆️"}</div>
+
           <div>
-            <div className="imgdrop__text">{uploading ? "A processar ficheiros…" : "Adicione ficheiros media"}</div>
-            {!uploading && <div className="imgdrop__hint"></div>}
+            <div className="imgdrop__text">
+              {uploading ? "A processar ficheiros…" : "Adicione ficheiros media"}
+            </div>
+            <div className="imgdrop__hint">Arrasta para aqui ou clica para selecionar</div>
           </div>
+
           <div className="imgdrop__exts">{extsLabel}</div>
         </div>
 
@@ -191,23 +246,82 @@ export default function ImageDropField({
       </div>
 
       {images.length > 0 && (
-        <ul className="imgdrop__list gold-scroll">
-          {images.map((it, idx) => {
-            const name = prettyMediaName(it);
-            const isVid = isVideoUrl(it);
-            return (
-              <li key={idx} className="imgdrop__item">
-                <span className="imgdrop__name">
-                  {isVid ? "🎬 " : "🖼️ "}
-                  {name}
-                </span>
-                <Button type="button" className="imgdrop__remove" onClick={() => removeItem(idx)}>
+        <div className="imgdrop__media">
+          <div className="imgdrop__preview">
+            {selectedItem && (
+              <div className="imgdrop__preview-frame">
+                <Button
+                  type="button"
+                  className="imgdrop__preview-remove"
+                  onClick={() => removeItem(selectedIndex)}
+                  aria-label="Remover item selecionado"
+                  title="Remover item selecionado"
+                >
                   ×
                 </Button>
-              </li>
-            );
-          })}
-        </ul>
+
+                {selectedIsVideo ? (
+                  <video
+                    className="imgdrop__preview-media"
+                    src={selectedItem}
+                    controls
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    className="imgdrop__preview-media"
+                    src={selectedItem}
+                    alt={selectedName ?? "Pré-visualização"}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="imgdrop__thumbs gold-scroll" role="list" aria-label="Lista de ficheiros">
+            {images.map((item, index) => {
+              const isActive = index === selectedIndex;
+              const isVideo = isVideoUrl(item);
+              const name = prettyMediaName(item);
+
+              return (
+                <div
+                  key={`${item}-${index}`}
+                  className={`imgdrop__thumb ${isActive ? "is-active" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedIndex(index)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedIndex(index);
+                    }
+                  }}
+                  title={name}
+                >
+                  {isVideo ? (
+                    <video className="imgdrop__thumb-media" src={item} muted playsInline />
+                  ) : (
+                    <img className="imgdrop__thumb-media" src={item} alt={name} />
+                  )}
+
+                  <Button
+                    type="button"
+                    className="imgdrop__thumb-remove"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeItem(index);
+                    }}
+                    aria-label={`Remover ${name}`}
+                    title={`Remover ${name}`}
+                  >
+                    ×
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );
