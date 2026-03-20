@@ -13,56 +13,48 @@
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
-
   display: grid;
   place-items: start center;
-
   padding-top: var(--poi-top);
   padding-right: calc(var(--poi-gap) + var(--safe-right));
   padding-bottom: calc(var(--poi-gap) + var(--safe-bottom));
   padding-left: calc(var(--poi-gap) + var(--safe-left));
+
+  @include overlay-backdrop;
 }
 
 .poi-card {
   width: min(var(--poi-max-w), calc(100vw - (var(--poi-gap) * 2)));
   max-height: calc(100vh - var(--poi-top) - var(--poi-gap) - var(--safe-bottom));
   overflow: hidden;
-
   border-radius: var(--poi-radius);
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
-
+  box-shadow: 0 18px 44px var(--surface-bg-dark-lg), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
   display: flex;
   flex-direction: column;
 }
 
 .poi-header {
   flex: 0 0 auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--surface-divider);
 }
 
-/* =========================
-   BODY (Desktop default)
-========================= */
 .poi-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  @include gold-scroll;
-
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   grid-template-areas:
     "media side"
     "comments side";
-
   gap: 18px;
   padding: 22px;
   align-items: start;
+
+  @include gold-scroll;
 }
 
 .poi-body.is-editing {
@@ -70,49 +62,36 @@
   gap: 18px;
 }
 
-/* =========================
-   MEDIA (Base premium + center)
-   ✅ centra e nunca foge para a direita
-========================= */
 .poi-media {
   grid-area: media;
-
   min-height: clamp(270px, 48vh, 560px);
-
+  min-width: 0;
+  margin-bottom: 30px;
   border-radius: 16px;
   overflow: hidden;
-
   background:
     radial-gradient(600px 220px at 30% 10%, rgba(215, 178, 90, 0.10), transparent 62%),
     linear-gradient(180deg, rgba(18, 46, 30, 0.60), rgba(10, 26, 18, 0.55));
-
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-
   display: flex;
   justify-content: center;
-
-  min-width: 0;
-  margin-bottom: 30px;
 }
 
 .poi-media.is-editing {
   min-height: clamp(520px, 78vh, 980px);
 }
 
-/* viewport real do slideshow (embrulha o PoiMedia no TSX com .poi-media__viewport) */
 .poi-media__viewport {
+  position: relative;
   width: 100%;
   height: 100%;
+  min-width: 0;
   border-radius: 14px;
   overflow: hidden;
-  position: relative;
-
-  background: rgba(0, 0, 0, 0.12);
-
-  min-width: 0;
   box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .poi-media__viewport > * {
@@ -126,14 +105,11 @@
 .poi-media__viewport video {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
   object-position: center;
-  display: block;
 }
 
-/* =========================
-   SIDE + COMMENTS
-========================= */
 .poi-side {
   grid-area: side;
   align-self: start;
@@ -144,11 +120,9 @@
 .poi-comments-wrap {
   grid-area: comments;
   min-height: 0;
-
   margin-top: 6px;
   padding-top: 14px;
   padding-bottom: 14px;
-
   border-top: 1px solid var(--gold-sep);
 }
 
@@ -160,13 +134,7 @@
   }
 }
 
-/* =========================
-   Mobile
-   ✅ dots não cortam
-   ✅ remove scroll no mobile
-========================= */
 @media (max-width: 900px) {
-  /* ✅ remove scroll do modal em mobile */
   .poi-card {
     max-height: none;
     height: calc(100vh - var(--poi-top) - var(--poi-gap) - var(--safe-bottom));
@@ -176,11 +144,9 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-
     padding: 14px;
     margin-bottom: 0;
-
-  scrollbar-width: none;
+    scrollbar-width: none;
     -webkit-overflow-scrolling: auto;
   }
 
@@ -195,13 +161,9 @@
     width: calc(100% + 12px);
     margin-left: -6px;
     margin-right: -6px;
-
     max-width: none;
     border-radius: 16px;
-
     aspect-ratio: 16 / 9;
-
-    /* ✅ dá “respiro” para os dots */
     padding-bottom: 14px;
   }
 
@@ -211,17 +173,13 @@
     min-height: clamp(520px, 86vh, 980px);
   }
 
-  /* ✅ garante espaço dentro do viewport para indicadores/dots */
   .poi-media__viewport {
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-
-    /* 🔥 isto resolve 90% dos “dots cortados” */
     padding-bottom: max(14px, env(safe-area-inset-bottom));
   }
 
-  /* ✅ impedir que tracks internos imponham largura/altura estranhas */
   .poi-media,
   .poi-media__viewport,
   .poi-media__viewport > *,
@@ -237,19 +195,10 @@
     z-index: 0;
   }
 
-  .poi-comments-wrap {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    margin-top: 8px;
-    padding-top: 18px;
-    padding-bottom: 14px;
-    border-top: 1px solid rgba(215, 178, 90, 0.34);
-  }
-
-  /* cinto extra */
-  .poi-card {
-    overflow: hidden;
-    max-width: 100%;
-  }
+   .poi-comments-wrap {
+     margin-top: 0;
+     width: 100%;
+     max-width: 100%;
+     align-self: stretch;
+   }
 }

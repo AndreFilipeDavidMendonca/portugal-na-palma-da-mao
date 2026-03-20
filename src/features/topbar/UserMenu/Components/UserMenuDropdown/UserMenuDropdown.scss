@@ -1,28 +1,23 @@
+@use "@/styles/base.scss" as *;
+
 .user-menu__dropdown {
   position: absolute;
   top: var(--um-top);
-  left: 0;       /* abre para a esquerda */
-
-
+  left: 0;
+  z-index: 9999;
   width: var(--um-w);
   min-width: unset;
-
+  overflow: visible;
   padding: 14px;
   border-radius: var(--um-radius);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35),
-  0 1px 0 rgba(255, 255, 255, 0.05) inset;
-  z-index: 9999;
 
-  overflow: visible;
+  @include elevated-flyout-shell;
 }
 
 .user-menu__divider {
   height: 1px;
   margin: 10px 0;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-divider);
 }
 
 .user-menu__item {
@@ -30,29 +25,29 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 12px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   font-weight: 500;
   font-size: 16px;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.10);
+    background: var(--surface-bg-soft-hover);
+    border-color: var(--surface-border-soft);
   }
 }
 
 .user-menu__item--primary {
-  background: rgba(212, 175, 55, 0.14);
-  border-color: rgba(212, 175, 55, 0.28);
-  color: rgba(212, 175, 55, 0.95);
+  background: var(--accent-gold-bg-md);
+  border-color: var(--accent-gold-border);
+  color: var(--accent-gold-text);
 
   &:hover {
-    background: rgba(212, 175, 55, 0.18);
+    background: var(--accent-gold-bg-active);
     border-color: rgba(212, 175, 55, 0.36);
   }
 }
@@ -61,30 +56,25 @@
   color: rgba(255, 140, 140, 0.95);
 
   &:hover {
-    background: rgba(255, 80, 80, 0.10);
-    border-color: rgba(255, 80, 80, 0.18);
+    background: var(--danger-bg-soft);
+    border-color: var(--danger-border-soft);
   }
 }
 
-/* ===========================
-   Sections (Favoritos / Os meus POIs)
-=========================== */
 .user-menu__section {
   width: 100%;
-  border: 0;
-  background: transparent;
-  padding: 10px 6px 8px;
-  cursor: pointer;
-  color: rgba(212, 175, 55, 0.95);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* ✅ texto logo após a seta */
+  justify-content: flex-start;
   gap: 6px;
-
-  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+  padding: 10px 6px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--accent-gold-border-soft);
+  background: transparent;
+  color: var(--accent-gold-text);
+  cursor: pointer;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 
   &:hover {
     color: rgba(212, 175, 55, 1);
@@ -97,15 +87,13 @@
   white-space: nowrap;
 }
 
-/* seta */
 .user-menu__chev {
-  transition: transform 0.18s ease, opacity 0.18s ease;
-  opacity: 0.85;
   flex: 0 0 auto;
+  opacity: 0.85;
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-/* quando abre o flyout (para a esquerda) */
 .user-menu__section.is-open .user-menu__chev {
-  transform: rotate(-90deg); /* aponta para a esquerda */
+  transform: rotate(-90deg);
   opacity: 1;
 }

@@ -1,7 +1,6 @@
-/* src/components/ImageDropField/ImageDropField.scss */
+@use "@/styles/base.scss" as *;
 
 .imgdrop {
-  /* tokens */
   --pad: clamp(0.6rem, 1.2vw, 0.9rem);
   --gap: clamp(0.45rem, 0.9vw, 0.7rem);
   --radius: 0.9rem;
@@ -12,26 +11,24 @@
   flex-direction: column;
   gap: var(--gap);
   padding: var(--pad);
-
+  min-height: 0;
   color: #f6f3d9;
-  min-height: 0; /* ✅ importante: deixa o pai controlar a altura */
 }
 
 .imgdrop__label {
   font-size: 0.82rem;
-  color: #f6f3d9;
+  color: inherit;
 }
 
 .imgdrop__zone {
   position: relative;
+  overflow: hidden;
+  padding: clamp(0.7rem, 1.4vw, 1rem);
   border-radius: var(--radius);
   border: var(--border);
   background: var(--bg);
-  padding: clamp(0.7rem, 1.4vw, 1rem);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
-
-  overflow: hidden; /* ✅ nada sai da caixa no mobile */
 }
 
 .imgdrop__zone--hover {
@@ -51,8 +48,7 @@
   display: flex;
   align-items: center;
   gap: clamp(0.6rem, 1vw, 0.85rem);
-
-  min-width: 0; /* ✅ crucial em flex */
+  min-width: 0;
 }
 
 .imgdrop__icon {
@@ -60,51 +56,43 @@
   flex: 0 0 auto;
 }
 
-/* ✅ wrapper do texto (2º <div> dentro de .imgdrop__content) */
 .imgdrop__content > div {
-  min-width: 0; /* ✅ permite ellipsis */
+  min-width: 0;
   flex: 1 1 auto;
 }
 
 .imgdrop__text {
-  font-size: 0.85rem;
-  font-weight: 600;
-
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .imgdrop__hint {
-  font-size: 0.72rem;
-  opacity: 0.8;
   margin-top: 0.15rem;
-
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.72rem;
+  opacity: 0.8;
 }
 
 .imgdrop__exts {
   margin-left: auto;
-  font-size: 0.72rem;
-  opacity: 0.7;
-
-  white-space: nowrap;
-
-  /* ✅ evita rebentar no mobile */
   max-width: 42%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  opacity: 0.7;
   flex: 0 0 auto;
 }
 
-/* ✅ default: lista “curta” quando o componente aparece noutros sítios */
 .imgdrop__list {
   list-style: none;
   padding: 0;
   margin: 0;
-
   max-block-size: clamp(6rem, 18vh, 10rem);
   overflow: auto;
 }
@@ -114,24 +102,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-
+  min-width: 0;
+  margin-block: 0.2rem;
   padding: 0.35rem 0.55rem;
   border-radius: 0.65rem;
   background: rgba(0, 0, 0, 0.28);
-
   font-size: 0.78rem;
-  margin-block: 0.2rem;
-
-  min-width: 0;
 }
 
 .imgdrop__name {
+  min-width: 0;
+  flex: 1 1 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  min-width: 0;
-  flex: 1 1 auto;
 }
 
 .imgdrop__remove {
@@ -142,7 +126,6 @@
   font-size: 1rem;
   line-height: 1;
   padding: 0 0.3rem;
-
   flex: 0 0 auto;
 }
 
@@ -150,25 +133,19 @@
   color: #ffab40;
 }
 
-/* ✅ override: quando está dentro do editor do MediaStack, o imgdrop passa a “encher” */
 .media-stack__editor .imgdrop {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* ✅ aqui é o ponto-chave: a lista deixa de ter max-height e ocupa o resto */
 .media-stack__editor .imgdrop__list {
   flex: 1 1 auto;
   min-height: 0;
-
   max-block-size: none;
   overflow: auto;
   margin-top: var(--gap);
 }
 
-/* -----------------------
-   Mobile: manter tudo dentro do field
------------------------- */
 @media (max-width: 520px) {
   .imgdrop__content {
     flex-wrap: wrap;
@@ -182,24 +159,22 @@
     text-align: left;
   }
 
-  /* opcional: permitir 2 linhas no título em mobile (fica mais bonito) */
-  .imgdrop__text {
-    white-space: normal;
+  .imgdrop__text,
+  .imgdrop__hint {
     display: -webkit-box;
-    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    white-space: normal;
   }
 
-  /* se a hint existir, mantém controlado */
-  .imgdrop__hint {
-    white-space: normal;
-    display: -webkit-box;
+  .imgdrop__text {
     -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+  }
+
+  .imgdrop__hint {
+    -webkit-line-clamp: 2;
   }
 }
 
-/* Ainda mais pequeno: se quiseres mesmo garantir espaço */
 @media (max-width: 380px) {
   .imgdrop__exts {
     display: none;

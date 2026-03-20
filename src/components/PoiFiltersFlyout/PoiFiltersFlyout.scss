@@ -1,3 +1,4 @@
+@use "@/styles/base.scss" as *;
 
 .poi-filters-flyout {
   /* reutiliza layout do flyout base */
@@ -13,10 +14,10 @@
 
 .poi-filters-flyout__count {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--text-secondary);
 
   b {
-    color: rgba(212, 175, 55, 0.95);
+    color: var(--accent-gold-text);
     font-weight: 800;
   }
 }
@@ -24,16 +25,13 @@
 .poi-filters-flyout__clear {
   height: 34px;
   padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background: rgba(212, 175, 55, 0.10);
-  color: rgba(212, 175, 55, 0.95);
+  border-radius: var(--radius-pill);
   font-weight: 800;
   cursor: pointer;
+  @include gold-soft-pill;
 
   &:hover:not(:disabled) {
-    background: rgba(212, 175, 55, 0.16);
-    border-color: rgba(212, 175, 55, 0.30);
+    @include gold-soft-pill-hover;
   }
 
   &:disabled {
@@ -52,28 +50,22 @@
 
 .poi-filters-flyout__item {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  padding: 10px 12px;
-  cursor: pointer;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-
-  color: rgba(255, 255, 255, 0.88);
+  padding: 10px 12px;
+  cursor: pointer;
   text-align: left;
 
+  @include soft-list-row;
+
   &:hover {
-    border-color: rgba(212, 175, 55, 0.30);
-    background: rgba(212, 175, 55, 0.06);
+    @include soft-list-row-hover;
   }
 
   &.is-on {
-    border-color: rgba(212, 175, 55, 0.40);
-    background: rgba(212, 175, 55, 0.10);
+    @include soft-list-row-active;
   }
 }
 
@@ -83,14 +75,10 @@
 }
 
 .poi-filters-flyout__chip {
+  padding: 6px 9px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
-
-  padding: 6px 9px;
-  border-radius: 999px;
-
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background: rgba(212, 175, 55, 0.10);
-  color: rgba(212, 175, 55, 0.95);
+  @include gold-soft-pill;
 }
