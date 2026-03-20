@@ -131,6 +131,7 @@ export default function UserMenu() {
     if (!open || !user) return;
 
     loadFavorites();
+
     if (isBusiness) {
       loadMyPois();
     }
@@ -206,7 +207,7 @@ export default function UserMenu() {
       if (!user || busyDeletePoiIds.has(poiId)) return;
 
       const confirmed = window.confirm(
-        `Tens a certeza que queres eliminar este POI${poiName ? ` (“${poiName}”)` : ""}?`
+        `Tens a certeza que queres eliminar este negócio${poiName ? ` (“${poiName}”)` : ""}?`
       );
 
       if (!confirmed) return;
@@ -218,7 +219,7 @@ export default function UserMenu() {
         await deletePoiById(poiId);
         setMyPois((prev) => prev.filter((poi) => poi.id !== poiId));
       } catch (err: any) {
-        setMyPoisError(err?.message ?? "Falha ao eliminar POI");
+        setMyPoisError(err?.message ?? "Falha ao eliminar negócio");
       } finally {
         setBusyDeletePoiIds((prev) => {
           const next = new Set(prev);

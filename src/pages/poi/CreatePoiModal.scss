@@ -2,6 +2,9 @@
 
 .create-poi-overlay {
   @include modal-overlay-shell;
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   @include scroll-hidden;
@@ -9,6 +12,8 @@
 
 .create-poi-card {
   @include modal-panel-shell;
+  position: relative;
+  z-index: 1000000;
   width: min(760px, 96vw);
   max-width: 760px;
   max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
@@ -47,6 +52,7 @@
 .create-poi-form {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .create-poi-label-row {
@@ -123,8 +129,10 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 4px;
+  margin-top: 8px;
+  padding-top: 10px;
   padding-bottom: 6px;
+  border-top: 1px solid rgba(215, 178, 90, 0.14);
 }
 
 .is-invalid {
@@ -143,7 +151,87 @@
   padding: 2px;
 }
 
-@include field-theme-gold('.create-poi-card');
+.create-poi-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.create-poi-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.create-poi-step.is-active {
+  border-color: var(--gold-sep);
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(215, 178, 90, 0.12), transparent 60%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.create-poi-step.is-done {
+  border-color: rgba(215, 178, 90, 0.22);
+  background: rgba(215, 178, 90, 0.06);
+}
+
+.create-poi-step__bullet {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--gold-sep);
+  color: var(--panel-title-color);
+  font-size: 0.9rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.create-poi-step.is-active .create-poi-step__bullet,
+.create-poi-step.is-done .create-poi-step__bullet {
+  background: rgba(215, 178, 90, 0.16);
+  border-color: rgba(215, 178, 90, 0.38);
+}
+
+.create-poi-step__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.create-poi-step__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--panel-title-color);
+  opacity: 0.8;
+}
+
+.create-poi-step__title {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.create-poi-top-grid,
+.create-poi-grid,
+.create-poi-grid--postal,
+.create-poi-actions {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@include field-theme-gold(".create-poi-card");
 
 @media (max-width: 760px) {
   .create-poi-overlay {
@@ -183,6 +271,24 @@
 
   .create-poi-form {
     gap: 14px;
+  }
+
+  .create-poi-stepper {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .create-poi-step {
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .create-poi-step__bullet {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    font-size: 0.82rem;
   }
 
   .create-poi-top-grid {

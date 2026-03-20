@@ -22,13 +22,7 @@ type Props = {
 };
 
 type Category = "event" | "crafts" | "gastronomy" | "accommodation";
-
-const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
-  { value: "event", label: "Evento" },
-  { value: "crafts", label: "Artesanato" },
-  { value: "gastronomy", label: "Gastronomia" },
-  { value: "accommodation", label: "Alojamento" },
-];
+type Step = 1 | 2 | 3;
 
 type FieldKey =
   | "name"
@@ -42,16 +36,18 @@ type FieldKey =
 
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
-const ALL_FIELDS: FieldKey[] = [
-  "name",
-  "districtId",
-  "municipality",
-  "street",
-  "houseNumber",
-  "postalCode",
-  "latlon",
-  "images",
+const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
+  { value: "event", label: "Evento" },
+  { value: "crafts", label: "Artesanato" },
+  { value: "gastronomy", label: "Gastronomia" },
+  { value: "accommodation", label: "Alojamento" },
 ];
+
+const STEP_FIELDS: Record<Step, FieldKey[]> = {
+  1: ["name"],
+  2: ["districtId", "municipality", "street", "houseNumber", "postalCode", "latlon"],
+  3: ["images"],
+};
 
 function stripNameHash(url: string) {
   return url.split("#")[0];
@@ -61,10 +57,23 @@ function normalizePostalCode(value: string) {
   return value.replace(/[^\d-]/g, "").trim();
 }
 
+function getStepTitle(step: Step) {
+  if (step === 1) return "Negócio";
+  if (step === 2) return "Morada";
+  return "Imagens";
+}
+
+function getStepSubtitle(step: Step) {
+  if (step === 1) return "Define o nome, tipo e descrição do negócio.";
+  if (step === 2) return "Indica a morada para localizar o negócio com precisão.";
+  return "Adiciona imagens com pré-visualização antes de guardar.";
+}
+
 export default function CreatePoiModal({ open, onClose }: Props) {
   const { user } = useAuth();
-
   const canCreate = user?.role === "BUSINESS" || user?.role === "ADMIN";
+
+  const [step, setStep] = useState<Step>(1);
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState<Category>("event");
@@ -92,6 +101,12 @@ export default function CreatePoiModal({ open, onClose }: Props) {
 
   const aliveRef = useRef(true);
 
+console.log("[CreatePoiModal]", {
+  open,
+  role: user?.role,
+  canCreate,
+});
+
   useEffect(() => {
     aliveRef.current = true;
     return () => {
@@ -117,6 +132,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
 
+    setStep(1);
     setName("");
     setCategory("event");
     setDescription("");
@@ -138,12 +154,34 @@ export default function CreatePoiModal({ open, onClose }: Props) {
 
   const selectedDistrictName = useMemo(() => {
     if (districtId === "") return "";
-    const d = districts.find((x) => x.id === districtId);
-    return d?.namePt ?? d?.name ?? "";
+    const district = districts.find((item) => item.id === districtId);
+    return district?.namePt ?? district?.name ?? "";
   }, [districtId, districts]);
+
+  const hasDraft =
+    name.trim().length > 0 ||
+    description.trim().length > 0 ||
+    street.trim().length > 0 ||
+    houseNumber.trim().length > 0 ||
+    postalCode.trim().length > 0 ||
+    municipality.trim().length > 0 ||
+    Boolean(districtId) ||
+    images.length > 0;
+
+  const addressKey = useMemo(
+    () => `${street}|${houseNumber}|${postalCode}|${municipality}|${selectedDistrictName}`,
+    [street, houseNumber, postalCode, municipality, selectedDistrictName]
+  );
 
   const setFieldTouched = (field: FieldKey) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const markFieldsTouched = (fields: FieldKey[]) => {
+    setTouched((prev) => ({
+      ...prev,
+      ...Object.fromEntries(fields.map((field) => [field, true])),
+    }));
   };
 
   const clearFieldError = (field: FieldKey) => {
@@ -171,16 +209,20 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     return next;
   };
 
+  const validateStep = (currentStep: Step): FieldErrors => {
+    const nextErrors = validateForm();
+    const allowedFields = STEP_FIELDS[currentStep];
+
+    return Object.fromEntries(
+      Object.entries(nextErrors).filter(([key]) => allowedFields.includes(key as FieldKey))
+    ) as FieldErrors;
+  };
+
   const showValidationToasts = (nextErrors: FieldErrors) => {
     for (const msg of Object.values(nextErrors)) {
       if (msg) toast.error(msg);
     }
   };
-
-  const addressKey = useMemo(
-    () => `${street}|${houseNumber}|${postalCode}|${municipality}|${selectedDistrictName}`,
-    [street, houseNumber, postalCode, municipality, selectedDistrictName]
-  );
 
   useEffect(() => {
     if (!open || loading) return;
@@ -198,7 +240,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
       return;
     }
 
-    const timer = setTimeout(async () => {
+    const timer = window.setTimeout(async () => {
       const req: GeocodeRequestDto = {
         street: street.trim(),
         houseNumber: houseNumber.trim(),
@@ -215,7 +257,6 @@ export default function CreatePoiModal({ open, onClose }: Props) {
         setGeoStatus("A localizar morada…");
 
         const res = await geocodeAddress(req);
-
         if (!aliveRef.current) return;
 
         setLat(res.lat);
@@ -234,8 +275,29 @@ export default function CreatePoiModal({ open, onClose }: Props) {
       }
     }, 900);
 
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [open, addressKey, loading, street, houseNumber, postalCode, municipality, selectedDistrictName]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (loading) return;
+
+        if (!hasDraft) {
+          onClose();
+          return;
+        }
+
+        const confirmed = window.confirm("Tens alterações por guardar. Desejas mesmo cancelar?");
+        if (confirmed) onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, loading, hasDraft, onClose]);
 
   const formReady = useMemo(() => {
     const hasBasics =
@@ -265,16 +327,57 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     loading,
   ]);
 
+  const canGoBack = step > 1;
+
+  const primaryLabel = loading
+    ? "A criar…"
+    : imagesUploading
+      ? "A processar imagens…"
+      : geoLoading && step === 2
+        ? "A localizar…"
+        : step === 3
+          ? "Criar"
+          : "Próximo passo";
+
+  function goToNextStep() {
+    const nextErrors = validateStep(step);
+    markFieldsTouched(STEP_FIELDS[step]);
+    setErrors((prev) => ({ ...prev, ...nextErrors }));
+
+    if (Object.keys(nextErrors).length > 0) {
+      showValidationToasts(nextErrors);
+      return;
+    }
+
+    if (step < 3) {
+      setStep((prev) => (prev + 1) as Step);
+    }
+  }
+
+  function handleCancel() {
+    if (loading) return;
+
+    if (!hasDraft) {
+      onClose();
+      return;
+    }
+
+    const confirmed = window.confirm("Tens alterações por guardar. Desejas mesmo cancelar?");
+    if (confirmed) onClose();
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (step < 3) {
+      goToNextStep();
+      return;
+    }
+
     if (loading || !formReady) return;
 
     const nextErrors = validateForm();
-
-    setTouched((prev) => ({
-      ...prev,
-      ...Object.fromEntries(ALL_FIELDS.map((k) => [k, true])),
-    }));
+    markFieldsTouched([...STEP_FIELDS[1], ...STEP_FIELDS[2], ...STEP_FIELDS[3]]);
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -282,10 +385,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
       return;
     }
 
-    const latN = lat;
-    const lonN = lon;
-
-    if (latN == null || lonN == null) {
+    if (lat == null || lon == null) {
       setErrors((prev) => ({ ...prev, latlon: "Morada não localizada." }));
       toast.error("Morada não localizada.");
       return;
@@ -307,17 +407,17 @@ export default function CreatePoiModal({ open, onClose }: Props) {
         description: description.trim() || null,
         districtId: Number(districtId),
         municipality: municipality.trim(),
-        lat: latN,
-        lon: lonN,
+        lat,
+        lon,
         image: imagesClean[0],
         images: imagesClean,
       });
 
-      toast.success("POI criado com sucesso.");
+      toast.success("Negócio criado com sucesso.");
       onClose();
       window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId: created.id } }));
     } catch (err: any) {
-      toast.error(err?.message ?? "Falha ao criar POI");
+      toast.error(err?.message ?? "Falha ao criar negócio");
     } finally {
       if (aliveRef.current) setLoading(false);
     }
@@ -326,10 +426,17 @@ export default function CreatePoiModal({ open, onClose }: Props) {
   if (!open || !canCreate) return null;
 
   return ReactDOM.createPortal(
-    <div className="create-poi-overlay" onClick={() => !loading && onClose()}>
+    <div
+      className="create-poi-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          handleCancel();
+        }
+      }}
+    >
       <div
         className="create-poi-card"
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-poi-title"
@@ -339,178 +446,230 @@ export default function CreatePoiModal({ open, onClose }: Props) {
             Criar Negócio
           </h2>
 
-          <p className="create-poi-subtitle">
-            Adiciona um novo espaço à rede com localização precisa, categoria e galeria visual.
-          </p>
+          <p className="create-poi-subtitle">{getStepSubtitle(step)}</p>
+
+          <div className="create-poi-stepper" aria-label="Passos de criação">
+            {[1, 2, 3].map((item) => {
+              const stepNumber = item as Step;
+              const state =
+                step === stepNumber ? "is-active" : step > stepNumber ? "is-done" : "";
+
+              return (
+                <div key={item} className={`create-poi-step ${state}`}>
+                  <div className="create-poi-step__bullet">{item}</div>
+                  <div className="create-poi-step__meta">
+                    <span className="create-poi-step__label">Passo {item}</span>
+                    <strong className="create-poi-step__title">{getStepTitle(stepNumber)}</strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="create-poi-body">
           <form onSubmit={onSubmit} className="create-poi-form">
-            <div className="create-poi-label-row">
-              <label className="create-poi-label" htmlFor="create-poi-category">
-                Negócio
-              </label>
-            </div>
+            {step === 1 && (
+              <>
+                <div className="create-poi-label-row">
+                  <label className="create-poi-label" htmlFor="create-poi-category">
+                    Negócio
+                  </label>
+                </div>
 
-            <div className="create-poi-top-grid">
-              <div className="create-poi-type-block">
-                <Select
-                  id="create-poi-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Category)}
-                  disabled={loading}
-                >
-                  {CATEGORY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+                <div className="create-poi-top-grid">
+                  <div className="create-poi-type-block">
+                    <Select
+                      id="create-poi-category"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as Category)}
+                      disabled={loading}
+                    >
+                      {CATEGORY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
 
-              <div className="create-poi-description-block">
-                <Textarea
-                  placeholder="Descrição"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
+                  <div className="create-poi-description-block">
+                    <Textarea
+                      placeholder="Descrição"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
 
-              <div className="create-poi-name-block">
-                <Input
-                  placeholder="Nome"
-                  value={name}
-                  onBlur={() => setFieldTouched("name")}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    clearFieldError("name");
-                  }}
-                  disabled={loading}
-                  autoComplete="off"
-                  invalid={isInvalid("name")}
-                />
-              </div>
-            </div>
-
-            <div className="create-poi-label-row">
-              <label className="create-poi-label" htmlFor="create-poi-district">
-                Morada
-              </label>
-            </div>
-
-            <div className="create-poi-grid">
-              <Select
-                id="create-poi-district"
-                invalid={isInvalid("districtId")}
-                value={districtId}
-                onBlur={() => setFieldTouched("districtId")}
-                onChange={(e) => {
-                  setDistrictId(e.target.value ? Number(e.target.value) : "");
-                  clearFieldError("districtId");
-                }}
-                disabled={loading}
-              >
-                <option value="">Seleciona o distrito…</option>
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.namePt ?? d.name}
-                  </option>
-                ))}
-              </Select>
-
-              <Input
-                placeholder="Concelho"
-                value={municipality}
-                onBlur={() => setFieldTouched("municipality")}
-                onChange={(e) => {
-                  setMunicipality(e.target.value);
-                  clearFieldError("municipality");
-                }}
-                disabled={loading}
-                autoComplete="address-level2"
-                invalid={isInvalid("municipality")}
-              />
-
-              <Input
-                placeholder="Rua"
-                value={street}
-                onBlur={() => setFieldTouched("street")}
-                onChange={(e) => {
-                  setStreet(e.target.value);
-                  clearFieldError("street");
-                }}
-                disabled={loading}
-                autoComplete="street-address"
-                invalid={isInvalid("street")}
-              />
-
-              <Input
-                placeholder="Nº"
-                value={houseNumber}
-                onBlur={() => setFieldTouched("houseNumber")}
-                onChange={(e) => {
-                  setHouseNumber(e.target.value);
-                  clearFieldError("houseNumber");
-                }}
-                disabled={loading}
-                inputMode="numeric"
-                autoComplete="address-line2"
-                invalid={isInvalid("houseNumber")}
-              />
-            </div>
-
-            <div className="create-poi-grid create-poi-grid--postal">
-              <Input
-                placeholder="Código Postal"
-                value={postalCode}
-                onBlur={() => setFieldTouched("postalCode")}
-                onChange={(e) => {
-                  setPostalCode(normalizePostalCode(e.target.value));
-                  clearFieldError("postalCode");
-                }}
-                disabled={loading}
-                inputMode="numeric"
-                autoComplete="postal-code"
-                invalid={isInvalid("postalCode")}
-              />
-            </div>
-
-            {geoStatus && (
-              <div className={`create-poi-geo ${isInvalid("latlon") ? "is-invalid-text" : ""}`}>
-                {geoStatus}
-              </div>
+                  <div className="create-poi-name-block">
+                    <Input
+                      placeholder="Nome"
+                      value={name}
+                      onBlur={() => setFieldTouched("name")}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        clearFieldError("name");
+                      }}
+                      disabled={loading}
+                      autoComplete="off"
+                      invalid={isInvalid("name")}
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
-            <div className={isInvalid("images") ? "is-invalid-block" : ""}>
-              <ImageDropField
-                label="Imagens do POI"
-                images={images}
-                onChange={(list) => {
-                  setImages(list.slice(0, 6));
-                  clearFieldError("images");
-                  setFieldTouched("images");
-                }}
-                store="dataUrl"
-                mode="media"
-                maxItems={10}
-                onUploadingChange={setImagesUploading}
-              />
-            </div>
+            {step === 2 && (
+              <>
+                <div className="create-poi-label-row">
+                  <label className="create-poi-label" htmlFor="create-poi-district">
+                    Morada
+                  </label>
+                </div>
+
+                <div className="create-poi-grid">
+                  <Select
+                    id="create-poi-district"
+                    invalid={isInvalid("districtId")}
+                    value={districtId}
+                    onBlur={() => setFieldTouched("districtId")}
+                    onChange={(e) => {
+                      setDistrictId(e.target.value ? Number(e.target.value) : "");
+                      clearFieldError("districtId");
+                    }}
+                    disabled={loading}
+                  >
+                    <option value="">Seleciona o distrito…</option>
+                    {districts.map((district) => (
+                      <option key={district.id} value={district.id}>
+                        {district.namePt ?? district.name}
+                      </option>
+                    ))}
+                  </Select>
+
+                  <Input
+                    placeholder="Concelho"
+                    value={municipality}
+                    onBlur={() => setFieldTouched("municipality")}
+                    onChange={(e) => {
+                      setMunicipality(e.target.value);
+                      clearFieldError("municipality");
+                    }}
+                    disabled={loading}
+                    autoComplete="address-level2"
+                    invalid={isInvalid("municipality")}
+                  />
+
+                  <Input
+                    placeholder="Rua"
+                    value={street}
+                    onBlur={() => setFieldTouched("street")}
+                    onChange={(e) => {
+                      setStreet(e.target.value);
+                      clearFieldError("street");
+                    }}
+                    disabled={loading}
+                    autoComplete="street-address"
+                    invalid={isInvalid("street")}
+                  />
+
+                  <Input
+                    placeholder="Nº"
+                    value={houseNumber}
+                    onBlur={() => setFieldTouched("houseNumber")}
+                    onChange={(e) => {
+                      setHouseNumber(e.target.value);
+                      clearFieldError("houseNumber");
+                    }}
+                    disabled={loading}
+                    inputMode="numeric"
+                    autoComplete="address-line2"
+                    invalid={isInvalid("houseNumber")}
+                  />
+                </div>
+
+                <div className="create-poi-grid create-poi-grid--postal">
+                  <Input
+                    placeholder="Código Postal"
+                    value={postalCode}
+                    onBlur={() => setFieldTouched("postalCode")}
+                    onChange={(e) => {
+                      setPostalCode(normalizePostalCode(e.target.value));
+                      clearFieldError("postalCode");
+                    }}
+                    disabled={loading}
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    invalid={isInvalid("postalCode")}
+                  />
+                </div>
+
+                {geoStatus && (
+                  <div className={`create-poi-geo ${isInvalid("latlon") ? "is-invalid-text" : ""}`}>
+                    {geoStatus}
+                  </div>
+                )}
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <div className="create-poi-label-row">
+                  <label className="create-poi-label">Imagens</label>
+                </div>
+
+                <div className={isInvalid("images") ? "is-invalid-block" : ""}>
+                  <ImageDropField
+                    label="Imagens do Negócio"
+                    images={images}
+                    onChange={(list) => {
+                      setImages(list.slice(0, 6));
+                      clearFieldError("images");
+                      setFieldTouched("images");
+                    }}
+                    store="dataUrl"
+                    mode="media"
+                    maxItems={10}
+                    onUploadingChange={setImagesUploading}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="create-poi-actions">
-              <Button type="submit" variant="primary" pill strong disabled={!formReady}>
-                {loading
-                  ? "A criar…"
-                  : imagesUploading
-                    ? "A processar imagens…"
-                    : geoLoading
-                      ? "A localizar…"
-                      : "Criar"}
+              {canGoBack && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  pill
+                  strong
+                  onClick={() => setStep((prev) => (prev - 1) as Step)}
+                  disabled={loading}
+                >
+                  Voltar
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                variant="ghost"
+                pill
+                strong
+                onClick={handleCancel}
+                disabled={loading}
+              >
+                Cancelar
               </Button>
 
-              <Button type="button" variant="ghost" pill strong onClick={onClose} disabled={loading}>
-                Cancelar
+              <Button
+                type="submit"
+                variant="primary"
+                pill
+                strong
+                disabled={step === 3 ? !formReady && !loading : loading}
+              >
+                {primaryLabel}
               </Button>
             </div>
           </form>
