@@ -80,7 +80,9 @@
 }
 
 .poi-media.is-editing {
-  min-height: clamp(520px, 78vh, 980px);
+  min-height: auto;
+  height: auto;
+  overflow: visible;
 }
 
 .poi-media__viewport {
@@ -98,6 +100,18 @@
   width: 100%;
   height: 100%;
   min-width: 0;
+  min-height: 0;
+}
+
+.poi-media__viewport.is-editing {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+.poi-media__viewport.is-editing > * {
+  height: auto;
   min-height: 0;
 }
 

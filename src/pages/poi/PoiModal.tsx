@@ -209,7 +209,7 @@ export default function PoiModal({
             className={`poi-media ${editing ? "is-editing" : ""}`}
             aria-label="Galeria"
           >
-            <div className="poi-media__viewport">
+            <div className={`poi-media__viewport ${editing ? "is-editing" : ""}`}>
               <PoiMedia
                 title={title}
                 mediaUrls={mediaUrls}
