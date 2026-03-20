@@ -14,8 +14,8 @@
   @include modal-panel-shell;
   position: relative;
   z-index: 1000000;
-  width: min(760px, 96vw);
-  max-width: 760px;
+  width: min(900px, 96vw);
+  max-width: 900px;
   max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px);
   display: flex;
   flex-direction: column;
@@ -53,6 +53,13 @@
   display: grid;
   gap: 16px;
   min-width: 0;
+}
+
+.create-poi-stage {
+  min-height: 340px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
 }
 
 .create-poi-label-row {
@@ -167,6 +174,21 @@
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.025);
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.create-poi-step:hover {
+  border-color: rgba(215, 178, 90, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.create-poi-step:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.2);
 }
 
 .create-poi-step.is-active {
@@ -222,6 +244,80 @@
   font-weight: 700;
 }
 
+.create-poi-media-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.create-poi-preview-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.create-poi-preview-stage {
+  min-height: 260px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(215, 178, 90, 0.08), transparent 60%),
+    rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-poi-preview-image {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  display: block;
+}
+
+.create-poi-preview-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.create-poi-preview-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 10px;
+}
+
+.create-poi-preview-thumb {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  aspect-ratio: 1 / 1;
+}
+
+.create-poi-preview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.create-poi-preview-thumb:hover {
+  border-color: rgba(215, 178, 90, 0.32);
+}
+
+.create-poi-preview-thumb.is-active {
+  border-color: rgba(215, 178, 90, 0.55);
+  box-shadow: 0 0 0 2px rgba(215, 178, 90, 0.18);
+}
+
 .create-poi-top-grid,
 .create-poi-grid,
 .create-poi-grid--postal,
@@ -232,6 +328,18 @@
 }
 
 @include field-theme-gold(".create-poi-card");
+
+@media (max-width: 900px) {
+  .create-poi-media-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .create-poi-preview-stage,
+  .create-poi-preview-image {
+    height: 220px;
+    min-height: 220px;
+  }
+}
 
 @media (max-width: 760px) {
   .create-poi-overlay {
@@ -271,6 +379,10 @@
 
   .create-poi-form {
     gap: 14px;
+  }
+
+  .create-poi-stage {
+    min-height: 0;
   }
 
   .create-poi-stepper {
@@ -329,5 +441,9 @@
 
   .create-poi-geo {
     font-size: 12px;
+  }
+
+  .create-poi-preview-strip {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   }
 }
