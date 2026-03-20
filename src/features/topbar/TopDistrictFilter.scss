@@ -1,3 +1,5 @@
+@use "@/styles/base.scss" as *;
+
 /* ===========================
    Barra topo: Pesquisa global
 =========================== */
@@ -56,10 +58,7 @@
 
 .tdf-input {
   width: 100%;
-  background: var(--bg-panel);
-  color: var(--gold);
-  border: 1px solid var(--border);
-  border-radius: var(--topbar-radius);
+  @include topbar-control-base;
   padding: 10px 42px 10px 12px; /* espaço p/ botão X */
   outline: none;
   font-family: var(--font-body), serif;
@@ -67,7 +66,7 @@
 
   &:focus {
     border-color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+    box-shadow: var(--shadow-focus-gold);
   }
 }
 
@@ -77,9 +76,9 @@
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
+  width: var(--control-clear-size);
+  height: var(--control-clear-size);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--bg-panel-2);
   color: var(--gold);
@@ -96,9 +95,7 @@
   }
 
   &:focus {
-    outline: none;
-    border-color: var(--border-2);
-    box-shadow: 0 0 0 3px rgba(215, 178, 90, 0.15);
+    @include focus-ring-gold;
   }
 }
 
@@ -107,14 +104,11 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% + 6px);
+  top: calc(100% + var(--dropdown-offset-y));
   max-height: 280px;
   overflow: auto;
 
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--topbar-radius);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  @include topbar-dropdown-shell;
 
   list-style: none;
   margin: 0;
@@ -123,7 +117,7 @@
 
 .tdf-item {
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
   color: var(--gold);
   cursor: pointer;
   font-family: var(--font-body), serif;
@@ -180,8 +174,8 @@
 
   .tdf-clear {
     right: 8px;
-    width: 26px;
-    height: 26px;
+    width: var(--control-clear-size-sm);
+    height: var(--control-clear-size-sm);
   }
 }
 

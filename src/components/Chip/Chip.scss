@@ -52,7 +52,7 @@
 }
 
 .ui-chip--pill {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 /* -----------------------------
@@ -81,10 +81,10 @@
   padding: var(--chip-py) var(--chip-px);
   min-height: var(--chip-minh);
 
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  border-radius: var(--chip-radius, 12px);
-  background: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
-  color: var(--gold, #d7b25a);
+  border: 1px solid var(--border);
+  border-radius: var(--chip-radius, var(--radius-md));
+  background: var(--bg-panel-2);
+  color: var(--gold);
 }
 
 /* -----------------------------
@@ -102,7 +102,7 @@
   min-height: var(--chip-minh);
 
   border: 1.3px solid var(--gold-dark);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--gold);
   color: var(--bg-panel);
 
@@ -154,7 +154,7 @@
   background: var(--gold-strong);
   border-color: var(--gold-dark);
   box-shadow: 0 0 6px rgba(179, 143, 59, 0.28);
-  filter: drop-shadow(0 0 6px rgba(215,178,90,0.18));
+  filter: drop-shadow(0 0 6px var(--panel-glow-sm));
 }
 
 /* Group chips (Cultura ▾) */
@@ -180,7 +180,7 @@
   .ui-chip--poi {
     padding: 4px 10px;
     min-height: 30px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
 
     font-size: 0.95rem;
     box-shadow: none;

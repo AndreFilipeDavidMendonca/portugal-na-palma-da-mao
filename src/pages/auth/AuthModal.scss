@@ -100,21 +100,12 @@
 }
 
 .auth-role-btn:not(.is-active) {
-  background: linear-gradient(180deg, var(--bg-panel-2), var(--bg-deep));
-  border: 1px solid rgba(223, 186, 96, 0.25);
-  color: var(--panel-title-color);
-  box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.20),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  @include action-card-idle;
 }
 
 .auth-role-btn:not(.is-active):hover:not(:disabled) {
   transform: translateY(-2px);
-  background: linear-gradient(180deg, #1d422f, #133020);
-  border-color: rgba(240, 199, 107, 0.42);
-  box-shadow:
-    0 16px 28px rgba(0, 0, 0, 0.28),
-    0 0 24px rgba(240, 199, 107, 0.16);
+  @include action-card-idle-hover;
 }
 
 .auth-role-btn:not(.is-active) .auth-role-btn__hint {
@@ -126,14 +117,7 @@
 }
 
 .auth-role-btn.is-active {
-  background:
-    radial-gradient(320px 120px at 50% 0%, rgba(255, 241, 193, 0.28), transparent 65%),
-    linear-gradient(180deg, #f3d47f, #deba63);
-  border: 1px solid rgba(255, 235, 182, 0.9);
-  box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.28),
-    0 0 18px rgba(240, 199, 107, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  @include action-card-active;
 
   .auth-role-btn__title,
   .auth-role-btn__hint {
@@ -143,14 +127,7 @@
 
 .auth-role-btn.is-active:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.01);
-  background:
-    radial-gradient(320px 120px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
-    linear-gradient(180deg, #f8d781, #e6ba58);
-  border-color: rgba(255, 236, 184, 1);
-  box-shadow:
-    0 20px 38px rgba(0, 0, 0, 0.34),
-    0 0 34px rgba(240, 199, 107, 0.46),
-    0 0 90px rgba(240, 199, 107, 0.16);
+  @include action-card-active-hover;
 
   .auth-role-btn__title,
   .auth-role-btn__hint {

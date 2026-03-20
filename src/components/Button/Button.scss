@@ -5,10 +5,10 @@
   justify-content: center;
   gap: 0.5rem;
 
-  border-radius: var(--btn-radius, 12px);
+  border-radius: var(--btn-radius, var(--radius-md));
   padding: var(--btn-pad, 10px 14px);
-  border: 1px solid var(--btn-border, rgba(255, 255, 255, 0.18));
-  background: var(--btn-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--btn-border, var(--border));
+  background: var(--btn-bg, var(--bg-panel-2));
   color: var(--btn-fg, inherit);
 
   font-weight: var(--btn-fw, 600);
@@ -21,10 +21,10 @@
     background 150ms ease, border-color 150ms ease, color 150ms ease;
 
   &:hover:not(:disabled) {
-    background: var(--btn-bg-hover, var(--btn-bg, rgba(255, 255, 255, 0.06)));
+    background: var(--btn-bg-hover, var(--btn-bg, var(--bg-panel-2)));
     border-color: var(
       --btn-border-hover,
-      var(--btn-border, rgba(255, 255, 255, 0.18))
+      var(--btn-border, var(--border))
     );
     color: var(--btn-fg-hover, var(--btn-fg, inherit));
   }
@@ -33,9 +33,9 @@
     outline: none;
     border-color: var(
       --btn-focus-border,
-      var(--border-2, rgba(255, 255, 255, 0.28))
+      var(--border-2)
     );
-    box-shadow: 0 0 0 3px var(--btn-ring, var(--field-ring-focus, rgba(215, 178, 90, 0.15)));
+    box-shadow: 0 0 0 3px var(--btn-ring, var(--field-ring-focus));
   }
 
   &:active {
@@ -54,7 +54,7 @@
 }
 
 .ui-btn--pill {
-  --btn-radius: 999px;
+  --btn-radius: var(--radius-pill);
 }
 
 .ui-btn--strong {
@@ -83,19 +83,19 @@
 
 /* Default: subtle surface button */
 .ui-btn--default {
-  --btn-bg: var(--bg-panel-2, rgba(255, 255, 255, 0.06));
-  --btn-border: var(--border, rgba(255, 255, 255, 0.18));
+  --btn-bg: var(--bg-panel-2);
+  --btn-border: var(--border);
   --btn-fg: var(--gold, inherit);
 }
 
 /* Primary: gold solid (project theme) */
 .ui-btn--primary {
-  --btn-bg: var(--gold, rgba(215, 178, 90, 1));
-  --btn-border: var(--gold-dark, rgba(215, 178, 90, 0.45));
-  --btn-fg: var(--bg-deep, #0b0b0b);
-  --btn-bg-hover: var(--gold-strong, rgba(215, 178, 90, 0.9));
-  --btn-border-hover: var(--gold, rgba(215, 178, 90, 1));
-  --btn-ring: var(--field-ring-focus, rgba(215, 178, 90, 0.15));
+  --btn-bg: var(--gold);
+  --btn-border: var(--gold-dark);
+  --btn-fg: var(--bg-deep);
+  --btn-bg-hover: var(--gold-strong);
+  --btn-border-hover: var(--gold);
+  --btn-ring: var(--field-ring-focus);
 }
 
 .ui-btn--gold {
@@ -111,10 +111,10 @@
 }
 
 .ui-btn--ghost {
-  --btn-border: var(--gold-dark, rgba(215, 178, 90, 0.45));
+  --btn-border: var(--gold-dark);
   --btn-fg: var(--gold, inherit);
-  --btn-bg-hover: var(--bg-panel, rgba(0, 0, 0, 0.18));
-  --btn-border-hover: var(--gold, rgba(215, 178, 90, 1));
+  --btn-bg-hover: var(--bg-panel);
+  --btn-border-hover: var(--gold);
   --btn-fg-hover: var(--gold-strong, var(--gold, inherit));
 }
 
@@ -127,7 +127,7 @@
 
   /* sem padding “de botão”, mas com hit-area decente */
   --btn-pad: 2px;
-  --btn-radius: 999px;
+  --btn-radius: var(--radius-pill);
 
   color: var(--gold-dark, currentColor);
 
@@ -140,7 +140,7 @@
   &:focus {
     outline: none;
     border-color: transparent;
-    box-shadow: 0 0 0 3px var(--btn-ring, rgba(215, 178, 90, 0.18));
+    box-shadow: 0 0 0 3px var(--btn-ring, var(--field-ring-focus));
   }
 
   &:active {
