@@ -9,8 +9,14 @@ type Props = {
   isBusiness: boolean;
   favOpen: boolean;
   myPoisOpen: boolean;
+  notificationsOpen: boolean;
+  friendsOpen: boolean;
+  pendingCount: number;
+  unreadFriendsMessagesCount?: number;
   onToggleFavorites: () => void;
   onToggleMyPois: () => void;
+  onToggleNotifications: () => void;
+  onToggleFriends: () => void;
   onEditProfile: () => void;
   onLogout: () => void;
   onLogin: () => void;
@@ -21,8 +27,14 @@ export default function UserMenuDropdown({
   isBusiness,
   favOpen,
   myPoisOpen,
+  notificationsOpen,
+  friendsOpen,
+  pendingCount,
+  unreadFriendsMessagesCount = 0,
   onToggleFavorites,
   onToggleMyPois,
+  onToggleNotifications,
+  onToggleFriends,
   onEditProfile,
   onLogout,
   onLogin,
@@ -45,8 +57,47 @@ export default function UserMenuDropdown({
 
           <Button
             type="button"
+            className={`user-menu__section ${notificationsOpen ? "is-open" : ""}`}
+            onClick={onToggleNotifications}
+            role="menuitem"
+          >
+            <span className="user-menu__chev" aria-hidden="true">◂</span>
+            <span className="user-menu__section-title">Notificações</span>
+
+            {pendingCount > 0 && (
+              <span
+                className="user-menu__section-badge"
+                aria-label={`${pendingCount} convites pendentes`}
+              >
+                {pendingCount}
+              </span>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            className={`user-menu__section ${friendsOpen ? "is-open" : ""}`}
+            onClick={onToggleFriends}
+            role="menuitem"
+          >
+            <span className="user-menu__chev" aria-hidden="true">◂</span>
+            <span className="user-menu__section-title">Amigos</span>
+
+            {unreadFriendsMessagesCount > 0 && (
+              <span
+                className="user-menu__section-badge"
+                aria-label={`${unreadFriendsMessagesCount} mensagens por ler`}
+              >
+                {unreadFriendsMessagesCount}
+              </span>
+            )}
+          </Button>
+
+          <Button
+            type="button"
             className={`user-menu__section ${favOpen ? "is-open" : ""}`}
             onClick={onToggleFavorites}
+            role="menuitem"
           >
             <span className="user-menu__chev" aria-hidden="true">◂</span>
             <span className="user-menu__section-title">Favoritos</span>
@@ -57,6 +108,7 @@ export default function UserMenuDropdown({
               type="button"
               className={`user-menu__section ${myPoisOpen ? "is-open" : ""}`}
               onClick={onToggleMyPois}
+              role="menuitem"
             >
               <span className="user-menu__chev" aria-hidden="true">◂</span>
               <span className="user-menu__section-title">Os meus negócios</span>

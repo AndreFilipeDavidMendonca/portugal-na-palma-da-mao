@@ -1,0 +1,255 @@
+@use "@/styles/base.scss" as *;
+
+.friends-flyout {
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(240, 199, 107, 0.24);
+  background:
+    radial-gradient(720px 220px at 50% 0%, rgba(241, 204, 108, 0.045), transparent 62%),
+    linear-gradient(180deg, rgba(7, 24, 14, 0.985), rgba(4, 18, 10, 0.995));
+  box-shadow:
+    0 28px 60px rgba(0, 0, 0, 0.44),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+.friends-flyout__header {
+  padding-bottom: 18px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--surface-divider);
+}
+
+.friends-flyout__title {
+  font-family: var(--font-body), serif;
+  font-size: clamp(22px, 2vw, 38px);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--panel-title-color);
+}
+
+.friends-flyout__body {
+  max-height: min(68vh, 620px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.friends-flyout__add-btn {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-pill);
+  justify-content: center;
+}
+
+.friends-flyout__add-panel {
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border-soft);
+  background:
+    radial-gradient(420px 140px at 20% 0%, rgba(215, 178, 90, 0.03), transparent 72%),
+    linear-gradient(180deg, rgba(8, 34, 20, 0.94), rgba(5, 24, 14, 0.98));
+}
+
+.friends-flyout__add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.friends-flyout__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.friends-flyout__item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(420px 140px at 20% 0%, rgba(215, 178, 90, 0.03), transparent 72%),
+    linear-gradient(180deg, rgba(8, 34, 20, 0.94), rgba(5, 24, 14, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 26px rgba(0, 0, 0, 0.20);
+}
+
+.friends-flyout__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.friends-flyout__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.friends-flyout__thumb {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(240, 199, 107, 0.24);
+  background: rgba(255, 255, 255, 0.03);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.friends-flyout__thumb--empty {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.friends-flyout__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.friends-flyout__name {
+  font-family: var(--font-body), serif;
+  font-size: clamp(18px, 1.35vw, 24px);
+  font-weight: 500;
+  color: var(--gold);
+  line-height: 1.1;
+}
+
+.friends-flyout__email {
+  font-family: var(--font-body), serif;
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.friends-flyout__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.friends-flyout__chat-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.friends-flyout__chat-alert {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e54848;
+  color: #fff;
+  font-family: var(--font-body), serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow:
+    0 0 0 2px rgba(7, 24, 14, 0.98),
+    0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.friends-flyout__icon-btn {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.friends-flyout__icon-btn--chat {
+  border: 1px solid rgba(255, 235, 182, 0.92);
+  background:
+    radial-gradient(180px 70px at 50% 0%, rgba(255, 241, 193, 0.28), transparent 65%),
+    linear-gradient(180deg, #f3d47f, #deba63);
+  color: #102315;
+  box-shadow: var(--shadow-gold-active);
+}
+
+.friends-flyout__icon-btn--delete {
+  border: 1px solid var(--gold-dark);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--gold);
+}
+
+.friends-flyout__hint,
+.friends-flyout__error {
+  padding: 18px 4px 8px;
+  text-align: center;
+  font-family: var(--font-body), serif;
+  font-size: 14px;
+}
+
+.friends-flyout__hint {
+  color: var(--text-secondary);
+}
+
+.friends-flyout__error {
+  color: var(--danger-text-soft);
+}
+
+@media (max-width: 640px) {
+  .friends-flyout__item {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .friends-flyout__thumb {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+  }
+
+  .friends-flyout__name {
+    font-size: 18px;
+  }
+
+  .friends-flyout__icon-btn {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    font-size: 18px;
+  }
+
+  .friends-flyout__chat-alert {
+    width: 16px;
+    height: 16px;
+    font-size: 11px;
+  }
+}

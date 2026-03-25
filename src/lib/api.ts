@@ -6,66 +6,74 @@ export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8085"
 /* =========================
    Helpers
 ========================= */
+
 async function parseJsonSafe(res: Response) {
-    const text = await res.text();
-    if (!text) return null;
-    try {
-        return JSON.parse(text);
-    } catch {
-        return text;
-    }
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 function extractErrorMessage(data: any, status: number) {
-    return (
-        (data && typeof data === "object" && (data.message || data.error)) ||
-        (typeof data === "string" && data) ||
-        `Erro HTTP ${status}`
-    );
+  return (
+    (data && typeof data === "object" && (data.message || data.error)) ||
+    (typeof data === "string" && data) ||
+    `Erro HTTP ${status}`
+  );
 }
 
 /** Fetch base com Bearer token. Limpa token se 401. */
 async function apiFetch(input: RequestInfo, init: RequestInit = {}) {
-    const token = getAuthToken();
-    const headers = new Headers(init.headers ?? {});
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+  const token = getAuthToken();
+  const headers = new Headers(init.headers ?? {});
 
-    const res = await fetch(input, {
-        ...init,
-        headers,
-        credentials: "omit",
-    });
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
-    // ✅ Se backend diz 401, token é inválido/expirou (ou backend está a negar)
-    // Mantemos regra clara: 401 => sessão inválida => limpa token.
-    if (res.status === 401) {
-        clearAuthToken();
-    }
+  const res = await fetch(input, {
+    ...init,
+    headers,
+    credentials: "omit",
+  });
 
-    return res;
+  return res;
 }
 
 /** Fetch JSON (ou texto) e lança erro se !ok */
 async function jsonFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-    const res = await apiFetch(input, init);
+  const res = await apiFetch(input, init);
 
-    if (res.status === 204) return null as unknown as T;
+  if (res.status === 204) {
+    return null as unknown as T;
+  }
 
-    const data = await parseJsonSafe(res);
-    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
+  const data = await parseJsonSafe(res);
 
-    return data as T;
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, res.status));
+  }
+
+  return data as T;
 }
 
 /** Quando precisas do status + payload */
 async function jsonFetchRaw<T>(
-    input: RequestInfo,
-    init?: RequestInit
+  input: RequestInfo,
+  init?: RequestInit
 ): Promise<{ res: Response; data: T | null }> {
-    const res = await apiFetch(input, init);
-    if (res.status === 204) return { res, data: null };
-    const data = (await parseJsonSafe(res)) as T;
-    return { res, data };
+  const res = await apiFetch(input, init);
+
+  if (res.status === 204) {
+    return { res, data: null };
+  }
+
+  const data = (await parseJsonSafe(res)) as T;
+  return { res, data };
 }
 
 /* =========================
@@ -75,27 +83,27 @@ async function jsonFetchRaw<T>(
 export type RegisterRole = "USER" | "BUSINESS";
 
 export type RegisterPayload = {
-    role: RegisterRole;
-    firstName?: string | null;
-    lastName?: string | null;
-    age?: number | null;
-    nationality?: string | null;
-    email: string;
-    phone?: string | null;
-    password: string;
+  role: RegisterRole;
+  firstName?: string | null;
+  lastName?: string | null;
+  age?: number | null;
+  nationality?: string | null;
+  email: string;
+  phone?: string | null;
+  password: string;
 };
 
 export type CurrentUserDto = {
-    id: string;
-    email: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    role: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    age?: number | null;
-    nationality?: string | null;
-    phone?: string | null;
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  age?: number | null;
+  nationality?: string | null;
+  phone?: string | null;
 };
 
 export type UpdateCurrentUserPayload = {
@@ -108,61 +116,73 @@ export type UpdateCurrentUserPayload = {
   phone?: string | null;
 };
 
-
 export type AuthResponse = {
-    token: string;
-    user: CurrentUserDto;
+  token: string;
+  user: CurrentUserDto;
 };
 
 export async function register(body: RegisterPayload): Promise<CurrentUserDto> {
-    const { res, data } = await jsonFetchRaw<AuthResponse>(`${API_BASE}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            role: body.role,
-            firstName: body.firstName ?? null,
-            lastName: body.lastName ?? null,
-            age: body.age ?? null,
-            nationality: body.nationality ?? null,
-            email: body.email.trim(),
-            phone: body.phone ?? null,
-            password: body.password,
-        }),
-    });
+  const { res, data } = await jsonFetchRaw<AuthResponse>(`${API_BASE}/api/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      role: body.role,
+      firstName: body.firstName ?? null,
+      lastName: body.lastName ?? null,
+      age: body.age ?? null,
+      nationality: body.nationality ?? null,
+      email: body.email.trim(),
+      phone: body.phone ?? null,
+      password: body.password,
+    }),
+  });
 
-    if (res.status === 409) throw new Error("Já existe uma conta com esse email.");
-    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
+  if (res.status === 409) {
+    throw new Error("Já existe uma conta com esse email.");
+  }
 
-    const payload = data as AuthResponse;
-    setAuthToken(payload.token);
-    return payload.user;
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, res.status));
+  }
+
+  const payload = data as AuthResponse;
+  setAuthToken(payload.token);
+  return payload.user;
 }
 
 export async function login(email: string, password: string): Promise<CurrentUserDto> {
-    const payload = await jsonFetch<AuthResponse>(`${API_BASE}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
-    });
+  const payload = await jsonFetch<AuthResponse>(`${API_BASE}/api/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+    }),
+  });
 
-    setAuthToken(payload.token);
-    return payload.user;
+  setAuthToken(payload.token);
+  return payload.user;
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUserDto | null> {
-    const res = await apiFetch(`${API_BASE}/api/me`);
+  const res = await apiFetch(`${API_BASE}/api/me`);
 
-    if (res.status === 401) return null;
-    if (res.status === 204) return null;
+  if (res.status === 401 || res.status === 204) {
+    clearAuthToken();
+    return null;
+  }
 
-    const data = await parseJsonSafe(res);
-    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
+  const data = await parseJsonSafe(res);
 
-    return data as CurrentUserDto;
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, res.status));
+  }
+
+  return data as CurrentUserDto;
 }
 
 export async function logout(): Promise<void> {
-    clearAuthToken();
+  clearAuthToken();
 }
 
 export async function updateCurrentUser(
@@ -183,59 +203,60 @@ export async function updateCurrentUser(
   });
 }
 
-
 /* =========================
    POIs
 ========================= */
 
 export type PoiDto = {
-    id: number;
-    districtId: number | null;
-    ownerId: string | null;
-    name: string;
-    namePt: string | null;
-    category: string | null;
-    subcategory: string | null;
-    description: string | null;
-    lat: number;
-    lon: number;
-    wikipediaUrl: string | null;
-    sipaId: string | null;
-    externalOsmId: string | null;
-    source: string | null;
-    image: string | null;
-    images: string[] | null;
+  id: number;
+  districtId: number | null;
+  ownerId: string | null;
+  name: string;
+  namePt: string | null;
+  category: string | null;
+  subcategory: string | null;
+  description: string | null;
+  lat: number;
+  lon: number;
+  wikipediaUrl: string | null;
+  sipaId: string | null;
+  externalOsmId: string | null;
+  source: string | null;
+  image: string | null;
+  images: string[] | null;
 };
 
 export type PoiUpdatePayload = {
-    name?: string | null;
-    namePt?: string | null;
-    description?: string | null;
-    image?: string | null;
-    images?: string[] | null;
-    category?: string | null;
-    lat?: number | null;
-    lon?: number | null;
+  name?: string | null;
+  namePt?: string | null;
+  description?: string | null;
+  image?: string | null;
+  images?: string[] | null;
+  category?: string | null;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 export async function fetchPois(): Promise<PoiDto[]> {
-    return jsonFetch<PoiDto[]>(`${API_BASE}/api/pois`);
+  return jsonFetch<PoiDto[]>(`${API_BASE}/api/pois`);
 }
 
 export async function fetchPoiById(id: number): Promise<PoiDto> {
-    return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`);
+  return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`);
 }
 
 export async function updatePoi(id: number, body: PoiUpdatePayload): Promise<PoiDto> {
-    return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
+  return jsonFetch<PoiDto>(`${API_BASE}/api/pois/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 export async function deletePoiById(poiId: number): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/pois/${poiId}`, { method: "DELETE" });
+  await jsonFetch<void>(`${API_BASE}/api/pois/${poiId}`, {
+    method: "DELETE",
+  });
 }
 
 /* =========================
@@ -243,48 +264,59 @@ export async function deletePoiById(poiId: number): Promise<void> {
 ========================= */
 
 export type PoiLiteDto = {
-    id: number;
-    districtId: number | null; // futuro
-    ownerId: string | null;
-    name: string;
-    namePt: string | null;
-    category: string | null;
-    lat: number;
-    lon: number;
+  id: number;
+  districtId: number | null;
+  ownerId: string | null;
+  name: string;
+  namePt: string | null;
+  category: string | null;
+  lat: number;
+  lon: number;
 };
 
 export type PoiLiteResponseDto = {
-    pois: PoiLiteDto[];
-    countsByCategory: Record<string, number>;
+  pois: PoiLiteDto[];
+  countsByCategory: Record<string, number>;
 };
 
 export async function fetchPoisLiteBbox(
-    bbox: string,
-    opts?: { category?: string | null; limit?: number; signal?: AbortSignal }
+  bbox: string,
+  opts?: { category?: string | null; limit?: number; signal?: AbortSignal }
 ): Promise<PoiLiteResponseDto> {
-    const qs = new URLSearchParams();
-    qs.set("bbox", bbox);
-    qs.set("limit", String(opts?.limit ?? 2000));
-    if (opts?.category) qs.set("category", opts.category);
+  const qs = new URLSearchParams();
+  qs.set("bbox", bbox);
+  qs.set("limit", String(opts?.limit ?? 2000));
 
-    const data = await jsonFetch<PoiLiteResponseDto>(
-        `${API_BASE}/api/pois/lite?${qs.toString()}`,
-        { signal: opts?.signal }
-    );
+  if (opts?.category) {
+    qs.set("category", opts.category);
+  }
 
-    // ✅ shape garantido
-    return data ?? { pois: [], countsByCategory: {} };
+  const data = await jsonFetch<PoiLiteResponseDto>(
+    `${API_BASE}/api/pois/lite?${qs.toString()}`,
+    { signal: opts?.signal }
+  );
+
+  return data ?? { pois: [], countsByCategory: {} };
 }
 
 /* =========================
    My POIs
 ========================= */
 
-export type MyPoiDto = { id: number; name: string; image: string | null };
+export type MyPoiDto = {
+  id: number;
+  name: string;
+  image: string | null;
+};
 
 export async function fetchMyPois(): Promise<MyPoiDto[]> {
-    const list = await jsonFetch<PoiDto[]>(`${API_BASE}/api/pois/mine`);
-    return (list ?? []).map((p) => ({ id: p.id, name: p.name, image: p.image ?? null }));
+  const list = await jsonFetch<PoiDto[]>(`${API_BASE}/api/pois/mine`);
+
+  return (list ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    image: p.image ?? null,
+  }));
 }
 
 /* =========================
@@ -292,88 +324,109 @@ export async function fetchMyPois(): Promise<MyPoiDto[]> {
 ========================= */
 
 export type DistrictDto = {
-    id: number;
-    code: string;
-    name: string;
-    namePt: string | null;
-    population: number | null;
-    foundedYear: number | null;
-    lat: number | null;
-    lon: number | null;
-    description: string | null;
-    inhabitedSince: string | null;
-    history: string | null;
-    municipalitiesCount: number | null;
-    parishesCount: number | null;
-    files: string[];
+  id: number;
+  code: string;
+  name: string;
+  namePt: string | null;
+  population: number | null;
+  foundedYear: number | null;
+  lat: number | null;
+  lon: number | null;
+  description: string | null;
+  inhabitedSince: string | null;
+  history: string | null;
+  municipalitiesCount: number | null;
+  parishesCount: number | null;
+  files: string[];
 };
 
 export type DistrictUpdatePayload = {
-    name?: string | null;
-    namePt?: string | null;
-    population?: number | null;
-    description?: string | null;
-    history?: string | null;
-    inhabitedSince?: string | null;
-    municipalitiesCount?: number | null;
-    parishesCount?: number | null;
-    files?: string[] | null;
+  name?: string | null;
+  namePt?: string | null;
+  population?: number | null;
+  description?: string | null;
+  history?: string | null;
+  inhabitedSince?: string | null;
+  municipalitiesCount?: number | null;
+  parishesCount?: number | null;
+  files?: string[] | null;
 };
 
 export async function fetchDistricts(): Promise<DistrictDto[]> {
-    return jsonFetch<DistrictDto[]>(`${API_BASE}/api/districts`);
+  return jsonFetch<DistrictDto[]>(`${API_BASE}/api/districts`);
 }
 
 export async function fetchDistrictById(id: number): Promise<DistrictDto> {
-    return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`);
+  return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`);
 }
 
-export async function updateDistrict(id: number, body: DistrictUpdatePayload): Promise<DistrictDto> {
-    return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
+export async function updateDistrict(
+  id: number,
+  body: DistrictUpdatePayload
+): Promise<DistrictDto> {
+  return jsonFetch<DistrictDto>(`${API_BASE}/api/districts/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 /* =========================
    Favorites
 ========================= */
 
-export type FavoriteDto = { poiId: number; name: string; image: string | null; createdAt: string };
+export type FavoriteDto = {
+  poiId: number;
+  name: string;
+  image: string | null;
+  createdAt: string;
+};
 
 export async function fetchFavorites(): Promise<FavoriteDto[]> {
-    return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`);
+  return jsonFetch<FavoriteDto[]>(`${API_BASE}/api/favorites`);
 }
 
-export async function fetchFavoriteStatus(poiId: number): Promise<{ favorited: boolean } | null> {
-    const res = await apiFetch(`${API_BASE}/api/favorites/${poiId}`);
+export async function fetchFavoriteStatus(
+  poiId: number
+): Promise<{ favorited: boolean } | null> {
+  const res = await apiFetch(`${API_BASE}/api/favorites/${poiId}`);
 
-    if (res.status === 401) return null;
-    if (res.status === 204) return { favorited: true };
-    if (res.status === 404) return { favorited: false };
+  if (res.status === 401) return null;
+  if (res.status === 204) return { favorited: true };
+  if (res.status === 404) return { favorited: false };
 
-    const data = await parseJsonSafe(res);
-    if (!res.ok) throw new Error(extractErrorMessage(data, res.status));
+  const data = await parseJsonSafe(res);
 
-    if (data && typeof data.favorite === "boolean") return { favorited: data.favorite };
-    if (data && typeof data.favorited === "boolean") return { favorited: data.favorited };
-    return { favorited: false };
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, res.status));
+  }
+
+  if (data && typeof data.favorite === "boolean") {
+    return { favorited: data.favorite };
+  }
+
+  if (data && typeof data.favorited === "boolean") {
+    return { favorited: data.favorited };
+  }
+
+  return { favorited: false };
 }
 
 export async function addFavorite(
-    poiId: number,
-    payload?: { name?: string | null; image?: string | null }
+  poiId: number,
+  payload?: { name?: string | null; image?: string | null }
 ): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
-        method: "POST",
-        headers: payload ? { "Content-Type": "application/json" } : undefined,
-        body: payload ? JSON.stringify(payload) : undefined,
-    });
+  await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
+    method: "POST",
+    headers: payload ? { "Content-Type": "application/json" } : undefined,
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
 }
 
 export async function removeFavorite(poiId: number): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, { method: "DELETE" });
+  await jsonFetch<void>(`${API_BASE}/api/favorites/${poiId}`, {
+    method: "DELETE",
+  });
 }
 
 /* =========================
@@ -381,29 +434,31 @@ export async function removeFavorite(poiId: number): Promise<void> {
 ========================= */
 
 export type PoiCommentDto = {
-    id: number;
-    poiId: number;
-    authorName: string;
-    body: string;
-    createdAt: string;
-    updatedAt?: string | null;
-    canDelete: boolean;
+  id: number;
+  poiId: number;
+  authorName: string;
+  body: string;
+  createdAt: string;
+  updatedAt?: string | null;
+  canDelete: boolean;
 };
 
 export async function fetchPoiComments(poiId: number): Promise<PoiCommentDto[]> {
-    return jsonFetch<PoiCommentDto[]>(`${API_BASE}/api/pois/${poiId}/comments`);
+  return jsonFetch<PoiCommentDto[]>(`${API_BASE}/api/pois/${poiId}/comments`);
 }
 
 export async function addPoiComment(poiId: number, body: string): Promise<PoiCommentDto> {
-    return jsonFetch<PoiCommentDto>(`${API_BASE}/api/pois/${poiId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-    });
+  return jsonFetch<PoiCommentDto>(`${API_BASE}/api/pois/${poiId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
 }
 
 export async function deletePoiComment(commentId: number): Promise<void> {
-    await jsonFetch<void>(`${API_BASE}/api/comments/${commentId}`, { method: "DELETE" });
+  await jsonFetch<void>(`${API_BASE}/api/comments/${commentId}`, {
+    method: "DELETE",
+  });
 }
 
 /* =========================
@@ -411,28 +466,28 @@ export async function deletePoiComment(commentId: number): Promise<void> {
 ========================= */
 
 export type GeocodeRequestDto = {
-    street: string;
-    houseNumber?: string;
-    postalCode?: string;
-    city: string;
-    district?: string;
-    country?: string;
+  street: string;
+  houseNumber?: string;
+  postalCode?: string;
+  city: string;
+  district?: string;
+  country?: string;
 };
 
 export type GeocodeResponseDto = {
-    lat: number;
-    lon: number;
-    displayName: string;
-    provider: string;
-    confidence: number;
+  lat: number;
+  lon: number;
+  displayName: string;
+  provider: string;
+  confidence: number;
 };
 
 export async function geocodeAddress(req: GeocodeRequestDto): Promise<GeocodeResponseDto> {
-    return jsonFetch<GeocodeResponseDto>(`${API_BASE}/api/geocode`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
-    });
+  return jsonFetch<GeocodeResponseDto>(`${API_BASE}/api/geocode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
 }
 
 /* =========================
@@ -440,33 +495,33 @@ export async function geocodeAddress(req: GeocodeRequestDto): Promise<GeocodeRes
 ========================= */
 
 export type CreatePoiPayload = {
-    name: string;
-    description?: string | null;
-    category: string;
-    districtId: number;
-    municipality: string;
-    lat: number;
-    lon: number;
-    image?: string | null;
-    images?: string[] | null;
+  name: string;
+  description?: string | null;
+  category: string;
+  districtId: number;
+  municipality: string;
+  lat: number;
+  lon: number;
+  image?: string | null;
+  images?: string[] | null;
 };
 
 export async function createPoi(body: CreatePoiPayload): Promise<{ id: number }> {
-    return jsonFetch<{ id: number }>(`${API_BASE}/api/pois`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name: body.name,
-            description: body.description ?? null,
-            category: body.category,
-            districtId: body.districtId,
-            municipality: body.municipality,
-            lat: body.lat,
-            lon: body.lon,
-            image: body.image ?? null,
-            images: body.images ?? [],
-        }),
-    });
+  return jsonFetch<{ id: number }>(`${API_BASE}/api/pois`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: body.name,
+      description: body.description ?? null,
+      category: body.category,
+      districtId: body.districtId,
+      municipality: body.municipality,
+      lat: body.lat,
+      lon: body.lon,
+      image: body.image ?? null,
+      images: body.images ?? [],
+    }),
+  });
 }
 
 /* =========================
@@ -474,13 +529,109 @@ export async function createPoi(body: CreatePoiPayload): Promise<{ id: number }>
 ========================= */
 
 export type SearchItem =
-    | { kind: "district"; id: number; name: string }
-    | { kind: "poi"; id: number; name: string; districtId?: number | null };
+  | { kind: "district"; id: number; name: string }
+  | { kind: "poi"; id: number; name: string; districtId?: number | null };
 
-export async function fetchSearch(q: string, limit = 10, signal?: AbortSignal): Promise<SearchItem[]> {
-    const qs = new URLSearchParams();
-    qs.set("q", q);
-    qs.set("limit", String(limit));
+export async function fetchSearch(
+  q: string,
+  limit = 10,
+  signal?: AbortSignal
+): Promise<SearchItem[]> {
+  const qs = new URLSearchParams();
+  qs.set("q", q);
+  qs.set("limit", String(limit));
 
-    return jsonFetch<SearchItem[]>(`${API_BASE}/api/search?${qs.toString()}`, { signal });
+  return jsonFetch<SearchItem[]>(`${API_BASE}/api/search?${qs.toString()}`, {
+    signal,
+  });
+}
+
+/* =========================
+   Friends
+========================= */
+
+export type FriendDto = {
+  id: string;
+  friendshipId: string;
+  displayName: string;
+  email: string;
+  avatarUrl: string | null;
+  unreadMessagesCount?: number;
+  hasUnreadMessages?: boolean;
+};
+
+
+export async function fetchFriends(): Promise<FriendDto[]> {
+  return jsonFetch<FriendDto[]>(`${API_BASE}/api/friendships`);
+}
+
+export type ChatMessageDto = {
+  id: string;
+  senderId: string;
+  senderDisplayName: string | null;
+  body: string;
+  createdAt: string;
+};
+
+export async function fetchChatMessages(
+  conversationId: string
+): Promise<ChatMessageDto[]> {
+  return jsonFetch<ChatMessageDto[]>(
+    `${API_BASE}/api/chat/${conversationId}/messages`
+  );
+}
+
+export async function sendChatMessage(
+  conversationId: string,
+  body: string
+): Promise<void> {
+  await jsonFetch<void>(`${API_BASE}/api/chat/${conversationId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+}
+export async function sendFriendRequest(email: string): Promise<void> {
+  await jsonFetch<void>(`${API_BASE}/api/friendships/request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+    }),
+  });
+}
+
+export type FriendRequestResponseDto = {
+  id: string;
+  requesterEmail: string;
+  requesterDisplayName: string | null;
+  createdAt?: string | null;
+};
+
+export async function fetchPendingFriendRequests(): Promise<FriendRequestResponseDto[]> {
+  return jsonFetch<FriendRequestResponseDto[]>(`${API_BASE}/api/friendships/pending`);
+}
+
+export async function acceptFriendRequest(friendshipId: string): Promise<void> {
+  await jsonFetch<void>(`${API_BASE}/api/friendships/${friendshipId}/accept`, {
+    method: "POST",
+  });
+}
+
+export async function rejectFriendRequest(friendshipId: string): Promise<void> {
+  await jsonFetch<void>(`${API_BASE}/api/friendships/${friendshipId}/reject`, {
+    method: "POST",
+  });
+}
+
+export async function deleteFriendship(friendshipId: string): Promise<void> {
+  await jsonFetch<void>(`${API_BASE}/api/friendships/${friendshipId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function startChat(friendUserId: string): Promise<{ conversationId: string }> {
+  return jsonFetch<{ conversationId: string }>(`${API_BASE}/api/chat/with/${friendUserId}`, {
+    method: "POST",
+  });
 }

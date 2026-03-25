@@ -6,17 +6,29 @@ import {
   deletePoiById,
   fetchFavorites,
   fetchMyPois,
+  fetchFriends,
+  fetchPendingFriendRequests,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  sendFriendRequest,
+  deleteFriendship,
+  startChat,
   logout,
   removeFavorite,
   type FavoriteDto,
+  type FriendDto,
+  type FriendRequestResponseDto,
 } from "@/lib/api";
 
 import UserMenuButton from "./Components/UserMenuButton/UserMenuButton";
 import UserMenuDropdown from "./Components/UserMenuDropdown/UserMenuDropdown";
 import FavoritesFlyout from "./Components/FavoritesFlyout/FavoritesFlyout";
 import MyPoisFlyout from "./Components/MyPoisFlyout/MyPoisFlyout";
-
+import FriendsFlyout from "./Components/FriendsFlyout/FriendsFlyout";
+import NotificationsFlyout from "./Components/NotificationsFlyout/NotificationsFlyout";
+import ChatModal from "@/pages/chat/ChatModal"
 import "./UserMenu.scss";
+import { toast } from "@/components/Toastr/toast";
 
 type MyPoiDto = {
   id: number;
@@ -49,6 +61,8 @@ export default function UserMenu() {
   const [open, setOpen] = useState(false);
   const [favOpen, setFavOpen] = useState(false);
   const [myPoisOpen, setMyPoisOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const [favorites, setFavorites] = useState<FavoriteDto[]>([]);
   const [favLoading, setFavLoading] = useState(false);
@@ -60,6 +74,21 @@ export default function UserMenu() {
   const [myPoisError, setMyPoisError] = useState<string | null>(null);
   const [busyDeletePoiIds, setBusyDeletePoiIds] = useState<Set<number>>(createEmptySet);
 
+  const [friends, setFriends] = useState<FriendDto[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [sendingInvite, setSendingInvite] = useState(false);
+
+  const [pendingRequests, setPendingRequests] = useState<FriendRequestResponseDto[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [busyPendingIds, setBusyPendingIds] = useState<Set<string>>(new Set());
+  const [busyFriendshipIds, setBusyFriendshipIds] = useState<Set<string>>(new Set());
+  const [busyChatUserIds, setBusyChatUserIds] = useState<Set<string>>(new Set());
+
+const [chatOpen, setChatOpen] = useState(false);
+const [chatConversationId, setChatConversationId] = useState<string | null>(null);
+const [chatFriendName, setChatFriendName] = useState<string | null>(null);
   const isBusiness = useMemo(
     () => user?.role === "BUSINESS" || user?.role === "ADMIN",
     [user?.role]
@@ -69,18 +98,32 @@ export default function UserMenu() {
     setOpen(false);
     setFavOpen(false);
     setMyPoisOpen(false);
+    setFriendsOpen(false);
+    setNotificationsOpen(false);
   }, []);
 
-  const resetPanels = useCallback(() => {
-    setFavOpen(false);
-    setMyPoisOpen(false);
-    setFavorites([]);
-    setMyPois([]);
-    setBusyPoiIds(createEmptySet);
-    setBusyDeletePoiIds(createEmptySet);
-    setFavError(null);
-    setMyPoisError(null);
-  }, []);
+const resetPanels = useCallback(() => {
+  setFavOpen(false);
+  setMyPoisOpen(false);
+  setFriendsOpen(false);
+  setNotificationsOpen(false);
+
+  setFavorites([]);
+  setMyPois([]);
+  setFriends([]);
+  setPendingRequests([]);
+
+  setBusyPoiIds(createEmptySet);
+  setBusyDeletePoiIds(createEmptySet);
+  setBusyPendingIds(new Set());
+  setBusyFriendshipIds(new Set());
+  setBusyChatUserIds(new Set());
+
+  setFavError(null);
+  setMyPoisError(null);
+  setFriendsError(null);
+  setPendingError(null);
+}, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -131,6 +174,38 @@ export default function UserMenu() {
     }
   }, [user, isBusiness]);
 
+  const loadFriends = useCallback(async () => {
+    if (!user) return;
+
+    setFriendsError(null);
+    setFriendsLoading(true);
+
+    try {
+      const list = await fetchFriends();
+      setFriends(list ?? []);
+    } catch (err: any) {
+      setFriendsError(err?.message ?? "Falha a carregar amigos");
+    } finally {
+      setFriendsLoading(false);
+    }
+  }, [user]);
+
+  const loadPendingRequests = useCallback(async () => {
+    if (!user) return;
+
+    setPendingError(null);
+    setPendingLoading(true);
+
+    try {
+      const list = await fetchPendingFriendRequests();
+      setPendingRequests(list ?? []);
+    } catch (err: any) {
+      setPendingError(err?.message ?? "Falha a carregar convites");
+    } finally {
+      setPendingLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!open || !user) return;
 
@@ -139,8 +214,27 @@ export default function UserMenu() {
     if (isBusiness) {
       loadMyPois();
     }
-  }, [open, user, isBusiness, loadFavorites, loadMyPois]);
 
+    loadFriends();
+    loadPendingRequests();
+  }, [open, user, isBusiness, loadFavorites, loadMyPois, loadFriends, loadPendingRequests]);
+
+useEffect(() => {
+  function handleOpenChat(event: Event) {
+    const custom = event as CustomEvent<{
+      conversationId: string;
+      friendUserId?: string;
+      friendName?: string;
+    }>;
+
+    setChatConversationId(custom.detail?.conversationId ?? null);
+    setChatFriendName(custom.detail?.friendName ?? "Chat");
+    setChatOpen(true);
+  }
+
+  window.addEventListener("pt:open-chat", handleOpenChat);
+  return () => window.removeEventListener("pt:open-chat", handleOpenChat);
+}, []);
   const handleLogin = useCallback(() => {
     closeAll();
     emitOpenLogin();
@@ -174,12 +268,106 @@ export default function UserMenu() {
   const handleToggleFavorites = useCallback(() => {
     setFavOpen((prev) => !prev);
     setMyPoisOpen(false);
+    setFriendsOpen(false);
+    setNotificationsOpen(false);
   }, []);
 
   const handleToggleMyPois = useCallback(() => {
     setMyPoisOpen((prev) => !prev);
     setFavOpen(false);
+    setFriendsOpen(false);
+    setNotificationsOpen(false);
   }, []);
+
+  const handleToggleFriends = useCallback(() => {
+    setFriendsOpen((prev) => !prev);
+    setFavOpen(false);
+    setMyPoisOpen(false);
+    setNotificationsOpen(false);
+  }, []);
+
+  const handleToggleNotifications = useCallback(() => {
+    setNotificationsOpen((prev) => !prev);
+    setFavOpen(false);
+    setMyPoisOpen(false);
+    setFriendsOpen(false);
+  }, []);
+
+  const handleSendInvite = useCallback(
+    async (email: string) => {
+      if (!user || sendingInvite) return;
+
+      setFriendsError(null);
+      setSendingInvite(true);
+
+      try {
+        await sendFriendRequest(email);
+        toast.success("Convite enviado com sucesso.");
+      } catch (err: any) {
+        const message = err?.message ?? "Falha ao enviar convite";
+        setFriendsError(message);
+        toast.error(message);
+      } finally {
+        setSendingInvite(false);
+      }
+    },
+    [user, sendingInvite]
+  );
+
+  const handleAcceptRequest = useCallback(
+    async (friendshipId: string) => {
+      if (!user || busyPendingIds.has(friendshipId)) return;
+
+      setPendingError(null);
+      setBusyPendingIds((prev) => new Set(prev).add(friendshipId));
+
+      try {
+        await acceptFriendRequest(friendshipId);
+        toast.success("Convite aceite com sucesso.");
+
+        setPendingRequests((prev) => prev.filter((item) => item.id !== friendshipId));
+        await loadFriends();
+      } catch (err: any) {
+        const message = err?.message ?? "Falha ao aceitar convite";
+        setPendingError(message);
+        toast.error(message);
+      } finally {
+        setBusyPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(friendshipId);
+          return next;
+        });
+      }
+    },
+    [user, busyPendingIds, loadFriends]
+  );
+
+  const handleRejectRequest = useCallback(
+    async (friendshipId: string) => {
+      if (!user || busyPendingIds.has(friendshipId)) return;
+
+      setPendingError(null);
+      setBusyPendingIds((prev) => new Set(prev).add(friendshipId));
+
+      try {
+        await rejectFriendRequest(friendshipId);
+        toast.success("Convite rejeitado.");
+
+        setPendingRequests((prev) => prev.filter((item) => item.id !== friendshipId));
+      } catch (err: any) {
+        const message = err?.message ?? "Falha ao rejeitar convite";
+        setPendingError(message);
+        toast.error(message);
+      } finally {
+        setBusyPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(friendshipId);
+          return next;
+        });
+      }
+    },
+    [user, busyPendingIds]
+  );
 
   const handleToggleFavorite = useCallback(
     async (poiId: number) => {
@@ -240,6 +428,77 @@ export default function UserMenu() {
     [user, busyDeletePoiIds]
   );
 
+const handleDeleteFriendship = useCallback(
+  async (friendshipId: string, friendName?: string) => {
+    if (!user || busyFriendshipIds.has(friendshipId)) return;
+
+    const confirmed = window.confirm(
+      `Tens a certeza que queres eliminar esta amizade${friendName ? ` com “${friendName}”` : ""}?`
+    );
+
+    if (!confirmed) return;
+
+    setFriendsError(null);
+    setBusyFriendshipIds((prev) => new Set(prev).add(friendshipId));
+
+    try {
+      await deleteFriendship(friendshipId);
+      setFriends((prev) => prev.filter((friend) => friend.friendshipId !== friendshipId));
+      toast.success("Amizade eliminada.");
+    } catch (err: any) {
+      const message = err?.message ?? "Falha ao eliminar amizade";
+      setFriendsError(message);
+      toast.error(message);
+    } finally {
+      setBusyFriendshipIds((prev) => {
+        const next = new Set(prev);
+        next.delete(friendshipId);
+        return next;
+      });
+    }
+  },
+  [user, busyFriendshipIds]
+);
+
+const handleStartChat = useCallback(
+  async (friendUserId: string) => {
+    if (!user || busyChatUserIds.has(friendUserId)) return;
+
+    setFriendsError(null);
+    setBusyChatUserIds((prev) => new Set(prev).add(friendUserId));
+
+    try {
+      const { conversationId } = await startChat(friendUserId);
+      const friend = friends.find((f) => f.id === friendUserId);
+
+      window.dispatchEvent(
+        new CustomEvent("pt:open-chat", {
+          detail: {
+            conversationId,
+            friendUserId,
+            friendName: friend?.displayName || friend?.email || "Chat",
+          },
+        })
+      );
+
+      toast.success("Chat iniciado.");
+      closeAll();
+    } catch (err: any) {
+      const message = err?.message ?? "Falha ao iniciar chat";
+      setFriendsError(message);
+      toast.error(message);
+    } finally {
+      setBusyChatUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(friendUserId);
+        return next;
+      });
+    }
+  },
+  [user, busyChatUserIds, closeAll, friends]
+);
+
+
   return (
     <div className="user-menu gold-scroll" ref={wrapRef}>
       <UserMenuButton
@@ -250,17 +509,53 @@ export default function UserMenu() {
 
       {open && (
         <>
-          <UserMenuDropdown
-            user={user}
-            isBusiness={isBusiness}
-            favOpen={favOpen}
-            myPoisOpen={myPoisOpen}
-            onToggleFavorites={handleToggleFavorites}
-            onToggleMyPois={handleToggleMyPois}
-            onEditProfile={handleEditProfile}
-            onLogout={handleLogout}
-            onLogin={handleLogin}
-          />
+         <UserMenuDropdown
+           user={user}
+           isBusiness={isBusiness}
+           favOpen={favOpen}
+           myPoisOpen={myPoisOpen}
+           friendsOpen={friendsOpen}
+           notificationsOpen={notificationsOpen}
+           pendingCount={pendingRequests.length}
+           unreadFriendsMessagesCount={friends.reduce(
+             (sum, friend) => sum + (friend.unreadMessagesCount ?? 0),
+             0
+           )}
+           onToggleFavorites={handleToggleFavorites}
+           onToggleMyPois={handleToggleMyPois}
+           onToggleFriends={handleToggleFriends}
+           onToggleNotifications={handleToggleNotifications}
+           onEditProfile={handleEditProfile}
+           onLogout={handleLogout}
+           onLogin={handleLogin}
+         />
+
+          {user && notificationsOpen && (
+            <NotificationsFlyout
+              loading={pendingLoading}
+              error={pendingError}
+              notifications={pendingRequests}
+              busyIds={busyPendingIds}
+              onClose={() => setNotificationsOpen(false)}
+              onAccept={handleAcceptRequest}
+              onReject={handleRejectRequest}
+            />
+          )}
+
+         {user && friendsOpen && (
+           <FriendsFlyout
+             loading={friendsLoading}
+             error={friendsError}
+             friends={friends}
+             sendingInvite={sendingInvite}
+             busyFriendshipIds={busyFriendshipIds}
+             busyChatUserIds={busyChatUserIds}
+             onClose={() => setFriendsOpen(false)}
+             onSendInvite={handleSendInvite}
+             onDeleteFriendship={handleDeleteFriendship}
+             onStartChat={handleStartChat}
+           />
+         )}
 
           {user && favOpen && (
             <FavoritesFlyout
@@ -288,6 +583,16 @@ export default function UserMenu() {
           )}
         </>
       )}
+      <ChatModal
+        open={chatOpen}
+        conversationId={chatConversationId}
+        friendName={chatFriendName}
+        onClose={() => {
+          setChatOpen(false);
+          setChatConversationId(null);
+          setChatFriendName(null);
+        }}
+      />
     </div>
   );
 }

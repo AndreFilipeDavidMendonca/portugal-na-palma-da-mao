@@ -163,3 +163,28 @@
   justify-content: center;
   margin-bottom: 10px;
 }
+
+
+.user-menu__friends-add {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.user-menu__friends-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.user-menu__fav-link--static {
+  cursor: default;
+}
+
+.user-menu__friend-email {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  opacity: 0.72;
+  font-weight: 400;
+}
