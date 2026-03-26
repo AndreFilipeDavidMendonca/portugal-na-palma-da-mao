@@ -3,6 +3,7 @@ import "../shared/UserMenuFlyout.scss";
 import "./FriendsFlyout.scss";
 import Button from "@/components/Button/Button";
 import Input from "@/components/Input/TextField/Input";
+import { toast } from "@/components/Toastr/toast";
 
 type FriendDto = {
   id: string;
@@ -37,6 +38,18 @@ function getInitial(value?: string | null) {
   return v ? v.charAt(0).toUpperCase() : "?";
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallback;
+}
+
 export default function FriendsFlyout({
   loading,
   error,
@@ -59,11 +72,59 @@ export default function FriendsFlyout({
 
   async function handleSubmit() {
     const next = email.trim().toLowerCase();
-    if (!isEmailLike(next) || sendingInvite) return;
 
-    await onSendInvite(next);
-    setEmail("");
-    setAdding(false);
+    if (!next) {
+      toast.error("Escreve um email.");
+      return;
+    }
+
+    if (!isEmailLike(next)) {
+      toast.error("Introduz um email válido.");
+      return;
+    }
+
+    if (sendingInvite) return;
+
+    try {
+      await onSendInvite(next);
+      toast.success("Convite enviado.");
+      setEmail("");
+      setAdding(false);
+    } catch (err) {
+      toast.error(
+        getErrorMessage(
+          err,
+          "Não foi possível enviar o convite. Tenta novamente dentro de alguns segundos."
+        )
+      );
+    }
+  }
+
+  async function handleDelete(friendshipId: string, friendName?: string) {
+    try {
+      await onDeleteFriendship(friendshipId, friendName);
+      toast.success("Amizade removida.");
+    } catch (err) {
+      toast.error(
+        getErrorMessage(
+          err,
+          "Não foi possível remover esta amizade. Tenta novamente dentro de alguns segundos."
+        )
+      );
+    }
+  }
+
+  async function handleStartChat(friendUserId: string) {
+    try {
+      await onStartChat(friendUserId);
+    } catch (err) {
+      toast.error(
+        getErrorMessage(
+          err,
+          "Não foi possível abrir o chat. Tenta novamente dentro de alguns segundos."
+        )
+      );
+    }
   }
 
   return (
@@ -132,13 +193,12 @@ export default function FriendsFlyout({
         )}
 
         {loading && <div className="friends-flyout__hint">A carregar…</div>}
-        {error && <div className="friends-flyout__error">{error}</div>}
 
-        {!loading && !error && friends.length === 0 && (
+        {!loading && friends.length === 0 && (
           <div className="friends-flyout__hint">Ainda não tens amigos adicionados.</div>
         )}
 
-        {!loading && !error && friends.length > 0 && (
+        {!loading && friends.length > 0 && (
           <ul className="friends-flyout__list">
             {friends.map((friend) => {
               const busyDelete = busyFriendshipIds.has(friend.friendshipId);
@@ -147,7 +207,7 @@ export default function FriendsFlyout({
                 (friend.unreadMessagesCount ?? 0) > 0 || Boolean(friend.hasUnreadMessages);
 
               return (
-                <li key={friend.id} className="friends-flyout__item">
+                <li key={friend.friendshipId} className="friends-flyout__item">
                   <div className="friends-flyout__main">
                     <div className="friends-flyout__identity">
                       {friend.avatarUrl ? (
@@ -189,7 +249,7 @@ export default function FriendsFlyout({
                         type="button"
                         className="friends-flyout__icon-btn friends-flyout__icon-btn--chat"
                         disabled={busyChat}
-                        onClick={() => onStartChat(friend.id)}
+                        onClick={() => handleStartChat(friend.id)}
                         aria-label="Abrir chat"
                         title="Abrir chat"
                       >
@@ -202,7 +262,7 @@ export default function FriendsFlyout({
                       className="friends-flyout__icon-btn friends-flyout__icon-btn--delete"
                       disabled={busyDelete}
                       onClick={() =>
-                        onDeleteFriendship(friend.friendshipId, friend.displayName || friend.email)
+                        handleDelete(friend.friendshipId, friend.displayName || friend.email)
                       }
                       aria-label="Eliminar amizade"
                       title="Eliminar amizade"

@@ -293,26 +293,29 @@ useEffect(() => {
     setFriendsOpen(false);
   }, []);
 
-  const handleSendInvite = useCallback(
-    async (email: string) => {
-      if (!user || sendingInvite) return;
+ const handleSendInvite = useCallback(
+   async (email: string) => {
+     if (!user || sendingInvite) {
+       throw new Error("Sessão inválida.");
+     }
 
-      setFriendsError(null);
-      setSendingInvite(true);
+     setFriendsError(null);
+     setSendingInvite(true);
 
-      try {
-        await sendFriendRequest(email);
-        toast.success("Convite enviado com sucesso.");
-      } catch (err: any) {
-        const message = err?.message ?? "Falha ao enviar convite";
-        setFriendsError(message);
-        toast.error(message);
-      } finally {
-        setSendingInvite(false);
-      }
-    },
-    [user, sendingInvite]
-  );
+     try {
+       await sendFriendRequest(email);
+       await loadFriends();
+       await loadPendingRequests();
+     } catch (err: any) {
+       const message = err?.message ?? "Falha ao enviar convite";
+       setFriendsError(message);
+       throw err;
+     } finally {
+       setSendingInvite(false);
+     }
+   },
+   [user, sendingInvite, loadFriends, loadPendingRequests]
+ );
 
   const handleAcceptRequest = useCallback(
     async (friendshipId: string) => {
@@ -480,8 +483,6 @@ const handleStartChat = useCallback(
           },
         })
       );
-
-      toast.success("Chat iniciado.");
       closeAll();
     } catch (err: any) {
       const message = err?.message ?? "Falha ao iniciar chat";
