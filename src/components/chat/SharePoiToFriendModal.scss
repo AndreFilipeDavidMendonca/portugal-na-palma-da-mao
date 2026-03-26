@@ -1,0 +1,208 @@
+@use "@/styles/base.scss" as *;
+
+.share-poi-modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100130;
+  display: grid;
+  place-items: center;
+  padding:
+    calc(18px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    calc(18px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+
+  @include overlay-backdrop;
+}
+
+.share-poi-modal {
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(72vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(240, 199, 107, 0.22);
+  background:
+    radial-gradient(640px 200px at 50% 0%, rgba(241, 204, 108, 0.05), transparent 62%),
+    linear-gradient(180deg, rgba(8, 26, 16, 0.985), rgba(5, 18, 10, 0.995));
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.48),
+    0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+.share-poi-modal__header {
+  position: relative;
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--surface-divider);
+}
+
+.share-poi-modal__eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.share-poi-modal__title {
+  margin-top: 8px;
+  padding-right: 54px;
+  font-family: var(--font-title), serif;
+  font-size: clamp(22px, 2.3vw, 30px);
+  color: var(--gold-strong);
+  line-height: 1.1;
+}
+
+.share-poi-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.share-poi-modal__body {
+  overflow: auto;
+  padding: 16px;
+}
+
+.share-poi-modal__state,
+.share-poi-modal__error {
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.share-poi-modal__state {
+  color: var(--text-secondary);
+}
+
+.share-poi-modal__error {
+  color: var(--danger-text-soft);
+}
+
+.share-poi-modal__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.share-poi-modal__item {
+  margin: 0;
+}
+
+.share-poi-modal__friend {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(260px 90px at 18% 0%, rgba(215, 178, 90, 0.05), transparent 72%),
+    linear-gradient(180deg, rgba(10, 38, 23, 0.95), rgba(6, 26, 15, 0.98));
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.share-poi-modal__friend:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(240, 199, 107, 0.28);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.26);
+}
+
+.share-poi-modal__friend:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.share-poi-modal__avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.share-poi-modal__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share-poi-modal__avatar--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold-strong);
+  font-weight: 700;
+}
+
+.share-poi-modal__meta {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.share-poi-modal__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.share-poi-modal__email {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-poi-modal__cta {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-strong);
+}
+
+@media (max-width: 640px) {
+  .share-poi-modal__header {
+    padding: 18px 18px 16px;
+  }
+
+  .share-poi-modal__body {
+    padding: 12px;
+  }
+
+  .share-poi-modal__friend {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .share-poi-modal__avatar {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+}
