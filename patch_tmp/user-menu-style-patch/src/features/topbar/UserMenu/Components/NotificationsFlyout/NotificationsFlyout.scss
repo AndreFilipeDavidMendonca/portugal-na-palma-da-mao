@@ -1,0 +1,188 @@
+@use "@/styles/base.scss" as *;
+
+.notifications-flyout {
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+  border-radius: var(--radius-xl);
+  @include user-menu-shell;
+}
+
+.notifications-flyout__header {
+  padding-bottom: 18px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--surface-divider);
+}
+
+.notifications-flyout__title {
+  @include user-menu-panel-title;
+  font-size: clamp(22px, 2vw, 38px);
+}
+
+.notifications-flyout__body {
+  max-height: min(62vh, 560px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.notifications-flyout__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notifications-flyout__item {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  padding: 18px 20px;
+  @include user-menu-card;
+}
+
+.notifications-flyout__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.notifications-flyout__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.notifications-flyout__name {
+  min-width: 0;
+  font-family: var(--font-body), serif;
+  font-size: clamp(24px, 2vw, 40px);
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--gold);
+  letter-spacing: 0.01em;
+}
+
+.notifications-flyout__date {
+  flex: 0 0 auto;
+  font-family: var(--font-body), serif;
+  font-size: clamp(14px, 1.15vw, 18px);
+  font-weight: 300;
+  line-height: 1.2;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.notifications-flyout__email {
+  font-family: var(--font-body), serif;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  opacity: 0.95;
+  word-break: break-word;
+}
+
+.notifications-flyout__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+  align-self: flex-end;
+  margin-top: auto;
+}
+
+.notifications-flyout__icon-btn {
+  @include user-menu-icon-btn-base;
+  font-family: var(--font-body), serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.notifications-flyout__icon-btn--accept {
+  @include user-menu-icon-btn-gold;
+}
+
+.notifications-flyout__icon-btn--reject {
+  @include user-menu-icon-btn-soft;
+}
+
+.notifications-flyout__hint,
+.notifications-flyout__error {
+  padding: 18px 4px 8px;
+  text-align: center;
+  font-family: var(--font-body), serif;
+  font-size: 14px;
+}
+
+.notifications-flyout__hint {
+  color: var(--text-secondary);
+}
+
+.notifications-flyout__error {
+  color: var(--danger-text-soft);
+}
+
+@media (max-width: 780px) {
+  .notifications-flyout {
+    width: min(100vw - 20px, 720px);
+    border-radius: var(--radius-lg);
+  }
+
+  .notifications-flyout__body {
+    max-height: min(70vh, 620px);
+  }
+
+  .notifications-flyout__item {
+    min-height: 0;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .notifications-flyout__title-row {
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .notifications-flyout__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 520px) {
+  .notifications-flyout__title {
+    font-size: 20px;
+  }
+
+  .notifications-flyout__item {
+    padding: 14px;
+  }
+
+  .notifications-flyout__name {
+    font-size: 20px;
+  }
+
+  .notifications-flyout__date {
+    font-size: 13px;
+  }
+
+  .notifications-flyout__email {
+    font-size: 12px;
+  }
+
+  .notifications-flyout__icon-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 20px;
+  }
+}

@@ -1,0 +1,91 @@
+@use "@/styles/base.scss" as *;
+
+.user-menu__dropdown {
+  position: absolute;
+  top: var(--um-top);
+  left: 0;
+  z-index: 9999;
+  width: var(--um-w);
+  min-width: unset;
+  overflow: visible;
+  padding: 14px;
+  border-radius: var(--um-radius);
+  @include user-menu-shell;
+}
+
+.user-menu__divider {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--surface-divider);
+}
+
+.user-menu__item {
+  @include user-menu-section-button;
+  font-size: 15px;
+}
+
+.user-menu__item--primary {
+  background: var(--accent-gold-bg-md);
+  border-color: var(--accent-gold-border);
+  color: var(--accent-gold-text);
+
+  &:hover {
+    background: var(--accent-gold-bg-active);
+    border-color: rgba(212, 175, 55, 0.36);
+  }
+}
+
+.user-menu__item--danger {
+  color: rgba(255, 140, 140, 0.95);
+
+  &:hover {
+    background: var(--danger-bg-soft);
+    border-color: var(--danger-border-soft);
+  }
+}
+
+.user-menu__section {
+  @include user-menu-section-button;
+  position: relative;
+  min-height: 52px;
+}
+
+.user-menu__section.is-open {
+  border-color: var(--accent-gold-border);
+  background: rgba(212, 175, 55, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.user-menu__section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.user-menu__chev {
+  flex: 0 0 auto;
+  opacity: 0.78;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.user-menu__section.is-open .user-menu__chev {
+  transform: rotate(-90deg);
+  opacity: 1;
+}
+
+.user-menu__section-badge {
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #10281a;
+  background: linear-gradient(180deg, #f3d47f, #deba63);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+}
