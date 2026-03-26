@@ -3,16 +3,13 @@ import Button from "@/components/Button/Button";
 import Input from "@/components/Input/TextField/Input";
 import { toast } from "@/components/Toastr/toast";
 import { useAuth } from "@/auth/AuthContext";
-import { fetchChatMessages, sendChatMessage } from "@/lib/api";
+import {
+  fetchChatMessages,
+  sendChatMessage,
+  type ChatMessageDto,
+  type SendChatMessagePayload,
+} from "@/lib/api";
 import "./ChatModal.scss";
-
-type ChatMessageDto = {
-  id: string;
-  senderId: string;
-  senderDisplayName: string | null;
-  body: string;
-  createdAt: string;
-};
 
 type Props = {
   open: boolean;
@@ -57,6 +54,14 @@ export default function ChatModal({
     el.scrollTop = el.scrollHeight;
   }, []);
 
+  const resetState = useCallback(() => {
+    setMessages([]);
+    setDraft("");
+    setError(null);
+    setLoading(false);
+    setSending(false);
+  }, []);
+
   const loadMessages = useCallback(async () => {
     if (!open || !conversationId) return;
 
@@ -73,18 +78,27 @@ export default function ChatModal({
     }
   }, [open, conversationId]);
 
+  const handleOpenPoi = useCallback((poiId?: number | null) => {
+    if (!poiId) {
+      toast.error("Não foi possível abrir este POI.");
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("pt:open-poi", {
+        detail: { poiId },
+      })
+    );
+  }, []);
+
   useEffect(() => {
     if (!open || !conversationId) {
-      setMessages([]);
-      setDraft("");
-      setError(null);
-      setLoading(false);
-      setSending(false);
+      resetState();
       return;
     }
 
     loadMessages();
-  }, [open, conversationId, loadMessages]);
+  }, [open, conversationId, loadMessages, resetState]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,12 +114,18 @@ export default function ChatModal({
     setError(null);
 
     try {
-      await sendChatMessage(conversationId, body);
+      const payload: SendChatMessagePayload = {
+        type: "TEXT",
+        body,
+      };
+
+      await sendChatMessage(conversationId, payload);
 
       const optimistic: ChatMessageDto = {
         id: `tmp-${Date.now()}`,
         senderId: String(user?.id ?? ""),
         senderDisplayName: user?.displayName ?? null,
+        type: "TEXT",
         body,
         createdAt: new Date().toISOString(),
       };
@@ -124,6 +144,36 @@ export default function ChatModal({
       setSending(false);
     }
   }, [conversationId, draft, sending, user?.id, user?.displayName, loadMessages]);
+
+  const renderMessageContent = useCallback(
+    (message: ChatMessageDto) => {
+      if (message.type === "POI_SHARE") {
+        return (
+          <button
+            type="button"
+            className="chat-modal__poi-card"
+            onClick={() => handleOpenPoi(message.poiId)}
+            title="Abrir POI"
+          >
+            {message.poiImage ? (
+              <div className="chat-modal__poi-thumb">
+                <img src={message.poiImage} alt={message.poiName || "POI"} />
+              </div>
+            ) : null}
+
+            <div className="chat-modal__poi-eyebrow">POI partilhado</div>
+
+            <div className="chat-modal__poi-name">
+              {message.poiName || "Ponto de interesse"}
+            </div>
+          </button>
+        );
+      }
+
+      return <div className="chat-modal__bubble-text">{message.body}</div>;
+    },
+    [handleOpenPoi]
+  );
 
   if (!open || !conversationId) return null;
 
@@ -178,7 +228,8 @@ export default function ChatModal({
                   )}
 
                   <div className="chat-modal__bubble">
-                    <div className="chat-modal__bubble-text">{message.body}</div>
+                    {renderMessageContent(message)}
+
                     <div className="chat-modal__bubble-time">
                       {formatTime(message.createdAt)}
                     </div>

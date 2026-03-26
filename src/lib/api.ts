@@ -565,11 +565,17 @@ export async function fetchFriends(): Promise<FriendDto[]> {
   return jsonFetch<FriendDto[]>(`${API_BASE}/api/friendships`);
 }
 
+export type ChatMessageType = "TEXT" | "POI_SHARE";
+
 export type ChatMessageDto = {
   id: string;
   senderId: string;
   senderDisplayName: string | null;
-  body: string;
+  type?: ChatMessageType | null;
+  body?: string | null;
+  poiId?: number | null;
+  poiName?: string | null;
+  poiImage?: string | null;
   createdAt: string;
 };
 
@@ -581,14 +587,26 @@ export async function fetchChatMessages(
   );
 }
 
+export type SendChatMessagePayload =
+  | {
+      type?: "TEXT";
+      body: string;
+    }
+  | {
+      type: "POI_SHARE";
+      poiId: number;
+      poiName: string;
+      poiImage?: string | null;
+    };
+
 export async function sendChatMessage(
   conversationId: string,
-  body: string
+  payload: SendChatMessagePayload
 ): Promise<void> {
   await jsonFetch<void>(`${API_BASE}/api/chat/${conversationId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ body }),
+    body: JSON.stringify(payload),
   });
 }
 export async function sendFriendRequest(email: string): Promise<void> {

@@ -17,6 +17,8 @@ type Props = {
   user: any;
 
   onToggleFavorite: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onToggleShare: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  shareDisabled?: boolean;
   onToggleEdit: () => void;
   onSave: () => void;
   onClose: () => void;
@@ -36,6 +38,18 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function ShareIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M15 8a3 3 0 1 0-2.82-4H12a3 3 0 0 0 .18 1.02L7.9 7.23a3 3 0 0 0-1.9-.68 3 3 0 1 0 1.9 5.32l4.29 2.21A3.02 3.02 0 0 0 12 15a3 3 0 1 0 .18 1.02L7.9 13.81A3 3 0 0 0 8 13c0-.28-.04-.55-.1-.81l4.28-2.21c.54.64 1.34 1.02 2.22 1.02Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+
 export default function PoiHeader({
   title,
   titleInput,
@@ -47,6 +61,8 @@ export default function PoiHeader({
   favLoading,
   user,
   onToggleFavorite,
+  onToggleShare,
+  shareDisabled = false,
   onToggleEdit,
   onSave,
   onClose,
@@ -88,6 +104,19 @@ export default function PoiHeader({
                 aria-label={favTitle}
               >
                 <StarIcon filled={isFav} />
+              </Button>
+
+              <Button
+                type="button"
+                variant="icon"
+                size="sm"
+                className="poi-share-btn poi-btn-icon"
+                onClick={onToggleShare}
+                disabled={shareDisabled}
+                title="Partilhar com amigo"
+                aria-label="Partilhar com amigo"
+              >
+                <ShareIcon />
               </Button>
             </span>
           )}

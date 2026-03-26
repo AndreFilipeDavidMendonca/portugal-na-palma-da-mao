@@ -7,6 +7,7 @@ import { MAX_POI_MEDIA_ITEMS } from "@/constants/media";
 import { mergePoiMedia, pickOwnerId, pickPoiId, sanitizePersistableMedia } from "@/utils/poiFeature";
 import { useAuth } from "@/auth/AuthContext";
 import { updatePoi } from "@/lib/api";
+import SharePoiToFriendModal from "@/components/chat/SharePoiToFriendModal";
 import { toast } from "@/components/Toastr/toast";
 
 import usePoiFavorite from "@/hooks/usePoiFavorite";
@@ -57,6 +58,7 @@ export default function PoiModal({
   const [localInfo, setLocalInfo] = useState<PoiInfo | null>(info);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const [titleInput, setTitleInput] = useState("");
   const [descInput, setDescInput] = useState("");
@@ -66,6 +68,7 @@ export default function PoiModal({
     setLocalInfo(info);
     setEditing(false);
     setSaving(false);
+    setShareOpen(false);
 
     if (!info) {
       setTitleInput("");
@@ -98,6 +101,16 @@ export default function PoiModal({
       mergePoiMedia(localInfo?.image, localInfo?.images, MAX_POI_MEDIA_ITEMS)
     ).slice(0, MAX_POI_MEDIA_ITEMS);
   }, [editing, imagesList, localInfo?.image, localInfo?.images]);
+
+  const sharePayload = useMemo(() => {
+    if (!poiId) return null;
+
+    return {
+      poiId,
+      poiName: (localInfo?.label ?? title ?? "Ponto de interesse").trim(),
+      poiImage: mediaUrls[0] ?? localInfo?.image ?? null,
+    };
+  }, [poiId, localInfo?.label, localInfo?.image, mediaUrls, title]);
 
   const { isFav, favLoading, toggleFavorite } = usePoiFavorite({
     open,
@@ -173,71 +186,94 @@ export default function PoiModal({
 
   if (!canRender || !localInfo) return null;
 
-  return ReactDOM.createPortal(
-    <div className="poi-overlay" onClick={onClose}>
-      <div
-        className="poi-card"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <PoiHeader
-          title={title}
-          titleInput={titleInput}
-          setTitleInput={setTitleInput}
-          editing={editing}
-          canEdit={canEdit}
-          saving={saving}
-          isFav={isFav}
-          favLoading={favLoading}
-          user={user}
-          onToggleFavorite={(e: any) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleFavorite();
-          }}
-          onToggleEdit={() => {
-            if (!requireCanEdit()) return;
-            setEditing((v) => !v);
-          }}
-          onSave={handleSave}
-          onClose={onClose}
-        />
+return ReactDOM.createPortal(
+  <div className="poi-overlay" onClick={onClose}>
+    <div
+      className="poi-card"
+      onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <PoiHeader
+        title={title}
+        titleInput={titleInput}
+        setTitleInput={setTitleInput}
+        editing={editing}
+        canEdit={canEdit}
+        saving={saving}
+        isFav={isFav}
+        favLoading={favLoading}
+        user={user}
+        onToggleFavorite={(e: any) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavorite();
+        }}
+        onToggleShare={(e: any) => {
+          e.preventDefault();
+          e.stopPropagation();
 
-        <div className={`poi-body ${editing ? "is-editing" : ""}`}>
-          <section
-            className={`poi-media ${editing ? "is-editing" : ""}`}
-            aria-label="Galeria"
-          >
-            <div className={`poi-media__viewport ${editing ? "is-editing" : ""}`}>
-              <PoiMedia
-                title={title}
-                mediaUrls={mediaUrls}
-                editing={editing}
-                canEdit={canEdit}
-                imagesList={imagesList ?? []}
-                setImagesList={setImagesList}
-              />
-            </div>
-          </section>
+          if (!user) {
+            toast.error("Precisas de iniciar sessão para partilhar POIs.");
+            return;
+          }
+          if (!sharePayload) {
+            toast.error("Não foi possível preparar este POI para partilha.");
+            return;
+          }
+          setShareOpen(true);
+        }}
+        shareDisabled={!user || !sharePayload}
+        onToggleEdit={() => {
+          if (!requireCanEdit()) return;
+          setEditing((v) => !v);
+        }}
+        onSave={handleSave}
+        onClose={onClose}
+      />
 
-          <aside className="poi-side" aria-label="Detalhes">
-            <PoiSide
-              coords={localInfo?.coords}
+      <div className={`poi-body ${editing ? "is-editing" : ""}`}>
+        <section
+          className={`poi-media ${editing ? "is-editing" : ""}`}
+          aria-label="Galeria"
+        >
+          <div className={`poi-media__viewport ${editing ? "is-editing" : ""}`}>
+            <PoiMedia
+              title={title}
+              mediaUrls={mediaUrls}
               editing={editing}
               canEdit={canEdit}
-              descInput={descInput}
-              setDescInput={setDescInput}
-              description={localInfo?.description ?? ""}
+              imagesList={imagesList ?? []}
+              setImagesList={setImagesList}
             />
-          </aside>
+          </div>
+        </section>
 
-          <section className="poi-comments-wrap" aria-label="Comentários">
-            <PoiComments {...commentsState} />
-          </section>
-        </div>
+        <aside className="poi-side" aria-label="Detalhes">
+          <PoiSide
+            coords={localInfo?.coords}
+            editing={editing}
+            canEdit={canEdit}
+            descInput={descInput}
+            setDescInput={setDescInput}
+            description={localInfo?.description ?? ""}
+          />
+        </aside>
+
+        <section className="poi-comments-wrap" aria-label="Comentários">
+          <PoiComments {...commentsState} />
+        </section>
       </div>
-    </div>,
-    document.body
-  );
+    </div>
+
+    {sharePayload && (
+      <SharePoiToFriendModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        poi={sharePayload}
+      />
+    )}
+  </div>,
+  document.body
+);
 }
