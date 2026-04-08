@@ -425,15 +425,11 @@ h6 {
   color: var(--gold-strong);
 }
 
-@mixin register-icon-action-gold {
-  border: 1px solid rgba(255, 235, 182, 0.92);
-  color: #102315;
-  box-shadow: var(--shadow-gold-active);
-}
 
 @mixin register-icon-action-gold-hover {
   transform: translateY(-1px);
   border-color: rgba(255, 236, 184, 1);
+  color: var(--bg-panel);
   background:
     radial-gradient(180px 70px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
     linear-gradient(180deg, #f8d781, #e6ba58);

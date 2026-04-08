@@ -133,8 +133,8 @@
 
 .friends-flyout__name {
   font-family: var(--font-body), serif;
-  font-size: clamp(19px, 1.35vw, 24px);
-  font-weight: 500;
+  font-size: clamp(15px, 1vw, 20px);
+  font-weight: 300;
   color: var(--gold);
   line-height: 1.08;
   overflow-wrap: anywhere;
@@ -193,10 +193,6 @@
   line-height: 1;
 }
 
-.friends-flyout__icon-btn--chat {
-  @include register-icon-action-gold;
-}
-
 .friends-flyout__icon-btn--delete {
   @include register-icon-action-idle;
 }
@@ -253,7 +249,7 @@
   }
 
   .friends-flyout__name {
-    font-size: 18px;
+    font-size: 15px;
   }
 
   .friends-flyout__icon-btn {

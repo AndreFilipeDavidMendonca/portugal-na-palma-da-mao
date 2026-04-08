@@ -78,8 +78,8 @@
 .notifications-flyout__name {
   min-width: 0;
   font-family: var(--font-body), serif;
-  font-size: clamp(24px, 2vw, 40px);
-  font-weight: 500;
+  font-size: clamp(15px, 1vw, 30px);
+  font-weight: 300;
   line-height: 1.1;
   color: var(--gold);
   letter-spacing: 0.01em;
@@ -88,7 +88,7 @@
 .notifications-flyout__date {
   flex: 0 0 auto;
   font-family: var(--font-body), serif;
-  font-size: clamp(14px, 1.15vw, 18px);
+  font-size: clamp(15px, 1vw, 30px);
   font-weight: 300;
   line-height: 1.2;
   color: var(--muted);
@@ -116,17 +116,17 @@
 }
 
 .notifications-flyout__icon-btn {
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
   padding: 0;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-body), serif;
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 400;
   line-height: 1;
   transition:
     transform 0.18s ease,
@@ -139,10 +139,6 @@
 .notifications-flyout__icon-btn:disabled {
   opacity: 0.65;
   cursor: default;
-}
-
-.notifications-flyout__icon-btn--accept {
-  @include register-icon-action-gold;
 }
 
 .notifications-flyout__icon-btn--accept:hover:not(:disabled) {
@@ -216,7 +212,7 @@
   }
 
   .notifications-flyout__name {
-    font-size: 20px;
+    font-size: 15px;
   }
 
   .notifications-flyout__date {
@@ -228,9 +224,9 @@
   }
 
   .notifications-flyout__icon-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
     font-size: 20px;
   }
 }

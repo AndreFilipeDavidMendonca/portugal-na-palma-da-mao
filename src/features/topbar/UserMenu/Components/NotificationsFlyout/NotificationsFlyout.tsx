@@ -97,6 +97,7 @@ export default function NotificationsFlyout({
                       onClick={() => onAccept(notification.id)}
                       aria-label="Aceitar convite"
                       title="Aceitar"
+                      variant="gold"
                     >
                       ✓
                     </Button>
