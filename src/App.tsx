@@ -1,32 +1,40 @@
 import { useEffect, useRef } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 
 import Home from "@/pages/Home";
 import ToastHost from "@/components/Toastr/ToastHost";
 import { toast } from "@/components/Toastr/toast";
 
 export default function App() {
-  const lastBackRef = useRef(0);
+  const isExitPromptOpenRef = useRef(false);
 
   useEffect(() => {
-    // impede sair logo ao primeiro back
-    window.history.pushState(null, "", window.location.href);
+    window.history.pushState({ appGuard: true }, "", window.location.href);
 
     const handlePopState = () => {
-      const now = Date.now();
-
-      if (now - lastBackRef.current < 2000) {
-        // segundo back → deixa sair
-        window.history.back();
+      if (isExitPromptOpenRef.current) {
+        window.history.pushState({ appGuard: true }, "", window.location.href);
         return;
       }
 
-      lastBackRef.current = now;
+      isExitPromptOpenRef.current = true;
 
-      toast.info("Carrega novamente para sair");
+      toast.confirm("Queres sair da app?", {
+        confirmLabel: "✓",
+        cancelLabel: "×",
+        onConfirm: () => {
+          isExitPromptOpenRef.current = false;
+          window.removeEventListener("popstate", handlePopState);
+          window.history.back();
+        },
+        onCancel: () => {
+          isExitPromptOpenRef.current = false;
+          window.history.pushState({ appGuard: true }, "", window.location.href);
+        },
+        durationMs: 0,
+      });
 
-      // mantém na app
-      window.history.pushState(null, "", window.location.href);
+      window.history.pushState({ appGuard: true }, "", window.location.href);
     };
 
     window.addEventListener("popstate", handlePopState);
