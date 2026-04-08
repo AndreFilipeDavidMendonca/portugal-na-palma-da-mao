@@ -92,17 +92,20 @@ function ToastCard({ t }: { t: ToastItem }) {
 export default function ToastHost({ position = "top-right" }: Props) {
   const [toasts, setToasts] = React.useState<ToastItem[]>([]);
 
-  React.useEffect(() => {
-    const unsub = subscribeToToasts(setToasts);
-    return () => unsub();
-  }, []);
+    React.useEffect(() => {
+      const unsub = subscribeToToasts(setToasts);
 
-  return ReactDOM.createPortal(
-    <div className={`toast-host toast-host--${position}`}>
-      {toasts.map((t) => (
-        <ToastCard key={t.id} t={t} />
-      ))}
-    </div>,
-    document.body
-  );
+      return () => {
+        unsub();
+      };
+    }, []);
+
+      return ReactDOM.createPortal(
+        <div className={`toast-host toast-host--${position}`}>
+          {toasts.map((t) => (
+            <ToastCard key={t.id} t={t} />
+          ))}
+        </div>,
+        document.body
+      );
 }
