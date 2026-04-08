@@ -30,10 +30,16 @@
   --panel-glow-md: rgba(240, 199, 107, 0.20);
   --panel-glow-lg: rgba(240, 199, 107, 0.10);
 
-  --panel-shell-bg:
+  --panel-shell-bg: #122b1a;
+
+/* TODO:
+ - Rever o panel shell bg
+*/
+ /* --panel-shell-bg:
     radial-gradient(760px 260px at 50% 0%, rgba(241, 204, 108, 0.08), transparent 60%),
     radial-gradient(500px 180px at 0% 100%, rgba(58, 122, 84, 0.10), transparent 65%),
     linear-gradient(180deg, rgba(24, 39, 30, 0.97), rgba(17, 29, 22, 0.985));
+    */
 
     --panel-shell-shadow:
       0 40px 80px rgba(0, 0, 0, 0.45),
@@ -355,7 +361,6 @@ h6 {
   border-radius: var(--radius-xl);
   background: var(--panel-shell-bg);
   border: 1px solid var(--panel-border-gold);
-  box-shadow: var(--panel-shell-shadow);
 
   &::before {
     content: "";
@@ -365,6 +370,77 @@ h6 {
     pointer-events: none;
     box-shadow: var(--panel-shell-inner-glow);
   }
+}
+
+@mixin register-surface-shell {
+  position: relative;
+  background: var(--panel-shell-bg);
+  border: 1px solid var(--panel-border-gold);
+  backdrop-filter: blur(12px);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: var(--panel-shell-inner-glow);
+  }
+}
+
+@mixin register-surface-card {
+  border: 1px solid var(--surface-border-soft);
+  background:
+    radial-gradient(420px 140px at 20% 0%, rgba(215, 178, 90, 0.03), transparent 72%),
+    linear-gradient(180deg, rgba(8, 34, 20, 0.94), rgba(5, 24, 14, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 26px rgba(0, 0, 0, 0.20);
+}
+
+@mixin register-surface-card-hover {
+  border-color: var(--accent-gold-border-strong);
+  background:
+    radial-gradient(420px 140px at 20% 0%, rgba(215, 178, 90, 0.05), transparent 72%),
+    linear-gradient(180deg, rgba(10, 39, 23, 0.96), rgba(6, 27, 16, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 30px rgba(0, 0, 0, 0.24),
+    0 0 24px rgba(240, 199, 107, 0.10);
+}
+
+@mixin register-icon-action-idle {
+  border: 1px solid var(--gold-dark);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--gold);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+@mixin register-icon-action-idle-hover {
+  transform: translateY(-1px);
+  border-color: var(--gold);
+  background: rgba(215, 178, 90, 0.08);
+  color: var(--gold-strong);
+}
+
+@mixin register-icon-action-gold {
+  border: 1px solid rgba(255, 235, 182, 0.92);
+  background:
+    radial-gradient(180px 70px at 50% 0%, rgba(255, 241, 193, 0.28), transparent 65%),
+    linear-gradient(180deg, #f3d47f, #deba63);
+  color: #102315;
+  box-shadow: var(--shadow-gold-active);
+}
+
+@mixin register-icon-action-gold-hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 236, 184, 1);
+  background:
+    radial-gradient(180px 70px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
+    linear-gradient(180deg, #f8d781, #e6ba58);
+  box-shadow: var(--shadow-gold-active-hover);
 }
 
 @mixin modal-title {
@@ -471,11 +547,7 @@ h6 {
 }
 
 @mixin elevated-flyout-shell {
-  @include topbar-dropdown-shell;
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.35),
-    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  @include register-surface-shell;
 }
 
 @mixin gold-soft-pill {
@@ -524,9 +596,7 @@ h6 {
 ------------------------------- */
 
 @mixin context-topbar {
-  background:
-    radial-gradient(700px 220px at 50% 0%, rgba(241, 204, 108, 0.07), transparent 62%),
-    linear-gradient(180deg, rgba(20, 43, 29, 0.96), rgba(13, 28, 20, 0.98));
+
   border: 1px solid rgba(240, 199, 107, 0.18);
   box-shadow:
     0 10px 24px rgba(0, 0, 0, 0.24),
@@ -535,8 +605,7 @@ h6 {
 }
 
 @mixin context-surface {
-  background:
-    linear-gradient(180deg, rgba(22, 49, 33, 0.90), rgba(14, 32, 22, 0.94));
+
   border: 1px solid rgba(240, 199, 107, 0.16);
   border-radius: 18px;
   box-shadow:

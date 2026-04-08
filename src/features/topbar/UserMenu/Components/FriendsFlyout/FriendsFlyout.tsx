@@ -194,7 +194,9 @@ export default function FriendsFlyout({
 
         {loading && <div className="friends-flyout__hint">A carregar…</div>}
 
-        {!loading && friends.length === 0 && (
+        {!loading && error && <div className="friends-flyout__error">{error}</div>}
+
+        {!loading && !error && friends.length === 0 && (
           <div className="friends-flyout__hint">Ainda não tens amigos adicionados.</div>
         )}
 
@@ -227,8 +229,6 @@ export default function FriendsFlyout({
                         <div className="friends-flyout__name">
                           {friend.displayName || friend.email}
                         </div>
-
-                        <div className="friends-flyout__email">{friend.email}</div>
                       </div>
                     </div>
                   </div>

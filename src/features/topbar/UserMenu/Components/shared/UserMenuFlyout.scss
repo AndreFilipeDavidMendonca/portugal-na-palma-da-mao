@@ -78,10 +78,19 @@
   gap: 10px;
   padding: 12px 10px;
   text-align: left;
-  border-bottom: 1px solid var(--surface-divider-soft);
+  border-radius: var(--radius-lg);
 
-  &:last-child {
-    border-bottom: 0;
+  @include register-surface-card;
+
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    @include register-surface-card-hover;
   }
 }
 
@@ -141,10 +150,17 @@
   display: grid;
   place-items: center;
   user-select: none;
-  @include gold-soft-pill;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+
+  @include register-icon-action-idle;
 
   &:hover {
-    @include gold-soft-pill-hover;
+    @include register-icon-action-idle-hover;
   }
 
   &:active {
@@ -187,4 +203,10 @@
   font-size: 0.72rem;
   opacity: 0.72;
   font-weight: 400;
+}
+
+.user-menu__fav-link:focus-visible,
+.user-menu__fav-x:focus-visible,
+.user-menu__flyout-close:focus-visible {
+  @include focus-ring-gold;
 }

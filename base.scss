@@ -355,7 +355,6 @@ h6 {
   border-radius: var(--radius-xl);
   background: var(--panel-shell-bg);
   border: 1px solid var(--panel-border-gold);
-  box-shadow: var(--panel-shell-shadow);
 
   &::before {
     content: "";
@@ -535,8 +534,6 @@ h6 {
 }
 
 @mixin context-surface {
-  background:
-    linear-gradient(180deg, rgba(22, 49, 33, 0.90), rgba(14, 32, 22, 0.94));
   border: 1px solid rgba(240, 199, 107, 0.16);
   border-radius: 18px;
   box-shadow:

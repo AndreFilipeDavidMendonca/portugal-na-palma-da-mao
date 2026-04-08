@@ -4,19 +4,15 @@ import "./UserMenuDropdown.scss";
 import { toast } from "@/components/Toastr/toast";
 import Button from "@/components/Button/Button";
 
+export type UserMenuPanel = "favorites" | "myPois" | "notifications" | "friends" | null;
+
 type Props = {
   user: CurrentUserDto | null;
   isBusiness: boolean;
-  favOpen: boolean;
-  myPoisOpen: boolean;
-  notificationsOpen: boolean;
-  friendsOpen: boolean;
+  openPanel: UserMenuPanel;
   pendingCount: number;
   unreadFriendsMessagesCount?: number;
-  onToggleFavorites: () => void;
-  onToggleMyPois: () => void;
-  onToggleNotifications: () => void;
-  onToggleFriends: () => void;
+  onTogglePanel: (panel: Exclude<UserMenuPanel, null>) => void;
   onEditProfile: () => void;
   onLogout: () => void;
   onLogin: () => void;
@@ -25,16 +21,10 @@ type Props = {
 export default function UserMenuDropdown({
   user,
   isBusiness,
-  favOpen,
-  myPoisOpen,
-  notificationsOpen,
-  friendsOpen,
+  openPanel,
   pendingCount,
   unreadFriendsMessagesCount = 0,
-  onToggleFavorites,
-  onToggleMyPois,
-  onToggleNotifications,
-  onToggleFriends,
+  onTogglePanel,
   onEditProfile,
   onLogout,
   onLogin,
@@ -51,17 +41,21 @@ export default function UserMenuDropdown({
             onClick={onEditProfile}
             role="menuitem"
           >
-            <span className="user-menu__chev" aria-hidden="true">◂</span>
+            <span className="user-menu__chev" aria-hidden="true">
+              ◂
+            </span>
             <span className="user-menu__section-title">Editar perfil</span>
           </Button>
 
           <Button
             type="button"
-            className={`user-menu__section ${notificationsOpen ? "is-open" : ""}`}
-            onClick={onToggleNotifications}
+            className={`user-menu__section ${openPanel === "notifications" ? "is-open" : ""}`}
+            onClick={() => onTogglePanel("notifications")}
             role="menuitem"
           >
-            <span className="user-menu__chev" aria-hidden="true">◂</span>
+            <span className="user-menu__chev" aria-hidden="true">
+              ◂
+            </span>
             <span className="user-menu__section-title">Notificações</span>
 
             {pendingCount > 0 && (
@@ -76,11 +70,13 @@ export default function UserMenuDropdown({
 
           <Button
             type="button"
-            className={`user-menu__section ${friendsOpen ? "is-open" : ""}`}
-            onClick={onToggleFriends}
+            className={`user-menu__section ${openPanel === "friends" ? "is-open" : ""}`}
+            onClick={() => onTogglePanel("friends")}
             role="menuitem"
           >
-            <span className="user-menu__chev" aria-hidden="true">◂</span>
+            <span className="user-menu__chev" aria-hidden="true">
+              ◂
+            </span>
             <span className="user-menu__section-title">Amigos</span>
 
             {unreadFriendsMessagesCount > 0 && (
@@ -95,22 +91,26 @@ export default function UserMenuDropdown({
 
           <Button
             type="button"
-            className={`user-menu__section ${favOpen ? "is-open" : ""}`}
-            onClick={onToggleFavorites}
+            className={`user-menu__section ${openPanel === "favorites" ? "is-open" : ""}`}
+            onClick={() => onTogglePanel("favorites")}
             role="menuitem"
           >
-            <span className="user-menu__chev" aria-hidden="true">◂</span>
+            <span className="user-menu__chev" aria-hidden="true">
+              ◂
+            </span>
             <span className="user-menu__section-title">Favoritos</span>
           </Button>
 
           {isBusiness && (
             <Button
               type="button"
-              className={`user-menu__section ${myPoisOpen ? "is-open" : ""}`}
-              onClick={onToggleMyPois}
+              className={`user-menu__section ${openPanel === "myPois" ? "is-open" : ""}`}
+              onClick={() => onTogglePanel("myPois")}
               role="menuitem"
             >
-              <span className="user-menu__chev" aria-hidden="true">◂</span>
+              <span className="user-menu__chev" aria-hidden="true">
+                ◂
+              </span>
               <span className="user-menu__section-title">Os meus negócios</span>
             </Button>
           )}

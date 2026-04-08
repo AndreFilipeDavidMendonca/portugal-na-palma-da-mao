@@ -1,4 +1,4 @@
-# Portugal na palma da mão — protótipo (React + Vite + TS)
+npm# Portugal na palma da mão — protótipo (React + Vite + TS)
 
 ## Scripts
 - `npm install`
