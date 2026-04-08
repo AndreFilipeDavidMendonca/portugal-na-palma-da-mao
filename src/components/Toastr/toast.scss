@@ -17,19 +17,24 @@
   pointer-events: auto;
   width: min(420px, calc(100vw - 24px));
   display: grid;
-  grid-template-columns: 38px 1fr 34px;
+  grid-template-columns: 38px minmax(0, 1fr) 34px;
   gap: 10px;
   align-items: center;
 
   padding: 14px;
   border-radius: 16px;
 
-  background: var(--gold);                 /* gold claro */
-  border: 1px solid var(--gold-dark);      /* gold mais escuro */
-  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 
-  color: var(--bg-deep);                              /* texto preto */
+  color: var(--gold-strong);
   animation: toast-in 160ms ease-out both;
+}
+
+.toast--with-actions {
+  grid-template-columns: minmax(0, 1fr) 34px;
+  align-items: start;
 }
 
 @keyframes toast-in {
@@ -43,8 +48,8 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--gold-dark);
-  background: rgba(0,0,0,0.05);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .toast__icon {
@@ -52,61 +57,114 @@
   font-size: 18px;
 }
 
+.toast__content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .toast__msg {
   font-size: 15px;
   line-height: 1.35;
-  color: var(--bg-deep);
+  color: var(--gold-strong);
+}
+
+.toast__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toast__action {
+  min-width: 40px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+
+.toast__action:hover {
+  transform: translateY(-1px);
+}
+
+.toast__action--default {
+  border: 1px solid rgba(220, 120, 120, 0.34);
+  background: rgba(120, 32, 32, 0.18);
+  color: #ffb3b3;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+}
+
+.toast__action--default:hover {
+  border-color: rgba(240, 140, 140, 0.5);
+  background: rgba(140, 38, 38, 0.28);
+  color: #ffd0d0;
+}
+
+.toast__action--success {
+  border: 1px solid rgba(110, 194, 139, 0.45);
+  background: rgba(48, 112, 76, 0.28);
+  color: #a8efbe;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+}
+
+.toast__action--success:hover {
+  border-color: rgba(130, 214, 159, 0.6);
+  background: rgba(56, 130, 87, 0.38);
+  color: #c7f7d4;
 }
 
 .toast__close {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  border: 1px solid var(--bg-deep);
-  background: rgba(0,0,0,0.06);
-  color: inherit;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gold-strong);
   cursor: pointer;
   font-size: 18px;
   font-weight: 800;
-  transition: all .15s ease;
+  transition: all 0.15s ease;
   display: grid;
   place-items: center;
 
-  :hover {
-    background: currentColor;
-    color: #fff;
+  &:hover {
+    background: var(--gold);
+    color: var(--bg-deep);
     transform: scale(1.05);
   }
 }
 
 /* ===== VARIANTS ===== */
 
-/* SUCCESS */
-
-
 .toast--success .toast__icon {
   color: #1f7a4d;
 }
 
-
-
-/* ERROR */
-
 .toast--error .toast__icon {
   color: #b42323;
 }
-
-
-
-/* INFO */
-
 
 .toast--info .toast__icon {
   color: var(--bg-deep);
 }
 
 @media (max-width: 600px) {
-  /* 1) No mobile, anulamos qualquer "right: 12px" / "left: 12px" dos modifiers */
   .toast-host,
   .toast-host--top-right,
   .toast-host--top-left,
@@ -116,17 +174,12 @@
     right: auto;
     top: auto;
     bottom: auto;
-
-    /* 2) Força padding igual dos dois lados (safe areas incluídas) */
     inset-inline: calc(10px + var(--safe-left, 0px)) calc(10px + var(--safe-right, 0px));
-
-    /* mantém a posição vertical conforme o modifier */
     padding: 0;
     max-height: calc(100dvh - 20px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
     overflow: auto;
   }
 
-  /* 3) Reaplica a âncora vertical por tipo (top/bottom) */
   .toast-host--top-right,
   .toast-host--top-left {
     top: calc(10px + var(--safe-top, 0px));
@@ -137,16 +190,18 @@
     bottom: calc(10px + var(--safe-bottom, 0px));
   }
 
-  /* 4) Toast ocupa 100% do host e não pode ultrapassar */
   .toast {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-
-    grid-template-columns: 32px 1fr 30px;
+    grid-template-columns: 32px minmax(0, 1fr) 30px;
     gap: 8px;
     padding: 12px;
     border-radius: 14px;
+  }
+
+  .toast--with-actions {
+    grid-template-columns: minmax(0, 1fr) 30px;
   }
 
   .toast__left {
@@ -168,6 +223,12 @@
     width: 30px;
     height: 30px;
     border-radius: 9px;
+    font-size: 17px;
+  }
+
+  .toast__action {
+    min-width: 38px;
+    height: 34px;
     font-size: 17px;
   }
 }

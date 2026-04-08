@@ -1,5 +1,6 @@
 import "../shared/UserMenuFlyout.scss";
 import Button from "@/components/Button/Button";
+import { toast } from "@/components/Toastr/toast";
 
 type MyPoiDto = {
   id: number;
@@ -15,8 +16,20 @@ type Props = {
   onClose: () => void;
   onCreatePoi: () => void;
   onOpenPoi: (poiId: number) => void;
-  onDeletePoi: (poiId: number, poiName?: string) => void;
+  onDeletePoi: (poiId: number, poiName?: string) => Promise<boolean> | boolean;
 };
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallback;
+}
 
 export default function MyPoisFlyout({
   loading,
@@ -28,6 +41,34 @@ export default function MyPoisFlyout({
   onOpenPoi,
   onDeletePoi,
 }: Props) {
+  function handleDeletePoi(poiId: number, poiName?: string) {
+    const targetName = poiName?.trim();
+    const message = targetName
+      ? `Eliminar negócio “${targetName}”?`
+      : "Eliminar este negócio?";
+
+    toast.confirm(message, {
+      confirmLabel: "✓",
+      cancelLabel: "×",
+      onConfirm: async () => {
+        try {
+          const deleted = await onDeletePoi(poiId, poiName);
+
+          if (deleted) {
+            toast.success("Negócio eliminado.");
+          }
+        } catch (err) {
+          toast.error(
+            getErrorMessage(
+              err,
+              "Não foi possível eliminar este negócio. Tenta novamente dentro de alguns segundos."
+            )
+          );
+        }
+      },
+    });
+  }
+
   return (
     <div className="user-menu__flyout" role="region" aria-label="Os meus negócios">
       <div className="user-menu__flyout-header">
@@ -99,14 +140,14 @@ export default function MyPoisFlyout({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      if (!busyDelete) onDeletePoi(poi.id, poi.name);
+                      if (!busyDelete) handleDeletePoi(poi.id, poi.name);
                     }}
                     onKeyDown={(e) => {
                       if (busyDelete) return;
 
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        onDeletePoi(poi.id, poi.name);
+                        handleDeletePoi(poi.id, poi.name);
                       }
                     }}
                   >

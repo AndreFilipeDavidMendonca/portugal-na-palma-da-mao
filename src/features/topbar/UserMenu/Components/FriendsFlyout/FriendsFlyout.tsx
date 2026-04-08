@@ -24,7 +24,7 @@ type Props = {
   busyChatUserIds: Set<string>;
   onClose: () => void;
   onSendInvite: (email: string) => Promise<void> | void;
-  onDeleteFriendship: (friendshipId: string, friendName?: string) => Promise<void> | void;
+  onDeleteFriendship: (friendshipId: string, friendName?: string) => Promise<boolean> | boolean;
   onStartChat: (friendUserId: string) => Promise<void> | void;
 };
 
@@ -100,18 +100,32 @@ export default function FriendsFlyout({
     }
   }
 
-  async function handleDelete(friendshipId: string, friendName?: string) {
-    try {
-      await onDeleteFriendship(friendshipId, friendName);
-      toast.success("Amizade removida.");
-    } catch (err) {
-      toast.error(
-        getErrorMessage(
-          err,
-          "Não foi possível remover esta amizade. Tenta novamente dentro de alguns segundos."
-        )
-      );
-    }
+  function handleDelete(friendshipId: string, friendName?: string) {
+    const targetName = friendName?.trim();
+    const message = targetName
+      ? `Eliminar amizade com “${targetName}”?`
+      : "Eliminar esta amizade?";
+
+    toast.confirm(message, {
+      confirmLabel: "✓",
+      cancelLabel: "×",
+      onConfirm: async () => {
+        try {
+          const deleted = await onDeleteFriendship(friendshipId, friendName);
+
+          if (deleted) {
+            toast.success("Amizade removida.");
+          }
+        } catch (err) {
+          toast.error(
+            getErrorMessage(
+              err,
+              "Não foi possível remover esta amizade. Tenta novamente dentro de alguns segundos."
+            )
+          );
+        }
+      },
+    });
   }
 
   async function handleStartChat(friendUserId: string) {

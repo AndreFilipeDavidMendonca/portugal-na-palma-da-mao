@@ -427,9 +427,6 @@ h6 {
 
 @mixin register-icon-action-gold {
   border: 1px solid rgba(255, 235, 182, 0.92);
-  background:
-    radial-gradient(180px 70px at 50% 0%, rgba(255, 241, 193, 0.28), transparent 65%),
-    linear-gradient(180deg, #f3d47f, #deba63);
   color: #102315;
   box-shadow: var(--shadow-gold-active);
 }

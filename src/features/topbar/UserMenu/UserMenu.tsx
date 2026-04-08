@@ -373,68 +373,57 @@ export default function UserMenu() {
     [user, busyPoiIds, favorites, loadFavorites]
   );
 
-  const handleDeletePoi = useCallback(
-    async (poiId: number, poiName?: string) => {
-      if (!user || busyDeletePoiIds.has(poiId)) return;
+const handleDeletePoi = useCallback(
+  async (poiId: number, poiName?: string) => {
+    if (!user || busyDeletePoiIds.has(poiId)) return false;
 
-      const confirmed = window.confirm(
-        `Tens a certeza que queres eliminar este negócio${poiName ? ` (“${poiName}”)` : ""}?`
-      );
+    setMyPoisError(null);
+    setBusyDeletePoiIds((prev) => new Set(prev).add(poiId));
 
-      if (!confirmed) return;
+    try {
+      await deletePoiById(poiId);
+      setMyPois((prev) => prev.filter((poi) => poi.id !== poiId));
+      return true;
+    } catch (err: any) {
+      const message = err?.message ?? "Falha ao eliminar negócio";
+      setMyPoisError(message);
+      throw err;
+    } finally {
+      setBusyDeletePoiIds((prev) => {
+        const next = new Set(prev);
+        next.delete(poiId);
+        return next;
+      });
+    }
+  },
+  [user, busyDeletePoiIds]
+);
 
-      setMyPoisError(null);
-      setBusyDeletePoiIds((prev) => new Set(prev).add(poiId));
+ const handleDeleteFriendship = useCallback(
+   async (friendshipId: string, friendName?: string) => {
+     if (!user || busyFriendshipIds.has(friendshipId)) return false;
 
-      try {
-        await deletePoiById(poiId);
-        setMyPois((prev) => prev.filter((poi) => poi.id !== poiId));
-      } catch (err: any) {
-        setMyPoisError(err?.message ?? "Falha ao eliminar negócio");
-      } finally {
-        setBusyDeletePoiIds((prev) => {
-          const next = new Set(prev);
-          next.delete(poiId);
-          return next;
-        });
-      }
-    },
-    [user, busyDeletePoiIds]
-  );
+     setFriendsError(null);
+     setBusyFriendshipIds((prev) => new Set(prev).add(friendshipId));
 
-  const handleDeleteFriendship = useCallback(
-    async (friendshipId: string, friendName?: string) => {
-      if (!user || busyFriendshipIds.has(friendshipId)) return;
-
-      const confirmed = window.confirm(
-        `Tens a certeza que queres eliminar esta amizade${
-          friendName ? ` com “${friendName}”` : ""
-        }?`
-      );
-
-      if (!confirmed) return;
-
-      setFriendsError(null);
-      setBusyFriendshipIds((prev) => new Set(prev).add(friendshipId));
-
-      try {
-        await deleteFriendship(friendshipId);
-        setFriends((prev) => prev.filter((friend) => friend.friendshipId !== friendshipId));
-        toast.success("Amizade eliminada.");
-      } catch (err: any) {
-        const message = err?.message ?? "Falha ao eliminar amizade";
-        setFriendsError(message);
-        toast.error(message);
-      } finally {
-        setBusyFriendshipIds((prev) => {
-          const next = new Set(prev);
-          next.delete(friendshipId);
-          return next;
-        });
-      }
-    },
-    [user, busyFriendshipIds]
-  );
+     try {
+       await deleteFriendship(friendshipId);
+       setFriends((prev) => prev.filter((friend) => friend.friendshipId !== friendshipId));
+       return true;
+     } catch (err: any) {
+       const message = err?.message ?? "Falha ao eliminar amizade";
+       setFriendsError(message);
+       throw err;
+     } finally {
+       setBusyFriendshipIds((prev) => {
+         const next = new Set(prev);
+         next.delete(friendshipId);
+         return next;
+       });
+     }
+   },
+   [user, busyFriendshipIds]
+ );
 
   const handleStartChat = useCallback(
     async (friendUserId: string) => {

@@ -25,9 +25,7 @@
   overflow: hidden;
   border-radius: var(--radius-xl);
   border: 1px solid rgba(240, 199, 107, 0.22);
-  background:
-    radial-gradient(720px 220px at 50% 0%, rgba(241, 204, 108, 0.04), transparent 62%),
-    linear-gradient(180deg, rgba(7, 24, 14, 0.985), rgba(4, 18, 10, 0.995));
+  background: var(--panel-shell-bg);
   box-shadow:
     0 30px 70px rgba(0, 0, 0, 0.48),
     0 1px 0 rgba(255, 255, 255, 0.03) inset;
