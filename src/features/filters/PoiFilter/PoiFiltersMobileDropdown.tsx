@@ -22,8 +22,7 @@ type Props = {
   navMode: NavMode;
   onNav: () => void;
   onAnySelection?: () => void;
-  forceOpenOnce?: boolean;
-  onForceOpenHandled?: () => void;
+  forceOpen?: boolean;
 };
 
 const CULTURE_SET: ReadonlySet<PoiCategory> = new Set([
@@ -73,17 +72,26 @@ export default function PoiFiltersMobileDropdown({
   navMode,
   onNav,
   onAnySelection,
-  forceOpenOnce = false,
-  onForceOpenHandled,
+  forceOpen = false,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(forceOpen);
   const [closeSignal, setCloseSignal] = useState(0);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
+  const canClose = selected.size > 0;
+
   const closeAll = useCallback(() => {
+    if (!canClose) return;
+
     setOpen(false);
     setCloseSignal((n) => n + 1);
-  }, []);
+  }, [canClose]);
+
+  useEffect(() => {
+    if (forceOpen) {
+      setOpen(true);
+    }
+  }, [forceOpen]);
 
   useEffect(() => {
     const handlePointerDownOutside = (event: PointerEvent) => {
@@ -107,12 +115,6 @@ export default function PoiFiltersMobileDropdown({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [closeAll]);
-
-  useEffect(() => {
-    if (!forceOpenOnce) return;
-    setOpen(true);
-    onForceOpenHandled?.();
-  }, [forceOpenOnce, onForceOpenHandled]);
 
   const grouped = useMemo(() => {
     const culture: PoiDropdownItem[] = [];
@@ -139,30 +141,40 @@ export default function PoiFiltersMobileDropdown({
     (event: React.PointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      closeAll();
+      setOpen(false);
+      setCloseSignal((n) => n + 1);
       onNav();
     },
-    [closeAll, onNav]
+    [onNav]
   );
 
   const handlePanelToggle = useCallback((event: React.PointerEvent) => {
     event.stopPropagation();
+
+    if (!canClose) {
+      setOpen(true);
+      return;
+    }
+
     setOpen((prev) => !prev);
-  }, []);
+  }, [canClose]);
 
   const handleClear = useCallback(() => {
     onClear();
     onAnySelection?.();
-    closeAll();
-  }, [onClear, onAnySelection, closeAll]);
+    setOpen(true);
+    setCloseSignal((n) => n + 1);
+  }, [onClear, onAnySelection]);
 
   const handleToggle = useCallback(
     (category: PoiCategory) => {
       onToggle(category);
       onAnySelection?.();
-      closeAll();
+
+      setOpen(false);
+      setCloseSignal((n) => n + 1);
     },
-    [onToggle, onAnySelection, closeAll]
+    [onToggle, onAnySelection]
   );
 
   const navLabel = navMode === "home" ? "Voltar à Home" : "Voltar ao mapa";

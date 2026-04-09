@@ -139,11 +139,8 @@ export default function DistrictModal({
   const [loadingPoi, setLoadingPoi] = useState(false);
 
   const poisReqRef = useRef(0);
-    const poiModalReqRef = useRef(0);
-    const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
-
-    const [shouldAutoOpenMobileFilters, setShouldAutoOpenMobileFilters] = useState(false);
-    const hasAutoOpenedFilterRef = useRef(false);
+  const poiModalReqRef = useRef(0);
+  const poiCacheRef = useRef<Map<number, PoiCacheEntry>>(new Map());
 
   const districtId = useMemo(() => pickDistrictId(districtFeature), [districtFeature]);
   const activeBbox = useMemo(
@@ -210,8 +207,6 @@ export default function DistrictModal({
   useEffect(() => {
     if (!open) return;
 
-    hasAutoOpenedFilterRef.current = false;
-    setShouldAutoOpenMobileFilters(false);
     setSelectedTypes(new Set());
     setPoiBase(EMPTY_FC);
 
@@ -404,14 +399,6 @@ export default function DistrictModal({
     };
   }, [selectedPoi]);
 
-const handleFirstZoomIn = useCallback(() => {
-  if (hasAutoOpenedFilterRef.current) return;
-  if (selectedTypes.size > 0) return;
-
-  hasAutoOpenedFilterRef.current = true;
-  setShouldAutoOpenMobileFilters(true);
-}, [selectedTypes]);
-
   const handleNav = useCallback(() => {
     if (showGallery) {
       setShowGallery(false);
@@ -507,8 +494,7 @@ const handleFirstZoomIn = useCallback(() => {
           onClear={clearPoiTypes}
           countsByCat={countsByCat}
           onAnySelection={onAnySelection}
-          forceOpenOnce={shouldAutoOpenMobileFilters}
-          onForceOpenHandled={() => setShouldAutoOpenMobileFilters(false)}
+          forceOpen={selectedTypes.size === 0}
         />
 
         <PoiFilter
@@ -526,21 +512,19 @@ const handleFirstZoomIn = useCallback(() => {
       <div className="modal-content">
         <div className="left-pane">
           {!showGallery ? (
-             <DistrictMapPane
-               key={filterKey}
-               districtFeature={districtFeature}
-               rivers={rivers}
-               lakes={lakes}
-               rails={rails}
-               roads={roads}
-               poiAreas={poiAreas}
-               filteredPoints={filteredPoints}
-               selectedTypes={selectedTypes}
-               renderNonce={renderNonce}
-               onPoiClick={setSelectedPoi}
-               onFirstZoomIn={handleFirstZoomIn}
-               enableFirstZoomHint={selectedTypes.size === 0}
-             />
+            <DistrictMapPane
+              key={filterKey}
+              districtFeature={districtFeature}
+              rivers={rivers}
+              lakes={lakes}
+              rails={rails}
+              roads={roads}
+              poiAreas={poiAreas}
+              filteredPoints={filteredPoints}
+              selectedTypes={selectedTypes}
+              renderNonce={renderNonce}
+              onPoiClick={setSelectedPoi}
+            />
           ) : (
             <DistrictGalleryPane
               open={showGallery}
