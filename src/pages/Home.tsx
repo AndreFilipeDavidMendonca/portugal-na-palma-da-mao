@@ -6,7 +6,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { loadGeo } from "@/lib/geo";
 import { fetchDistricts, fetchPoiById, type PoiDto, type SearchItem } from "@/lib/api";
 import { fetchPoiInfo, type PoiInfo } from "@/lib/poiInfo";
-
+import WelcomeGuide from "@/components/WelcomeGuide/WelcomeGuide";
 import { WORLD_BASE, WORLD_LABELS } from "@/utils/constants";
 import { CONTINENTAL_PT_BOUNDS, WORLD_BOUNDS } from "@/constants/map";
 import useMediaQuery from "@/hooks/useMediaQuery";
@@ -414,6 +414,8 @@ export default function Home() {
           message={openingDistrictLabel ? openingDistrictLabel : "A abrir distrito…"}
         />
       )}
+
+        <WelcomeGuide />
 
       {!isDistrictModalOpen && (
         <div className="top-district-filter">

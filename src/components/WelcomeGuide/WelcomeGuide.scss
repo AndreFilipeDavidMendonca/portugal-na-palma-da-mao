@@ -1,0 +1,282 @@
+@use "@/styles/base.scss" as *;
+
+.welcome-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+}
+
+.welcome-guide__card {
+  position: fixed;
+  width: min(420px, calc(100vw - 28px));
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--panel-border-gold);
+  background: var(--panel-shell-bg);
+  box-shadow: var(--panel-shell-shadow);
+  color: var(--gold-strong);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+  overflow: hidden;
+
+  &.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  &.is-hidden {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: var(--panel-shell-inner-glow);
+  }
+}
+
+.welcome-guide__card--center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+
+  &.is-visible {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  &.is-hidden {
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+  }
+}
+
+.welcome-guide__card--map {
+  top: calc(92px + var(--safe-top, 0px));
+  left: 50%;
+  transform: translateX(-50%) translateY(8px) scale(0.98);
+
+  &.is-visible {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+
+  &.is-hidden {
+    transform: translateX(-50%) translateY(8px) scale(0.98);
+  }
+}
+
+.welcome-guide__card--top-right {
+  top: calc(82px + var(--safe-top, 0px));
+  right: calc(16px + var(--safe-right, 0px));
+}
+
+.welcome-guide__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 18px 16px;
+}
+
+.welcome-guide__title {
+  font-family: var(--font-title), serif;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--panel-title-color);
+  text-shadow: var(--panel-title-shadow);
+  padding-right: 26px;
+}
+
+.welcome-guide__message {
+  font-family: var(--font-body), serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.welcome-guide__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.welcome-guide__action {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body), serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.welcome-guide__action--ghost {
+  border: 1px solid var(--surface-border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+
+  &:hover {
+    border-color: var(--accent-gold-border-strong);
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--gold-strong);
+  }
+}
+
+.welcome-guide__action--primary {
+  border: 1px solid rgba(255, 235, 182, 0.92);
+  background:
+    radial-gradient(180px 70px at 50% 0%, rgba(255, 240, 185, 0.30), transparent 65%),
+    linear-gradient(180deg, #f5d37c, #ddb55a);
+  color: #102315;
+  box-shadow: var(--shadow-gold-active);
+
+  &:hover {
+    border-color: rgba(255, 236, 184, 1);
+    background:
+      radial-gradient(180px 70px at 50% 0%, rgba(255, 240, 185, 0.42), transparent 65%),
+      linear-gradient(180deg, #f8d781, #e6ba58);
+    box-shadow: var(--shadow-gold-active-hover);
+  }
+}
+
+.welcome-guide__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border-soft);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gold-strong);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+
+  &:hover {
+    transform: scale(1.04);
+    background: var(--gold);
+    color: var(--bg-deep);
+    border-color: var(--gold);
+  }
+}
+
+.welcome-guide__pointer {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: var(--panel-shell-bg);
+  border-right: 1px solid var(--panel-border-gold);
+  border-bottom: 1px solid var(--panel-border-gold);
+  transform: rotate(45deg);
+}
+
+.welcome-guide__pointer--map {
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.welcome-guide__pointer--top-right {
+  top: -8px;
+  right: 42px;
+  transform: rotate(225deg);
+}
+
+@media (max-width: 900px) {
+  .welcome-guide__card--map {
+    top: calc(82px + var(--safe-top, 0px));
+  }
+
+  .welcome-guide__card--top-right {
+    top: calc(78px + var(--safe-top, 0px));
+    right: calc(10px + var(--safe-right, 0px));
+  }
+}
+
+@media (max-width: 640px) {
+  .welcome-guide__card {
+    width: min(100vw - 20px, 420px);
+    border-radius: var(--radius-lg);
+  }
+
+  .welcome-guide__card--center {
+    top: calc(50% + 10px);
+  }
+
+  .welcome-guide__card--map {
+    top: calc(74px + var(--safe-top, 0px));
+    left: calc(10px + var(--safe-left, 0px));
+    right: calc(10px + var(--safe-right, 0px));
+    width: auto;
+    transform: translateY(8px) scale(0.98);
+
+    &.is-visible {
+      transform: translateY(0) scale(1);
+    }
+
+    &.is-hidden {
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+
+  .welcome-guide__card--top-right {
+    top: auto;
+    right: calc(10px + var(--safe-right, 0px));
+    bottom: calc(16px + var(--safe-bottom, 0px));
+    width: min(100vw - 20px, 420px);
+  }
+
+  .welcome-guide__pointer--map,
+  .welcome-guide__pointer--top-right {
+    display: none;
+  }
+
+  .welcome-guide__content {
+    padding: 16px 16px 14px;
+  }
+
+  .welcome-guide__title {
+    font-size: 22px;
+  }
+
+  .welcome-guide__message {
+    font-size: 13px;
+    line-height: 1.42;
+  }
+
+  .welcome-guide__actions {
+    gap: 8px;
+  }
+
+  .welcome-guide__action {
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}
