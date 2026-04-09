@@ -17,6 +17,9 @@ import PoiHeader from "@/components/PoiHeader/PoiHeader";
 import PoiMedia from "@/components/PoiMedia/PoiMedia";
 import PoiSide from "@/components/PoiSide/PoiSide";
 import PoiComments from "@/components/PoiComment/PoiComments";
+import ActionDropdown, {
+  type ActionDropdownItem,
+} from "@/components/ActionDropdown/ActionDropdown";
 
 type Props = {
   open: boolean;
@@ -184,6 +187,59 @@ export default function PoiModal({
     }
   }, [requireCanEdit, poiId, titleInput, descInput, imagesList, onSaved]);
 
+  const actionItems = useMemo<ActionDropdownItem[]>(() => {
+    const items: ActionDropdownItem[] = [
+      {
+        key: "favorite",
+        label: isFav ? "Remover dos favoritos" : "Guardar nos favoritos",
+        onClick: () => {
+          if (!user) {
+            toast.error("Precisas de iniciar sessão para guardar favoritos.");
+            return;
+          }
+          toggleFavorite();
+        },
+        disabled: favLoading,
+      },
+      {
+        key: "share",
+        label: "Partilhar com amigos",
+        onClick: () => {
+          if (!user) {
+            toast.error("Precisas de iniciar sessão para partilhar POIs.");
+            return;
+          }
+          if (!sharePayload) {
+            toast.error("Não foi possível preparar este POI para partilha.");
+            return;
+          }
+          setShareOpen(true);
+        },
+        disabled: !user || !sharePayload,
+      },
+      {
+        key: "edit",
+        label: editing ? "Cancelar edição" : "Editar",
+        onClick: () => {
+          if (!requireCanEdit()) return;
+          setEditing((v) => !v);
+        },
+        hidden: !canEdit,
+      },
+    ];
+
+    return items;
+  }, [
+    isFav,
+    user,
+    toggleFavorite,
+    favLoading,
+    sharePayload,
+    canEdit,
+    editing,
+    requireCanEdit,
+  ]);
+
   if (!canRender || !localInfo) return null;
 
 return ReactDOM.createPortal(
@@ -194,43 +250,23 @@ return ReactDOM.createPortal(
       role="dialog"
       aria-modal="true"
     >
-      <PoiHeader
-        title={title}
-        titleInput={titleInput}
-        setTitleInput={setTitleInput}
-        editing={editing}
-        canEdit={canEdit}
-        saving={saving}
-        isFav={isFav}
-        favLoading={favLoading}
-        user={user}
-        onToggleFavorite={(e: any) => {
-          e.preventDefault();
-          e.stopPropagation();
-          toggleFavorite();
-        }}
-        onToggleShare={(e: any) => {
-          e.preventDefault();
-          e.stopPropagation();
-
-          if (!user) {
-            toast.error("Precisas de iniciar sessão para partilhar POIs.");
-            return;
-          }
-          if (!sharePayload) {
-            toast.error("Não foi possível preparar este POI para partilha.");
-            return;
-          }
-          setShareOpen(true);
-        }}
-        shareDisabled={!user || !sharePayload}
-        onToggleEdit={() => {
-          if (!requireCanEdit()) return;
-          setEditing((v) => !v);
-        }}
-        onSave={handleSave}
-        onClose={onClose}
-      />
+            <PoiHeader
+              title={title}
+              titleInput={titleInput}
+              setTitleInput={setTitleInput}
+              editing={editing}
+              canEdit={canEdit}
+              saving={saving}
+              actionMenu={
+                <ActionDropdown
+                  items={actionItems}
+                  ariaLabel="Ações do ponto"
+                  title="Ações"
+                />
+              }
+              onSave={handleSave}
+              onClose={onClose}
+            />
 
       <div className={`poi-body ${editing ? "is-editing" : ""}`}>
         <section
