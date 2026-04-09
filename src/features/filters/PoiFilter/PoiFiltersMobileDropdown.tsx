@@ -22,6 +22,8 @@ type Props = {
   navMode: NavMode;
   onNav: () => void;
   onAnySelection?: () => void;
+  forceOpenOnce?: boolean;
+  onForceOpenHandled?: () => void;
 };
 
 const CULTURE_SET: ReadonlySet<PoiCategory> = new Set([
@@ -71,6 +73,8 @@ export default function PoiFiltersMobileDropdown({
   navMode,
   onNav,
   onAnySelection,
+  forceOpenOnce = false,
+  onForceOpenHandled,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [closeSignal, setCloseSignal] = useState(0);
@@ -104,6 +108,12 @@ export default function PoiFiltersMobileDropdown({
     };
   }, [closeAll]);
 
+  useEffect(() => {
+    if (!forceOpenOnce) return;
+    setOpen(true);
+    onForceOpenHandled?.();
+  }, [forceOpenOnce, onForceOpenHandled]);
+
   const grouped = useMemo(() => {
     const culture: PoiDropdownItem[] = [];
     const nature: PoiDropdownItem[] = [];
@@ -135,13 +145,10 @@ export default function PoiFiltersMobileDropdown({
     [closeAll, onNav]
   );
 
-  const handlePanelToggle = useCallback(
-    (event: React.PointerEvent) => {
-      event.stopPropagation();
-      setOpen((prev) => !prev);
-    },
-    []
-  );
+  const handlePanelToggle = useCallback((event: React.PointerEvent) => {
+    event.stopPropagation();
+    setOpen((prev) => !prev);
+  }, []);
 
   const handleClear = useCallback(() => {
     onClear();
