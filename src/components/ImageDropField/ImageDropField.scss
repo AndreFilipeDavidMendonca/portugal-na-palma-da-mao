@@ -247,3 +247,25 @@
     display: none;
   }
 }
+
+.imgdrop__preview-file {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  padding: 1rem;
+  text-align: center;
+  color: inherit;
+  text-decoration: none;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.imgdrop__thumb-file {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.25rem;
+}

@@ -11,6 +11,7 @@ import {
   geocodeAddress,
   GeocodeRequestDto,
 } from "@/lib/api";
+import { uploadMediaToCloud } from "@/lib/mediaCloud";
 import Button from "@/components/Button/Button";
 import Input from "@/components/Input/TextField/Input";
 import Textarea from "@/components/Input/TextArea/Textarea";
@@ -49,10 +50,6 @@ const STEP_FIELDS: Record<Step, FieldKey[]> = {
   3: ["images"],
 };
 
-function stripNameHash(url: string) {
-  return url.split("#")[0];
-}
-
 function normalizePostalCode(value: string) {
   return value.replace(/[^\d-]/g, "").trim();
 }
@@ -67,6 +64,10 @@ function getStepSubtitle(step: Step) {
   if (step === 1) return "Define o nome, tipo e descrição do negócio.";
   if (step === 2) return "Indica a morada para localizar o negócio com precisão.";
   return "Adiciona imagens com pré-visualização antes de guardar.";
+}
+
+function isVideoFile(file: File) {
+  return file.type.startsWith("video/");
 }
 
 export default function CreatePoiModal({ open, onClose }: Props) {
@@ -92,7 +93,8 @@ export default function CreatePoiModal({ open, onClose }: Props) {
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
 
-  const [images, setImages] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagesUploading, setImagesUploading] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -103,6 +105,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
 
   useEffect(() => {
     aliveRef.current = true;
+
     return () => {
       aliveRef.current = false;
     };
@@ -139,7 +142,8 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     setLon(null);
     setGeoStatus(null);
     setGeoLoading(false);
-    setImages([]);
+    setImagePreviews([]);
+    setImageFiles([]);
     setImagesUploading(false);
     setLoading(false);
     setErrors({});
@@ -160,7 +164,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     postalCode.trim().length > 0 ||
     municipality.trim().length > 0 ||
     Boolean(districtId) ||
-    images.length > 0;
+    imagePreviews.length > 0;
 
   const addressKey = useMemo(
     () => `${street}|${houseNumber}|${postalCode}|${municipality}|${selectedDistrictName}`,
@@ -198,7 +202,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     if (!houseNumber.trim()) next.houseNumber = "Número da porta é obrigatório.";
     if (!postalCode.trim()) next.postalCode = "Código postal é obrigatório.";
     if (lat == null || lon == null) next.latlon = "Morada não localizada.";
-    if (images.length === 0) next.images = "Adiciona pelo menos uma imagem.";
+    if (imageFiles.length === 0) next.images = "Adiciona pelo menos uma imagem.";
 
     return next;
   };
@@ -276,17 +280,15 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     if (!open) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (loading) return;
+      if (e.key !== "Escape" || loading) return;
 
-        if (!hasDraft) {
-          onClose();
-          return;
-        }
-
-        const confirmed = window.confirm("Tens alterações por guardar. Desejas mesmo cancelar?");
-        if (confirmed) onClose();
+      if (!hasDraft) {
+        onClose();
+        return;
       }
+
+      const confirmed = window.confirm("Tens alterações por guardar. Desejas mesmo cancelar?");
+      if (confirmed) onClose();
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -303,7 +305,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
       postalCode.trim().length > 0;
 
     const hasGeo = lat != null && lon != null && !geoLoading;
-    const hasImages = images.length > 0 && !imagesUploading;
+    const hasImages = imageFiles.length > 0 && !imagesUploading;
 
     return hasBasics && hasGeo && hasImages && !loading;
   }, [
@@ -316,7 +318,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     lat,
     lon,
     geoLoading,
-    images,
+    imageFiles,
     imagesUploading,
     loading,
   ]);
@@ -324,7 +326,9 @@ export default function CreatePoiModal({ open, onClose }: Props) {
   const canGoBack = step > 1;
 
   const primaryLabel = loading
-    ? "A criar…"
+    ? imagesUploading
+      ? "A enviar imagens…"
+      : "A criar…"
     : imagesUploading
       ? "A processar imagens…"
       : geoLoading && step === 2
@@ -386,6 +390,20 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     if (confirmed) onClose();
   }
 
+  async function uploadPoiMedia(poiId: number, files: File[]) {
+    if (files.length === 0) return;
+
+    setImagesUploading(true);
+
+    for (const file of files) {
+      await uploadMediaToCloud(file, {
+        entityType: "POI",
+        entityId: poiId,
+        mediaType: isVideoFile(file) ? "VIDEO" : "IMAGE",
+      });
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -411,16 +429,9 @@ export default function CreatePoiModal({ open, onClose }: Props) {
       return;
     }
 
-    if (imagesUploading) {
-      toast.info("Ainda a processar imagens…");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const imagesClean = images.map(stripNameHash);
-
       const created = await createPoi({
         name: name.trim(),
         category,
@@ -429,17 +440,27 @@ export default function CreatePoiModal({ open, onClose }: Props) {
         municipality: municipality.trim(),
         lat,
         lon,
-        image: imagesClean[0],
-        images: imagesClean,
+        image: null,
+        images: [],
       });
+
+      await uploadPoiMedia(created.id, imageFiles);
 
       toast.success("Negócio criado com sucesso.");
       onClose();
-      window.dispatchEvent(new CustomEvent("pt:open-poi", { detail: { poiId: created.id } }));
+
+      window.dispatchEvent(
+        new CustomEvent("pt:open-poi", {
+          detail: { poiId: created.id, refresh: true },
+        })
+      );
     } catch (err: any) {
       toast.error(err?.message ?? "Falha ao criar negócio");
     } finally {
-      if (aliveRef.current) setLoading(false);
+      if (aliveRef.current) {
+        setLoading(false);
+        setImagesUploading(false);
+      }
     }
   }
 
@@ -449,9 +470,7 @@ export default function CreatePoiModal({ open, onClose }: Props) {
     <div
       className="create-poi-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
-          handleCancel();
-        }
+        if (e.target === e.currentTarget) handleCancel();
       }}
     >
       <div
@@ -651,14 +670,14 @@ export default function CreatePoiModal({ open, onClose }: Props) {
                   <div className={isInvalid("images") ? "is-invalid-block" : ""}>
                     <ImageDropField
                       label="Imagens do Negócio"
-                      images={images}
+                      images={imagePreviews}
                       onChange={(list) => {
-                        const next = list.slice(0, 6);
-                        setImages(next);
+                        setImagePreviews(list);
                         clearFieldError("images");
                         setFieldTouched("images");
                       }}
-                      store="dataUrl"
+                      onFilesChange={setImageFiles}
+                      store="objectUrl"
                       mode="media"
                       maxItems={10}
                       onUploadingChange={setImagesUploading}

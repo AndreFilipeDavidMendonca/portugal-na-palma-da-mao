@@ -281,6 +281,7 @@ return ReactDOM.createPortal(
               canEdit={canEdit}
               imagesList={imagesList ?? []}
               setImagesList={setImagesList}
+              poiId={poiId}
             />
           </div>
         </section>

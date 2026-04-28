@@ -17,6 +17,7 @@ type Props = {
 
   distMedia: string[];
   setDistMedia: (v: string[]) => void;
+  districtId?: number | null;
 };
 
 function toUrlList(input: any): string[] {
@@ -36,6 +37,7 @@ export default function DistrictGalleryPane({
   isAdmin,
   distMedia,
   setDistMedia,
+  districtId,
   baseUrls,
 }: Props) {
   const isEditing = Boolean(editing && isAdmin);
@@ -62,6 +64,7 @@ export default function DistrictGalleryPane({
             canEdit={isAdmin}
             mediaList={distMedia}
             setMediaList={setDistMedia}
+            districtId={districtId ?? null}
             maxItems={MAX_MEDIA_ITEMS}
           />
         )}
