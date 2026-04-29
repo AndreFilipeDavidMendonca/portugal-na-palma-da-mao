@@ -10,6 +10,7 @@ type Props = {
     canEdit: boolean;
     imagesList: string[];
     setImagesList: (v: string[]) => void;
+    poiId?: number | null;
 };
 
 export default function PoiMedia({
@@ -19,6 +20,7 @@ export default function PoiMedia({
                                      canEdit,
                                      imagesList,
                                      setImagesList,
+    poiId,
                                  }: Props) {
     const showEditor = editing && canEdit;
 
@@ -30,7 +32,10 @@ export default function PoiMedia({
                 onChange={(next) => setImagesList((next ?? []).slice(0, 10))}
                 maxItems={10}
                 mode="media"
-                store="dataUrl" // ✅ FIX: nunca mais blob URLs
+                store={poiId ? "cloud" : "dataUrl"}
+                cloudEntityType="POI"
+                cloudEntityId={poiId ?? null}
+                cloudMediaType="IMAGE"
             />
         </div>
     ) : null;

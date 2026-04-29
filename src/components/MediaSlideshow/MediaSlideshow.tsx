@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./MediaSlideshow.scss";
 import Button from "@/components/Button/Button";
+import { isImageUrl, isVideoUrl as isVideoMediaUrl, prettyMediaName } from "@/utils/fileMedia";
 
 type ReadyPayload = {
     ready: boolean;
@@ -29,8 +30,6 @@ type Props = {
     mountLimit?: number;
 };
 
-const isVideoUrl = (url: string) =>
-    /\.(mp4|webm|ogg|mov|m4v)$/i.test(url.split("#name=")[1] ?? url);
 
 const uniq = (arr: string[]) => Array.from(new Set((arr ?? []).filter(Boolean)));
 
@@ -69,6 +68,12 @@ function preloadImage(url: string, signal?: AbortSignal): Promise<boolean> {
 
         img.src = url;
     });
+}
+
+function preloadMedia(url: string, signal?: AbortSignal): Promise<boolean> {
+    if (isVideoMediaUrl(url)) return preloadVideo(url, signal);
+    if (isImageUrl(url)) return preloadImage(url, signal);
+    return Promise.resolve(Boolean(url));
 }
 
 function preloadVideo(url: string, signal?: AbortSignal): Promise<boolean> {
@@ -181,9 +186,7 @@ export default function MediaSlideshow({
             for (const url of firstBatch) {
                 if (cancelled || controller.signal.aborted) return;
 
-                const ok = isVideoUrl(url)
-                    ? await preloadVideo(url, controller.signal)
-                    : await preloadImage(url, controller.signal);
+                const ok = await preloadMedia(url, controller.signal);
 
                 if (cancelled || controller.signal.aborted) return;
 
@@ -199,9 +202,7 @@ export default function MediaSlideshow({
                 if (cancelled || controller.signal.aborted) return;
                 if (loadedRef.current.has(url) || failedRef.current.has(url)) continue;
 
-                const ok = isVideoUrl(url)
-                    ? await preloadVideo(url, controller.signal)
-                    : await preloadImage(url, controller.signal);
+                const ok = await preloadMedia(url, controller.signal);
 
                 if (cancelled || controller.signal.aborted) return;
 
@@ -258,7 +259,9 @@ export default function MediaSlideshow({
                 {/* ✅ Monta tudo uma vez; o click só muda a classe */}
                 {visibleItems.map((url, i) => {
                     const active = i === idx;
-                    const video = isVideoUrl(url);
+                    const video = isVideoMediaUrl(url);
+                    const image = isImageUrl(url);
+                    const name = prettyMediaName(url);
 
                     const onFail = () => {
                         setBroken((prev) => {
@@ -272,26 +275,44 @@ export default function MediaSlideshow({
                         // só desliga spinner quando o ativo carregou
                     };
 
-                    return video ? (
-                        <video
+                    if (video) {
+                        return (
+                            <video
+                                key={url}
+                                className={"slideshow__media" + (active ? " is-active" : "")}
+                                src={url}
+                                controls={active}
+                                preload="metadata"
+                                onLoadedData={onOk}
+                                onError={onFail}
+                            />
+                        );
+                    }
+
+                    if (image) {
+                        return (
+                            <img
+                                key={url}
+                                className={"slideshow__media" + (active ? " is-active" : "")}
+                                src={url}
+                                alt={title ?? "Imagem"}
+                                loading="eager"
+                                onLoad={onOk}
+                                onError={onFail}
+                            />
+                        );
+                    }
+
+                    return (
+                        <a
                             key={url}
-                            className={"slideshow__media" + (active ? " is-active" : "")}
-                            src={url}
-                            controls={active}
-                            preload="metadata"
-                            onLoadedData={onOk}
-                            onError={onFail}
-                        />
-                    ) : (
-                        <img
-                            key={url}
-                            className={"slideshow__media" + (active ? " is-active" : "")}
-                            src={url}
-                            alt={title ?? "Imagem"}
-                            loading="eager"
-                            onLoad={onOk}
-                            onError={onFail}
-                        />
+                            className={"slideshow__media slideshow__file" + (active ? " is-active" : "")}
+                            href={url.split("#")[0]}
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            📎 {name || "Abrir ficheiro"}
+                        </a>
                     );
                 })}
 

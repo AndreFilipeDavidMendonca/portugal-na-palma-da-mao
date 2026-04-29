@@ -13,6 +13,7 @@ type Props = {
     mediaList: string[];
     setMediaList: (v: string[]) => void;
 
+    districtId?: number | null;
     maxItems?: number;
 };
 
@@ -25,6 +26,7 @@ export default function DistrictMedia({
                                           canEdit,
                                           mediaList,
                                           setMediaList,
+                                          districtId,
                                           maxItems = 10,
                                       }: Props) {
     const showEditor = Boolean(editing && canEdit);
@@ -37,7 +39,10 @@ export default function DistrictMedia({
                 onChange={(list) => setMediaList(list.slice(0, maxItems))}
                 mode="media"
                 maxItems={maxItems}
-                store="dataUrl"
+                store={districtId ? "cloud" : "dataUrl"}
+                cloudEntityType="DISTRICT"
+                cloudEntityId={districtId ?? null}
+                cloudMediaType="IMAGE"
             />
         </div>
     ) : null;

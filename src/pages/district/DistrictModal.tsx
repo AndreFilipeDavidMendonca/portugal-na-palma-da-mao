@@ -535,6 +535,7 @@ export default function DistrictModal({
               isAdmin={isAdmin}
               distMedia={distMedia}
               setDistMedia={setDistMedia}
+              districtId={districtId}
             />
           )}
         </div>

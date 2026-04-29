@@ -143,13 +143,13 @@ export default function PoiModal({
 
     setSaving(true);
     try {
-      const updated = await updatePoi(poiId!, {
-        name: titleInput || null,
-        namePt: titleInput || null,
-        description: descInput || null,
-        image: primaryImage,
-        images: persistable.length ? persistable : null,
-      });
+        const updated = await updatePoi(poiId!, {
+          name: titleInput || null,
+          namePt: titleInput || null,
+          description: descInput || null,
+          image: primaryImage,
+          images: persistable,
+        });
 
       const updatedList = sanitizePersistableMedia(
         mergePoiMedia(updated.image, updated.images, MAX_POI_MEDIA_ITEMS)
@@ -161,7 +161,7 @@ export default function PoiModal({
               ...prev,
               label: updated.namePt ?? updated.name ?? prev.label,
               description: updated.description ?? prev.description,
-              image: updated.image ?? updatedList[0] ?? prev.image ?? null,
+              image: updated.image ?? updatedList[0] ?? null,
               images: updated.images ?? updatedList,
             }
           : prev
@@ -281,6 +281,7 @@ return ReactDOM.createPortal(
               canEdit={canEdit}
               imagesList={imagesList ?? []}
               setImagesList={setImagesList}
+              poiId={poiId}
             />
           </div>
         </section>

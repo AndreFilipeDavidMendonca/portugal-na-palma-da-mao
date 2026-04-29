@@ -1,3 +1,4 @@
+
 export const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 export const VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".mkv", ".ogg", ".m4v"];
 
@@ -8,7 +9,16 @@ export function isVideoUrl(value: string): boolean {
   if (value.startsWith("data:video/")) return true;
 
   const base = value.split("#")[0].toLowerCase();
-  return VIDEO_EXTENSIONS.some((ext) => base.endsWith(ext)) || base.startsWith("blob:");
+  return VIDEO_EXTENSIONS.some((ext) => base.endsWith(ext));
+}
+
+export function isImageUrl(value: string): boolean {
+  if (!value) return false;
+  if (value.startsWith("data:image/")) return true;
+  if (value.startsWith("blob:")) return true;
+
+  const base = value.split("#")[0].toLowerCase();
+  return IMAGE_EXTENSIONS.some((ext) => base.endsWith(ext));
 }
 
 export function prettyMediaName(value: string): string {
@@ -37,16 +47,21 @@ export function appendNameToUrl(url: string, name: string): string {
 }
 
 export function matchesMediaMode(file: File, mode: MediaMode): boolean {
-  if (mode === "media") return true;
-
   const type = (file.type || "").toLowerCase();
   const fileName = file.name.toLowerCase();
 
-  if (mode === "image") {
-    return type.startsWith("image/") || IMAGE_EXTENSIONS.some((ext) => fileName.endsWith(ext));
-  }
+  const isImage =
+    type.startsWith("image/") ||
+    IMAGE_EXTENSIONS.some((ext) => fileName.endsWith(ext));
 
-  return type.startsWith("video/") || VIDEO_EXTENSIONS.some((ext) => fileName.endsWith(ext));
+  const isVideo =
+    type.startsWith("video/") ||
+    VIDEO_EXTENSIONS.some((ext) => fileName.endsWith(ext));
+
+  if (mode === "image") return isImage;
+  if (mode === "video") return isVideo;
+
+  return isImage || isVideo;
 }
 
 export async function fileToDataUrl(file: File): Promise<string> {
@@ -72,5 +87,5 @@ export function getMediaFieldLabel(label: string, mode: MediaMode): string {
 export function getMediaExtensionsLabel(mode: MediaMode): string {
   if (mode === "image") return "JPG · PNG · WEBP · GIF";
   if (mode === "video") return "MP4 · WEBM · MOV · MKV";
-  return "JPG · PNG · MP4 · WEBM · MOV";
+  return "JPG · PNG · WEBP · GIF · MP4 · WEBM · MOV";
 }

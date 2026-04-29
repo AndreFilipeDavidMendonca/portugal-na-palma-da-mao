@@ -96,3 +96,12 @@
   opacity: 1;
   transform: scale(1.1);
 }
+.slideshow__file {
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  text-align: center;
+  color: inherit;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+}
